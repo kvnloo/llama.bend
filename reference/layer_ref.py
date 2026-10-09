@@ -6,6 +6,7 @@ Writes to data/test/, as little-endian F32 arrays of T rows:
   <case>_in.bin                   the input of the layer (T x 576)
   <case>_<name>.bin               every intermediate, from forward hooks on the layer:
     n1    input_layernorm output (576)        q, k, v   projections before RoPE (576, 192, 192)
+    qr, kr  q and k after RoPE, from transformers' own apply_rotary_pos_emb (576, 192)
     attn  o_proj input (576)                  a         o_proj output (576)
     n2    post_attention_layernorm (576)      m         mlp output (576)
     y     the layer output (576)
@@ -45,6 +46,14 @@ def capture(model, layer, embeds, case):
         hs = model.model(inputs_embeds=embeds, output_hidden_states=True).hidden_states
     for h in hooks:
         h.remove()
+    from transformers.models.llama.modeling_llama import apply_rotary_pos_emb
+    t = embeds.shape[1]
+    cos, sin = model.model.rotary_emb(embeds, torch.arange(t)[None, :])
+    q4 = got["q"].reshape(1, t, 9, 64).transpose(1, 2)
+    k4 = got["k"].reshape(1, t, 3, 64).transpose(1, 2)
+    qr, kr = apply_rotary_pos_emb(q4, k4, cos, sin)
+    got["qr"] = qr.transpose(1, 2).reshape(1, t, 576)
+    got["kr"] = kr.transpose(1, 2).reshape(1, t, 192)
     got["in"] = hs[layer]
     got["y"] = hs[layer + 1]
     for name, t in got.items():
