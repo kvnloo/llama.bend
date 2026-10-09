@@ -11,8 +11,12 @@ setup:            ## check the pinned Bend, create the Python venv
 prep:             ## download SmolLM2-135M (pinned revision) and write data/ (about 270 MB down, 540 MB written)
 	$(PY) reference/prep.py
 
-check:            ## weights bit for bit, tokenizer tables, and the Bend tokenizer against `tokenizers`
+check:            ## prep, the Bend tokenizer against `tokenizers`, one layer against transformers
+	! grep -n "@unsafe\|?TODO" demo/*.bend
 	$(PY) reference/prep.py --check
 	mkdir -p .scratch
 	bend demo/tok.bend -o .scratch/tok
 	$(PY) reference/test_tok.py .scratch/tok
+	[ -f data/test/inv_freq.bin ] || $(PY) reference/layer_ref.py
+	bend demo/layer_test.bend -o .scratch/layer_test
+	$(PY) reference/test_layer.py .scratch/layer_test
