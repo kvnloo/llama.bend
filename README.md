@@ -12,7 +12,7 @@ current position, and the weight layout covers the file exactly.
 | Milestone | Pass criterion | Status |
 |---|---|---|
 | 1. Prep | weights bit for bit, sizes, tokenizer tables equivalent to `tokenizers` | done (2026-10-09) |
-| 2. Tokenizer in Bend | same ids as `tokenizers` | |
+| 2. Tokenizer in Bend | same ids as `tokenizers` | done (2026-10-09): 68 texts + 600 random ones |
 | 3. One layer | output within 1e-5 of PyTorch | |
 | 4. Full forward | logits within ~2e-4, same argmax on 10+ prompts | |
 | 5. Generation | the same 32 greedy tokens as `transformers` | |
@@ -24,7 +24,13 @@ The plan is in [`docs/plan.md`](docs/plan.md) and what I find along the way in [
 ```bash
 make setup   # needs Bend 2.0.35 (bend-ml's scripts/setup.sh installs it) and Python 3.12+
 make prep    # downloads SmolLM2-135M at a pinned revision into data/
-make check
+make check   # prep checks, then the Bend tokenizer against `tokenizers`
+```
+
+To tokenize a file with the Bend tokenizer:
+
+```bash
+bend demo/tok.bend -o tok && ./tok data/merges_num.txt data/perm.txt my_text.txt
 ```
 
 MIT · Renan Vinícius (@nuxyel)
