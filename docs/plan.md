@@ -49,7 +49,7 @@ v1.2.1 now offers.
    applied in order give the same ids as `tokenizers` on a test set.
 2. **Tokenizer in Bend**: digits rule + GPT-2 regex + SmolLM2 merges. Pass: ids equal to `tokenizers` on
    bend-ml's GPT-2 tokenizer texts plus texts with numbers (prices, dates, long numbers, non-ASCII digits). **Done 2026-10-09** (v0.0.1).
-3. **One layer**: RMSNorm, RoPE, GQA, SwiGLU on a fixed input. Pass: layer output within 1e-5 of PyTorch.
+3. **One layer**: RMSNorm, RoPE, GQA, SwiGLU on a fixed input. Pass: layer output within 1e-5 of PyTorch. **Done 2026-10-09** (v0.0.2): every intermediate within 2.2e-6.
 4. **Full forward**: pass: logits within ~2e-4 and the same argmax on 10+ prompts.
 5. **Generation**: greedy, 32 tokens. Pass: the same ids as `transformers` with `do_sample = False`.
 6. **Laws**: the four above, `--verdict`, in the package README.
@@ -60,7 +60,8 @@ v1.2.1 now offers.
 
 - ~~The token id scheme~~ settled in milestone 1: 21 bytes have no token, the bytes are ids 17-251 and merge k
   is id 252 + k; the Bend tokenizer must drop the 21 bytes before the merges, as `tokenizers` does (NOTES).
-- RoPE float drift over 30 layers (fallback: precomputed table).
+- RoPE float drift over 30 layers: `inv_freq` is bit for bit equal to PyTorch's (milestone 3), so the fallback
+  table is not needed; the drift over 30 layers is milestone 4's question.
 - 30 layers: compile time (a data point for the launch question about deeper nets).
 - The chat template (`<|im_start|>` …) is out of scope; the base model is enough.
 - Larger Llama models later (SmolLM2-360M): only the config should change if the package stays generic.
