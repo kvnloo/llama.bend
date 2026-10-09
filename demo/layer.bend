@@ -122,11 +122,17 @@ type BR is Type:
 # ---- one position: each step takes the bands a product hands back (match only reads parameters) ----
 
 # 4. RoPE on q (9 heads) and k (3 heads) at position t
+# 7. the residual x1 = x + a and n2 = RMSNorm(x1, ln2)
+def b9(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, tr: Tr, +x1: List<&2, F32>) -> BR:
+  match tr:
+    case Tr{n1, q, k, v, qr, kr, at, a, n2, m, y}:
+      BR{Nil{}, kv, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Tr{n1, q, k, v, qr, kr, at, a, rmsnorm(x1, ln2), Nil{}, Nil{}}}
+
 # 6. a = Wo · attn
 def b8(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +qr: List<&2, F32>, +kr: List<&2, F32>, +nks: List<&2, List<&2, F32>>, +nvs: List<&2, List<&2, F32>>, +at: List<&2, F32>, ro: TA.BL<576n, 576n>) -> BR:
   match ro:
-    case TA.BL{wo, a}:
-      BR{Nil{}, KV{nks, nvs}, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Tr{n1, q, k, v, qr, kr, at, a, Nil{}, Nil{}, Nil{}}}
+    case TA.BL{wo, +a}:
+      b9(ln1, wq, wk, wv, wo, ln2, wg, wu, wd, KV{nks, nvs}, Tr{n1, q, k, v, qr, kr, at, a, Nil{}, Nil{}, Nil{}}, T.zip_with.add(x, a))
 
 def b7(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +qr: List<&2, F32>, +kr: List<&2, F32>, +nks: List<&2, List<&2, F32>>, +nvs: List<&2, List<&2, F32>>, +at: List<&2, F32>) -> BR:
   b8(ln1, wq, wk, wv, ln2, wg, wu, wd, x, n1, q, k, v, qr, kr, nks, nvs, at, TA.Bands.matvec_l(576n, 576n, wo, at))
