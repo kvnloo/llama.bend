@@ -44,11 +44,11 @@ v1.2.1 now offers.
 
 ## Milestones (each with its pass criterion)
 
-1. **Prep** (`reference/prep.py`): download at a pinned revision, bf16 → F32 one file per tensor, tokenizer
+1. **Prep** (`reference/prep.py`, **done 2026-10-09**): download at a pinned revision, bf16 → F32 one file per tensor, tokenizer
    tables. Pass: every weight file equals `tensor.float()` bit for bit; sizes match the config; the merges
    applied in order give the same ids as `tokenizers` on a test set.
 2. **Tokenizer in Bend**: digits rule + GPT-2 regex + SmolLM2 merges. Pass: ids equal to `tokenizers` on
-   bend-ml's GPT-2 tokenizer texts plus texts with numbers (prices, dates, long numbers, non-ASCII digits).
+   bend-ml's GPT-2 tokenizer texts plus texts with numbers (prices, dates, long numbers, non-ASCII digits). **Done 2026-10-09** (v0.0.1).
 3. **One layer**: RMSNorm, RoPE, GQA, SwiGLU on a fixed input. Pass: layer output within 1e-5 of PyTorch.
 4. **Full forward**: pass: logits within ~2e-4 and the same argmax on 10+ prompts.
 5. **Generation**: greedy, 32 tokens. Pass: the same ids as `transformers` with `do_sample = False`.
