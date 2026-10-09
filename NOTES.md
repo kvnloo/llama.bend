@@ -95,3 +95,44 @@ malformed merge tables, 30 random texts):
   failures (221 cases per seed).
 - Time per text (one Bend run, compiled, the 48,900 rules applied in order per piece): median 0.15 s, the longest
   0.58 s ("word " × 120), on this machine with a load average of ~1-2.
+
+## 2026-10-09: milestone 3 (one layer in Bend)
+
+`demo/layer.bend` is one SmolLM2 layer: RMSNorm, the q/k/v products, RoPE, grouped-query attention over a
+growing key/value cache, the output product, the residual, the second RMSNorm, the SwiGLU MLP and the output.
+The products use `Bands` + `matvec_l` from `bend-ml-tensor-array@0.1.6.0`; the weights are loaded with bend-ml's
+block reader (`demo/load.bend`). `demo/layer_test.bend` runs it position by position and prints every
+intermediate as exact F32 bits; `reference/test_layer.py` compares them with `transformers` 5.19 in F32 with
+eager attention (`reference/layer_ref.py`: forward hooks on the layer, plus q and k after RoPE from
+transformers' own `apply_rotary_pos_emb`).
+
+I wrote it one step at a time and ran the test after each; every step passed the first time it compiled.
+Worst `max|Δ| / max|y|` per position, over the three cases (layer 0 and layer 15 on the hidden states of
+"The capital of France is the city of", 8 positions; layer 0 on 40 positions of Gaussian noise):
+
+| Intermediate | Worst | Intermediate | Worst |
+|---|---|---|---|
+| n1 (RMSNorm) | 8.4e-7 | attn (before Wo) | 1.8e-6 |
+| q / k / v | 1.3e-6 / 2.0e-6 / 1.7e-6 | a (Wo) | 1.1e-6 |
+| q, k after RoPE | 1.3e-6 / 2.0e-6 | n2 | 1.3e-6 |
+| | | m (MLP) | 2.2e-6 |
+| | | **y (output)** | **2.2e-6** |
+
+The pass criterion was 1e-5. Notes:
+
+- **Order of operations.** I followed `modeling_llama.py`: RMSNorm multiplies x by `1 / sqrt(mean + eps)` first
+  and by the gain after; RoPE is `h1*cos + (-h2)*sin` and `h2*cos + h1*sin`; the attention scale is 0.125 (exact);
+  silu is `x / (1 + exp(-x))`, the form of ATen's CPU kernel. The remaining differences are the order of the
+  sums inside the products (sequential in Bend, blocked in PyTorch's BLAS).
+- **RoPE's `inv_freq`** computed in Bend with `1 / F32.pow(100000, 2i / 64)` is **bit for bit** equal to PyTorch's
+  for all 32 values, so the fallback I had planned (reading torch's table from a file) is not needed. `F32.cos`
+  and `F32.sin` at positions up to 39 add nothing visible (q and k after RoPE have the same worst error as before).
+- **Layer 15 has outliers**: values up to ~19,000 in its input and output (the "massive activations" of Llama
+  models), against ~1 in layer 0. Relative to each vector's largest value the error stays at 2e-7 there.
+- **Threads.** The output bits are the same with `--threads 1` and `--threads 16` (bands do not change the order
+  of any sum). Not a benchmark yet: one run of 40 positions takes ~0.37 s on both, weights load included.
+- **Bend notes.** A def must come before the defs that call it, and there is no mutual recursion: the test loop
+  carries the previous position's result (as bend-ml's GPT-2 `run` does) instead of two functions calling each
+  other. The layer is a chain of small defs (`b1` … `b13`) because each product hands its bands back and `match`
+  only reads parameters, the same pattern as bend-ml's `k1` … `k6b`. The plan for milestone 6 (typed heads, a
+  cache indexed by position) should shorten it.
