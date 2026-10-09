@@ -87,8 +87,9 @@ malformed merge tables, 30 random texts):
   `BPE.encode`; the bytes around them can then merge (`"!!\x04!!"` gives the one token "!!!!").
 - **0x1C-0x1F.** bend-ml's `class_ascii` counted them as whitespace (Python's `str.isspace` does); `tokenizers`
   does not (they are not Unicode White_Space), so `"...\x1d..."` is one piece there. Whitespace is now the space
-  and 9-13 only. The same class table is in bend-ml's GPT-2 tokenizer, where no test has these bytes; tiktoken
-  probably agrees with `tokenizers` here, so it may be a latent bug in bend-ml (to check there).
+  and 9-13 only. bend-ml's GPT-2 tokenizer is right to keep them as whitespace: I checked that tiktoken does
+  (`"...\x1d..."`, `"a\x1cb"`, `"x \x1f y"` give the same ids in bend-ml and tiktoken). The two libraries
+  differ here, so each tokenizer follows its own oracle.
 - **Fuzz.** The random texts now also draw ASCII digits, Arabic-Indic and Devanagari digits, full-width digits,
   number forms, circled numbers and control bytes 0-31. Seeds 7, 11, 23, 47 with 150 random texts each: 0
   failures (221 cases per seed).
