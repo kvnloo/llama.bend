@@ -122,9 +122,18 @@ type BR is Type:
 # ---- one position: each step takes the bands a product hands back (match only reads parameters) ----
 
 # 4. RoPE on q (9 heads) and k (3 heads) at position t
+# 6. a = Wo · attn
+def b8(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +qr: List<&2, F32>, +kr: List<&2, F32>, +nks: List<&2, List<&2, F32>>, +nvs: List<&2, List<&2, F32>>, +at: List<&2, F32>, ro: TA.BL<576n, 576n>) -> BR:
+  match ro:
+    case TA.BL{wo, a}:
+      BR{Nil{}, KV{nks, nvs}, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Tr{n1, q, k, v, qr, kr, at, a, Nil{}, Nil{}, Nil{}}}
+
+def b7(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +qr: List<&2, F32>, +kr: List<&2, F32>, +nks: List<&2, List<&2, F32>>, +nvs: List<&2, List<&2, F32>>, +at: List<&2, F32>) -> BR:
+  b8(ln1, wq, wk, wv, ln2, wg, wu, wd, x, n1, q, k, v, qr, kr, nks, nvs, at, TA.Bands.matvec_l(576n, 576n, wo, at))
+
 # 5b. attention with the grown cache (it is handed on to the next position)
 def b6b(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +qr: List<&2, F32>, +kr: List<&2, F32>, +nks: List<&2, List<&2, F32>>, +nvs: List<&2, List<&2, F32>>) -> BR:
-  BR{Nil{}, KV{nks, nvs}, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Tr{n1, q, k, v, qr, kr, attn(9n, 0n, qr, nks, nvs), Nil{}, Nil{}, Nil{}, Nil{}}}
+  b7(ln1, wq, wk, wv, wo, ln2, wg, wu, wd, x, n1, q, k, v, qr, kr, nks, nvs, attn(9n, 0n, qr, nks, nvs))
 
 # 5. the rotated key and the value join the cache; attention of the 9 query heads over positions 0..t
 def b6(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +qr: List<&2, F32>, +kr: List<&2, F32>) -> BR:
