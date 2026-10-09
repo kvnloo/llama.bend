@@ -321,18 +321,44 @@ def ws3(+run: List<&2, U32>, +rest: List<&2, U32>, ends: Bool, +n: Nat) -> List<
     case False{}:
       ws4(Nat.is_lt(lcl(run, 0n), n), run, rest, n, lcl(run, 0n))
 
+# a run that ends the text, or ends right before a digit, is taken whole: SmolLM2 splits every digit off
+# first, so the regex sees the run at the end of its segment and \s+(?!\S) matches all of it
 def ws2(p: List<&2, U32> & List<&2, U32>) -> List<&2, U32> & List<&2, U32>:
   match p:
     case Tuple{+run, +rest}:
-      ws3(run, rest, Nat.is_eq(head_class(rest), 4n), List.length(&2, U32, run))
+      ws3(run, rest, Bool.or(Nat.is_eq(head_class(rest), 4n), Nat.is_eq(head_class(rest), 1n)), List.length(&2, U32, run))
 
 def ws(xs: List<&2, U32>) -> List<&2, U32> & List<&2, U32>:
   ws2(span_cls(xs, 3n))
 
-# 0 contraction, 1 run of its own class, 2 space + run, 3 run of whitespace
+# a digit (class 1) is one character: the byte and its continuation bytes (tag bit 2048)
+def is_cont(xs: List<&2, U32>) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{+c, t}:
+      U32.is_eq(U32.div(c, 2048), 1)
 
-def kind_of(n_contr: Nat, cc: Nat, is_sp: Bool, hc: Nat) -> Nat:
-  sel(Nat.is_lt(0n, n_contr), 0n, sel(Bool.not(Nat.is_eq(cc, 3n)), 1n, sel(Bool.and(is_sp, Nat.is_lt(hc, 3n)), 2n, 3n)))
+def span_cont(xs: List<&2, U32>, ok: Bool, acc: List<&2, U32>) -> List<&2, U32> & List<&2, U32>:
+  match xs ok:
+    case Con{c, +t} True{}:
+      span_cont(t, is_cont(t), c <> acc)
+    case _ _:
+      (List.reverse(&2, U32, acc), xs)
+
+def one_char(xs: List<&2, U32>) -> List<&2, U32> & List<&2, U32>:
+  match xs:
+    case Nil{}:
+      (Nil{}, Nil{})
+    case Con{c, +t}:
+      prepend(c, span_cont(t, is_cont(t), Nil{}))
+
+# 0 contraction, 1 run of its own class, 2 space + run, 3 run of whitespace, 4 one digit.
+# SmolLM2 splits every \p{N} character off before the GPT-2 regex (Digits(individual_digits)), so a digit is
+# always a piece of its own and a space is never attached to it (no " ?\p{N}+").
+
+def kind_of(n_contr: Nat, +cc: Nat, is_sp: Bool, +hc: Nat) -> Nat:
+  sel(Nat.is_lt(0n, n_contr), 0n, sel(Nat.is_eq(cc, 1n), 4n, sel(Bool.not(Nat.is_eq(cc, 3n)), 1n, sel(Bool.and(is_sp, Bool.and(Nat.is_lt(hc, 3n), Bool.not(Nat.is_eq(hc, 1n)))), 2n, 3n))))
 
 def nt(kind: Nat, +xs: List<&2, U32>, +n_contr: Nat) -> List<&2, U32> & List<&2, U32>:
   match kind:
@@ -342,8 +368,10 @@ def nt(kind: Nat, +xs: List<&2, U32>, +n_contr: Nat) -> List<&2, U32> & List<&2,
       span_cls(xs, head_class(xs))
     case 2n:
       prepend(head_u32(xs), span_cls(tail_l(xs), head_class(tail_l(xs))))
-    case 1n+k:
+    case 3n:
       ws(xs)
+    case _:
+      one_char(xs)
 
 def next_token(+xs: List<&2, U32>) -> List<&2, U32> & List<&2, U32>:
   match xs:
