@@ -405,12 +405,28 @@ def nats_of(xs: List<&2, U32>) -> List<&2, Nat>:
     case Con{+h, t}:
       U32.to_nat(U32.mod(h, 256)) <> nats_of(t)
 
+# 21 bytes have no token in SmolLM2 (perm gives 0 for them): `tokenizers` drops them from a piece before the
+# merges (no unk token, no byte fallback), so they are dropped here too
+def kb_sel(keep: Bool, +n: Nat, rest: List<&2, Nat>) -> List<&2, Nat>:
+  match keep:
+    case True{}:
+      n <> rest
+    case False{}:
+      rest
+
+def known_bytes(+perm: List<&2, Nat>, ns: List<&2, Nat>) -> List<&2, Nat>:
+  match ns:
+    case Nil{}:
+      Nil{}
+    case Con{+n, t}:
+      kb_sel(Bool.not(Nat.is_eq(nth(perm, n), 0n)), n, known_bytes(perm, t))
+
 def encode_words(+table: List<&2, BPE.Rule>, +perm: List<&2, Nat>, ws: List<&2, List<&2, U32>>) -> List<&2, Nat>:
   match ws:
     case Nil{}:
       Nil{}
     case Con{w, t}:
-      List.append(&2, Nat, gids(perm, BPE.encode(table, BPE.lift(nats_of(w)))), encode_words(table, perm, t))
+      List.append(&2, Nat, gids(perm, BPE.encode(table, BPE.lift(known_bytes(perm, nats_of(w))))), encode_words(table, perm, t))
 
 def encode_text(+table: List<&2, BPE.Rule>, +perm: List<&2, Nat>, +bs: List<&2, U32>) -> List<&2, Nat>:
   encode_words(table, perm, pretok(tag_all(U.non_letters(), bs)))
