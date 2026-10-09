@@ -13,8 +13,8 @@ T_DIR = os.path.join(ROOT, "data", "test")
 EXE = sys.argv[1]
 TOL = 1e-5
 CASES = [("A_L0", 0), ("A_L15", 15), ("B_L0", 0)]
-WIDTH = {"k": 192, "v": 192}
-ORDER = ["n1", "q", "k", "v", "attn", "a", "n2", "m", "y"]
+WIDTH = {"k": 192, "v": 192, "kr": 192}
+ORDER = ["n1", "q", "k", "v", "qr", "kr", "attn", "a", "n2", "m", "y"]
 
 
 def ref(case, name):
