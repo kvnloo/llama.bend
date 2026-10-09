@@ -124,14 +124,15 @@ def nth(xs: List<&2, Nat>, n: Nat) -> Nat:
     case Nil{} _:
       0n
 
-# GPT-2 id of a token: bytes go through perm; merges are 256+k
+# SmolLM2 id of a token: bytes go through perm (ids 17-251); merge k is 252 + k (17 special tokens and
+# 235 byte tokens come first; reference/prep.py checks this for all 48,900 merges)
 
 def gid(+perm: List<&2, Nat>, +t: BPE.Tk) -> Nat:
   match t:
     case BPE.B{+n}:
       nth(perm, n)
     case BPE.M{+k}:
-      Nat.add(256n, k)
+      Nat.add(252n, k)
 
 def gids(+perm: List<&2, Nat>, xs: List<&2, BPE.Tk>) -> List<&2, Nat>:
   match xs:
