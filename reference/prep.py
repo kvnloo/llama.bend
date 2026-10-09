@@ -11,6 +11,8 @@ Writes to data/:
   ids.txt        the model id of every symbol of that scheme: 256 bytes, then one per rule; -1 for the 21 bytes
                  that have no token (0xC0, 0xC1, 0xF5-0xFF and six control bytes): `tokenizers` drops them
                  from a piece before the merges, and so does encode() below
+  perm.txt       what the Bend tokenizer reads: the model id of byte b, 0 for the 21 bytes without a token (0 is
+                 <|endoftext|>, never a byte's id; the Bend number parser does not read "-1"); merge k is 252 + k
 """
 import json, os, sys
 import numpy as np
@@ -121,6 +123,7 @@ def tables():
             ids.append(-1); missing += 1
     open(os.path.join(D, "merges_num.txt"), "w").write("".join(f"{a} {b}\n" for a, b in table))
     open(os.path.join(D, "ids.txt"), "w").write(" ".join(map(str, ids)) + "\n")
+    open(os.path.join(D, "perm.txt"), "w").write(" ".join(str(max(i, 0)) for i in ids[:256]) + "\n")
     added = sorted(t["id"] for t in tok["added_tokens"])
     nobyte = [b for b in range(256) if ids[b] < 0]
     report = dict(rules=len(table), vocab=len(vocab), missing=missing, repeated=repeated, added=added,
@@ -174,6 +177,11 @@ def check():
           f"rules whose token is missing from the vocabulary: {rep['missing']}; rules that rebuild an earlier "
           f"token: {rep['repeated']}; bytes without an id: {len(rep['bytes_without_id'])}; rules k with id 252 + k: "
           f"{rep['offset']}")
+    perm = list(map(int, open(os.path.join(D, "perm.txt")).read().split()))
+    fixed = len(perm) == 256 and perm.count(0) == 21 and rep["offset"] == rep["rules"]
+    print(f"perm.txt: 256 ids, {perm.count(0)} zeros; merge k = 252 + k for all {rep['rules']} rules: "
+          f"{'ok' if fixed else 'FAILED'}")
+    ok &= fixed
     hf = Tokenizer.from_file(os.path.join(HF, "tokenizer.json"))
     tok_ok = True
     for s in SAMPLES:
