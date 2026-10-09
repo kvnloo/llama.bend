@@ -61,3 +61,35 @@ What I find, measure and decide, by date. The plan is in `docs/plan.md`.
   alone, then the GPT-2 regex) gives the same pieces and the same ids as `tokenizers` on 10 texts: ASCII,
   Portuguese, prices, dates and long numbers, Arabic and Devanagari digits, fractions, Roman numerals,
   superscripts, circled and full-width digits, emoji, CJK, Korean, control bytes, Python code.
+
+## 2026-10-09: milestone 2 (the tokenizer in Bend)
+
+`demo/tok.bend` started as a copy of bend-ml's GPT-2 tokenizer (`demos/gpt2/tok.bend`) and changed in four
+steps, each measured with `reference/test_tok.py` (68 fixed texts, 3 malformed merge tables, 30 random texts):
+
+| Change | Failures |
+|---|---|
+| bend-ml's GPT-2 tokenizer as is | 89 of 101 |
+| merge k is id 252 + k (GPT-2: 256 + k) | 7 |
+| every `\p{N}` character is its own piece | 3 |
+| the 21 bytes without a token are dropped before the merges | 1 |
+| 0x1C-0x1F are not whitespace | **0** |
+
+- **Digits.** SmolLM2 runs `Digits(individual_digits)` before the GPT-2 regex. In the tag scheme a digit is
+  class 1, so a piece of class 1 is now exactly one character (its first byte and the continuation bytes,
+  tag bit 2048). Two consequences of the split for the regex: a space is never attached to a digit (no
+  " ?\p{N}+"), and a whitespace run that ends right before a digit is taken whole, because the regex sees it at
+  the end of its segment (`"x   1"` gives "x", "   ", "1"; `"x   y"` gives "x", "  ", " y"). Many ASCII number
+  cases passed even before this change: the vocabulary has no multi-digit tokens and no " 1"-style tokens, so
+  the merges produced the same ids anyway; the difference showed with non-ASCII digits and spaces before digits.
+- **Bytes without a token.** `perm.txt` gives 0 for them and `known_bytes` drops them from each piece before
+  `BPE.encode`; the bytes around them can then merge (`"!!\x04!!"` gives the one token "!!!!").
+- **0x1C-0x1F.** bend-ml's `class_ascii` counted them as whitespace (Python's `str.isspace` does); `tokenizers`
+  does not (they are not Unicode White_Space), so `"...\x1d..."` is one piece there. Whitespace is now the space
+  and 9-13 only. The same class table is in bend-ml's GPT-2 tokenizer, where no test has these bytes; tiktoken
+  probably agrees with `tokenizers` here, so it may be a latent bug in bend-ml (to check there).
+- **Fuzz.** The random texts now also draw ASCII digits, Arabic-Indic and Devanagari digits, full-width digits,
+  number forms, circled numbers and control bytes 0-31. Seeds 7, 11, 23, 47 with 150 random texts each: 0
+  failures (221 cases per seed).
+- Time per text (one Bend run, compiled, the 48,900 rules applied in order per piece): median 0.15 s, the longest
+  0.58 s ("word " × 120), on this machine with a load average of ~1-2.
