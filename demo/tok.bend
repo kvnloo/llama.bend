@@ -1,11 +1,14 @@
-# GPT-2 tokenizer in Bend: pre-tokenizer (the GPT-2 regex over bytes) + the 50,000
-# merge rules, applied with the bend-ml-bpe-tokenizer package (proved roundtrip).
+# SmolLM2 tokenizer in Bend: pre-tokenizer (SmolLM2's Digits split, then the GPT-2 regex, over bytes) +
+# the 48,900 merge rules, applied with the bend-ml-bpe-tokenizer package (proved roundtrip).
+#
+# Adapted from bend-ml's demos/gpt2/tok.bend (MIT). What changes for SmolLM2: every \p{N} character is its
+# own piece; the 21 bytes without a token are dropped before the merges; merge k is id 252 + k; 0x1C-0x1F
+# are not whitespace. reference/test_tok.py checks it against `tokenizers`.
 #
 # The pre-tokenizer decodes UTF-8 and classifies every code point like the regex does
-# (\s, \p{L}, \p{N}); the classes of code points >= 128 come from unicode.bend, which
-# reference/gen_unicode_table.py generates with the `regex` module. Known limits: code points
-# above U+1FFFF count as letters, and so do CJK ideographs and Hangul (they are letters in
-# Unicode, so this is exact); invalid UTF-8 bytes count as letters.
+# (\s, \p{L}, \p{N}); the classes of code points >= 128 come from unicode.bend. Known limits: code points
+# above U+1FFFF count as letters, and so do CJK ideographs and Hangul (they are letters in Unicode, so this
+# is exact); invalid UTF-8 bytes count as letters; a special token written as text is not recognized.
 
 import Base
 import bend-ml-bpe-tokenizer@0.1.2.0/main.bend as BPE
@@ -113,7 +116,7 @@ def toks_of_ids(ns: List<&2, Nat>) -> List<&2, BPE.Tk>:
       id_tok(n) <> toks_of_ids(t)
 
 
-# ---- table and permutation of the GPT-2 base ids ----
+# ---- table and permutation of the SmolLM2 base ids ----
 
 def nth(xs: List<&2, Nat>, n: Nat) -> Nat:
   match xs n:
