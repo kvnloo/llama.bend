@@ -71,6 +71,37 @@ def rope(n: Nat, +xs: List<&2, F32>, +cs: List<&2, F32>, +sn: List<&2, F32>) -> 
     case 1n+p:
       List.append(&2, F32, rope_head(List.take(&2, F32, xs, 64n), cs, sn), rope(p, List.drop(&2, F32, xs, 64n), cs, sn))
 
+# ---- grouped-query attention over the cache (9 query heads, 3 key/value heads of 64) ----
+
+def slice64(xs: List<&2, F32>, off: Nat) -> List<&2, F32>:
+  List.take(&2, F32, List.drop(&2, F32, xs, off), 64n)
+
+# q·k * 0.125 (1 / sqrt(64)) for every cached key, oldest first
+def scores_l(+qh: List<&2, F32>, ks: List<&2, List<&2, F32>>, +off: Nat) -> List<&2, F32>:
+  match ks:
+    case Nil{}:
+      Nil{}
+    case Con{k, t}:
+      (T.dot.go(qh, slice64(k, off), 0.0) * 0.125 : F32) <> scores_l(qh, t, off)
+
+def weighted(w: List<&2, F32>, vs: List<&2, List<&2, F32>>, +off: Nat, acc: List<&2, F32>) -> List<&2, F32>:
+  match w vs:
+    case Con{+a, wt} Con{v, vt}:
+      weighted(wt, vt, off, T.zip_with.add(acc, T.scale.l(a, slice64(v, off))))
+    case _ _:
+      acc
+
+def head_out(qh: List<&2, F32>, ks: List<&2, List<&2, F32>>, +vs: List<&2, List<&2, F32>>, +off: Nat) -> List<&2, F32>:
+  weighted(T.softmax.l(scores_l(qh, ks, off)), vs, off, T.fill.l(64n, 0.0))
+
+# query heads j..j+n-1; query head j reads key/value head j / 3 (repeat_kv with 3 query heads per group)
+def attn(n: Nat, +j: Nat, +q: List<&2, F32>, +ks: List<&2, List<&2, F32>>, +vs: List<&2, List<&2, F32>>) -> List<&2, F32>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      List.append(&2, F32, head_out(slice64(q, Nat.mul(64n, j)), ks, vs, Nat.mul(64n, Nat.div(j, 3n))), attn(p, 1n+j, q, ks, vs))
+
 # ---- the layer's weights, its key/value cache, and what one position produces ----
 
 # ln1, ln2: 576 gains; products as row bands (row = output), see load.bend
@@ -91,8 +122,18 @@ type BR is Type:
 # ---- one position: each step takes the bands a product hands back (match only reads parameters) ----
 
 # 4. RoPE on q (9 heads) and k (3 heads) at position t
+# 5b. attention with the grown cache (it is handed on to the next position)
+def b6b(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +qr: List<&2, F32>, +kr: List<&2, F32>, +nks: List<&2, List<&2, F32>>, +nvs: List<&2, List<&2, F32>>) -> BR:
+  BR{Nil{}, KV{nks, nvs}, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Tr{n1, q, k, v, qr, kr, attn(9n, 0n, qr, nks, nvs), Nil{}, Nil{}, Nil{}, Nil{}}}
+
+# 5. the rotated key and the value join the cache; attention of the 9 query heads over positions 0..t
+def b6(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +qr: List<&2, F32>, +kr: List<&2, F32>) -> BR:
+  match kv:
+    case KV{ks, vs}:
+      b6b(ln1, wq, wk, wv, wo, ln2, wg, wu, wd, x, n1, q, k, v, qr, kr, List.append(&2, List<&2, F32>, ks, kr <> Nil{}), List.append(&2, List<&2, F32>, vs, v <> Nil{}))
+
 def b5(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, +t: Nat, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +cs: List<&2, F32>, +sn: List<&2, F32>) -> BR:
-  BR{Nil{}, kv, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Tr{n1, q, k, v, rope(9n, q, cs, sn), rope(3n, k, cs, sn), Nil{}, Nil{}, Nil{}, Nil{}, Nil{}}}
+  b6(ln1, wq, wk, wv, wo, ln2, wg, wu, wd, kv, x, n1, q, k, v, rope(9n, q, cs, sn), rope(3n, k, cs, sn))
 
 # 3. v = Wv · n1
 def b4(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, +t: Nat, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, rv: TA.BL<192n, 576n>) -> BR:
