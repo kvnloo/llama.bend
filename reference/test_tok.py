@@ -82,9 +82,13 @@ CASES = [
 
 
 def random_unicode(rng, n):
-    """Random text mixing ASCII, spaces and code points from every plane the table covers."""
+    """Random text mixing ASCII, spaces, digits of several scripts, control bytes and code points from every plane
+    the table covers."""
     pools = [(32, 126), (32, 32), (0xA0, 0x24F), (0x300, 0x36F), (0x370, 0x5FF), (0x2000, 0x2BFF),
-             (0x3000, 0x30FF), (0xFF00, 0xFFEF), (0x1F300, 0x1FAFF), (0x4E00, 0x4F00)]
+             (0x3000, 0x30FF), (0xFF00, 0xFFEF), (0x1F300, 0x1FAFF), (0x4E00, 0x4F00),
+             # SmolLM2: digits of other scripts, number forms, circled numbers, and the control bytes
+             (48, 57), (0x660, 0x669), (0x966, 0x96F), (0xFF10, 0xFF19), (0x2150, 0x218F), (0x2460, 0x24FF),
+             (0, 31)]
     out = []
     for _ in range(n):
         lo, hi = rng.choice(pools)
