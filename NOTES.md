@@ -65,11 +65,12 @@ What I find, measure and decide, by date. The plan is in `docs/plan.md`.
 ## 2026-10-09: milestone 2 (the tokenizer in Bend)
 
 `demo/tok.bend` started as a copy of bend-ml's GPT-2 tokenizer (`demos/gpt2/tok.bend`) and changed in four
-steps, each measured with `reference/test_tok.py` (68 fixed texts, 3 malformed merge tables, 30 random texts):
+steps, each measured with `reference/test_tok.py` (66 fixed texts, 2 more added with the last change, 3
+malformed merge tables, 30 random texts):
 
 | Change | Failures |
 |---|---|
-| bend-ml's GPT-2 tokenizer as is | 89 of 101 |
+| bend-ml's GPT-2 tokenizer as is | 89 of 99 |
 | merge k is id 252 + k (GPT-2: 256 + k) | 7 |
 | every `\p{N}` character is its own piece | 3 |
 | the 21 bytes without a token are dropped before the merges | 1 |
