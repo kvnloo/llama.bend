@@ -102,6 +102,20 @@ def attn(n: Nat, +j: Nat, +q: List<&2, F32>, +ks: List<&2, List<&2, F32>>, +vs: 
     case 1n+p:
       List.append(&2, F32, head_out(slice64(q, Nat.mul(64n, j)), ks, vs, Nat.mul(64n, Nat.div(j, 3n))), attn(p, 1n+j, q, ks, vs))
 
+# ---- SwiGLU MLP ----
+
+# silu(x) = x / (1 + exp(-x)), the form ATen's CPU kernel uses
+def silu.f(+x: F32) -> F32:
+  (x / (1.0 + F32.exp(F32.neg(x)) : F32) : F32)
+
+# silu(gate) * up
+def swiglu(g: List<&2, F32>, u: List<&2, F32>) -> List<&2, F32>:
+  match g u:
+    case Con{+a, ga} Con{+b, ub}:
+      (silu.f(a) * b : F32) <> swiglu(ga, ub)
+    case _ _:
+      Nil{}
+
 # ---- the layer's weights, its key/value cache, and what one position produces ----
 
 # ln1, ln2: 576 gains; products as row bands (row = output), see load.bend
@@ -122,11 +136,36 @@ type BR is Type:
 # ---- one position: each step takes the bands a product hands back (match only reads parameters) ----
 
 # 4. RoPE on q (9 heads) and k (3 heads) at position t
-# 7. the residual x1 = x + a and n2 = RMSNorm(x1, ln2)
-def b9(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, tr: Tr, +x1: List<&2, F32>) -> BR:
+# 11. y = x1 + m: the layer's output, and the trace of the position
+def b13(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, tr: Tr, +n2: List<&2, F32>, +m: List<&2, F32>, +y: List<&2, F32>) -> BR:
   match tr:
-    case Tr{n1, q, k, v, qr, kr, at, a, n2, m, y}:
-      BR{Nil{}, kv, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Tr{n1, q, k, v, qr, kr, at, a, rmsnorm(x1, ln2), Nil{}, Nil{}}}
+    case Tr{n1, q, k, v, qr, kr, at, a, z2, zm, zy}:
+      BR{y, kv, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Tr{n1, q, k, v, qr, kr, at, a, n2, m, y}}
+
+# 10. m = Wdown · swiglu
+def b12(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, kv: KV, tr: Tr, +x1: List<&2, F32>, +n2: List<&2, F32>, rd: TA.BL<576n, 1536n>) -> BR:
+  match rd:
+    case TA.BL{wd, +m}:
+      b13(ln1, wq, wk, wv, wo, ln2, wg, wu, wd, kv, tr, n2, m, T.zip_with.add(x1, m))
+
+# 9. u = Wup · n2, then silu(g) * u goes into Wdown
+def b11(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, tr: Tr, +x1: List<&2, F32>, +n2: List<&2, F32>, +g: List<&2, F32>, ru: TA.BL<1536n, 576n>) -> BR:
+  match ru:
+    case TA.BL{wu, u}:
+      b12(ln1, wq, wk, wv, wo, ln2, wg, wu, kv, tr, x1, n2, TA.Bands.matvec_l(576n, 1536n, wd, swiglu(g, u)))
+
+# 8. g = Wgate · n2
+def b10(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, tr: Tr, +x1: List<&2, F32>, +n2: List<&2, F32>, rg: TA.BL<1536n, 576n>) -> BR:
+  match rg:
+    case TA.BL{wg, g}:
+      b11(ln1, wq, wk, wv, wo, ln2, wg, wd, kv, tr, x1, n2, g, TA.Bands.matvec_l(1536n, 576n, wu, n2))
+
+# 7. the residual x1 = x + a and n2 = RMSNorm(x1, ln2)
+def b9b(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, tr: Tr, +x1: List<&2, F32>, +n2: List<&2, F32>) -> BR:
+  b10(ln1, wq, wk, wv, wo, ln2, wu, wd, kv, tr, x1, n2, TA.Bands.matvec_l(1536n, 576n, wg, n2))
+
+def b9(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, wo: TA.Bands<576n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, kv: KV, tr: Tr, +x1: List<&2, F32>) -> BR:
+  b9b(ln1, wq, wk, wv, wo, ln2, wg, wu, wd, kv, tr, x1, rmsnorm(x1, ln2))
 
 # 6. a = Wo · attn
 def b8(+ln1: List<&2, F32>, wq: TA.Bands<576n, 576n>, wk: TA.Bands<192n, 576n>, wv: TA.Bands<192n, 576n>, +ln2: List<&2, F32>, wg: TA.Bands<1536n, 576n>, wu: TA.Bands<1536n, 576n>, wd: TA.Bands<576n, 1536n>, +x: List<&2, F32>, +n1: List<&2, F32>, +q: List<&2, F32>, +k: List<&2, F32>, +v: List<&2, F32>, +qr: List<&2, F32>, +kr: List<&2, F32>, +nks: List<&2, List<&2, F32>>, +nvs: List<&2, List<&2, F32>>, +at: List<&2, F32>, ro: TA.BL<576n, 576n>) -> BR:
