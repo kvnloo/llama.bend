@@ -1,0 +1,18 @@
+# downloaded and generated data (reference/prep.py)
+data/
+
+# Bend build outputs
+*.c
+*.mjs
+*.bendtt
+build/
+
+# Local
+.scratch/
+.DS_Store
+
+# Python (reference/)
+.venv/
+__pycache__/
+*.pyc
+*.bin
