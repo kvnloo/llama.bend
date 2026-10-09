@@ -40,12 +40,14 @@ def line_ne(name: String, +t: Nat, xs: List<&2, F32>) -> IO(Unit):
 
 def show_tr(+t: Nat, tr: Y.Tr) -> IO(Unit):
   match tr:
-    case Y.Tr{n1, q, k, v, attn, a, n2, m, y}:
+    case Y.Tr{n1, q, k, v, qr, kr, attn, a, n2, m, y}:
       do IO<Unit>:
         line_ne("n1", t, n1)
         line_ne("q", t, q)
         line_ne("k", t, k)
         line_ne("v", t, v)
+        line_ne("qr", t, qr)
+        line_ne("kr", t, kr)
         line_ne("attn", t, attn)
         line_ne("a", t, a)
         line_ne("n2", t, n2)
@@ -80,8 +82,9 @@ def run(+layer: Nat, path: String, +n: Nat) -> IO(Unit):
   do IO<Unit>:
     threads : U32 <- IO.thread_count()
     lw : Y.LW <- load_lw(layer, L.depth_for(threads))
+    IO.print("inv_freq" ++ show_bits(Y.inv_freq()))
     xs : List<&2, F32> <- L.read_floats(path, Nat.mul(n, 576n))
-    go(rows(n, 576n, xs), 0n, Y.BR{Nil{}, Y.KV{Nil{}, Nil{}}, lw, Y.Tr{Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}}})
+    go(rows(n, 576n, xs), 0n, Y.BR{Nil{}, Y.KV{Nil{}, Nil{}}, lw, Y.Tr{Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}}})
 
 def run2(+layer: Maybe<&2, Nat>, path: String, +n: Maybe<&2, Nat>) -> IO(Unit):
   match layer n:
