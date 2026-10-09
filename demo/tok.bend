@@ -158,9 +158,10 @@ def sel(b: Bool, x: Nat, y: Nat) -> Nat:
 def in_range(+c: U32, +lo: U32, +hi: U32) -> Bool:
   Bool.and(U32.is_le(lo, c), U32.is_le(c, hi))
 
-# class of an ASCII byte
+# class of an ASCII byte. Whitespace is the space and 9-13 (\t \n \v \f \r): `tokenizers` does not count
+# 0x1C-0x1F as \s (Unicode White_Space does not include them), so they are "other", unlike bend-ml's GPT-2 copy
 def class_ascii(+c: U32) -> Nat:
-  sel(Bool.or(in_range(c, 65, 90), in_range(c, 97, 122)), 0n, sel(in_range(c, 48, 57), 1n, sel(Bool.or(Bool.or(U32.is_eq(c, 32), in_range(c, 9, 13)), in_range(c, 28, 31)), 3n, 2n)))
+  sel(Bool.or(in_range(c, 65, 90), in_range(c, 97, 122)), 0n, sel(in_range(c, 48, 57), 1n, sel(Bool.or(U32.is_eq(c, 32), in_range(c, 9, 13)), 3n, 2n)))
 
 # class of a code point >= 128: the first range of the sorted table that does not end before it
 def after_h(+cp: U32, t: List<&2, U32>) -> Bool:

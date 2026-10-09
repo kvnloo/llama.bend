@@ -75,6 +75,9 @@ CASES = [
     "Control bytes \x04 and \x1d are dropped: a\x04b, !!\x04!!, ...\x1d..., x\x04\x06y.",
     "\x04",
     "\x13\x14\x16",
+    # 0x1C-0x1F are not whitespace for `tokenizers`; \v and \f are
+    "...\x1d... a\x1cb \x1e \x1f",
+    "x\x0by\x0cz \x0b\x0c end",
 ]
 
 
