@@ -22,7 +22,7 @@ typed layers will become the BendHub package `bend-ml-llama`. **Private for now.
   imported from BendHub at pinned versions (`bend-ml-tensor-array@0.1.6.0`, `bend-ml-bpe-tokenizer@0.1.2.0`),
   and its GPT-2 demo (`demos/gpt2/`) is the pattern for the loader, the tokenizer and the oracle tests. Its
   `NOTES.md` holds the performance experiments (exp. 1-14) this project builds on.
-- Private planning notes live outside this repository.
+- Renan's planning notes are private and live outside this repository; never link them from it.
 
 ## Branches and versions
 
