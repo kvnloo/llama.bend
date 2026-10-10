@@ -1,4 +1,5 @@
-"""Greedy generation in Bend (demo/gen.bend) against transformers' generate (reference/gen_ref.py).
+"""Greedy generation in Bend (demo/gen.bend) against transformers' generate (reference/gen_ref.py), for the model
+MODEL (models.py).
 
   reference/.venv/bin/python reference/test_gen.py <compiled gen>
 
@@ -7,17 +8,18 @@ logit of each chosen id within TOL relative to it.
 """
 import json, os, re, subprocess, sys, time
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from models import ROOT, D, T_DIR
+
 EXE = sys.argv[1]
 TOL = 2e-4
 
 
 def main():
-    cases = json.load(open(os.path.join(ROOT, "data", "test", "gen.json")))
+    cases = json.load(open(os.path.join(T_DIR, "gen.json")))
     failures = 0
     for c in cases:
         t0 = time.time()
-        r = subprocess.run([EXE, c["prompt"], str(c["n"])], capture_output=True, cwd=ROOT)
+        r = subprocess.run([EXE, D, c["prompt"], str(c["n"])], capture_output=True, cwd=ROOT)
         dt = time.time() - t0
         out = r.stdout.decode("utf-8")
         m_ids = re.search(r"^prompt ids: (.*)$", out, re.M)
