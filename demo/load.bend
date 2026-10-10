@@ -1,9 +1,10 @@
 # Loading SmolLM2's weights (data/w/<name>.bin, little-endian F32, row = output) into lists and row bands.
 # Copied from bend-ml (demos/gpt2/load.bend and demos/gpt2/fast.bend, MIT): the 1 MB block reader that writes
 # the bytes straight into each band's Array, the size check at the boundary, and the band depth per thread
-# count. Only the paths changed.
+# count. Only the paths changed; load_lw reads one SmolLM2 layer.
 
 import Base
+import ./layer.bend as Y
 import bend-ml-tensor-array@0.1.6.0/main.bend as TA
 
 # 4 little-endian bytes -> F32 (U32 and F32 hold the same Word(32n): it is a bitcast)
@@ -151,3 +152,18 @@ def get_bands(+name: String, +d: Nat, +r: Nat, +c: Nat) -> IO(TA.Bands<r, c>):
   do IO<TA.Bands<r, c>>:
     check_size(wpath(name), Nat.mul(r, c))
     load_tree(c, r, TA.Bands.zeros(d, r, c), r, {==}, wpath(name), 0n)
+
+# ---- one layer's weights (data/w/h<i>.<name>.bin) ----
+
+def load_lw(+layer: Nat, +d: Nat) -> IO(Y.LW):
+  do IO<Y.LW>:
+    ln1 : List<&2, F32> <- get_list(nm(layer, "ln1"), 576n)
+    q : TA.Bands<576n, 576n> <- get_bands(nm(layer, "q"), d, 576n, 576n)
+    k : TA.Bands<192n, 576n> <- get_bands(nm(layer, "k"), d, 192n, 576n)
+    v : TA.Bands<192n, 576n> <- get_bands(nm(layer, "v"), d, 192n, 576n)
+    o : TA.Bands<576n, 576n> <- get_bands(nm(layer, "o"), d, 576n, 576n)
+    ln2 : List<&2, F32> <- get_list(nm(layer, "ln2"), 576n)
+    gate : TA.Bands<1536n, 576n> <- get_bands(nm(layer, "gate"), d, 1536n, 576n)
+    up : TA.Bands<1536n, 576n> <- get_bands(nm(layer, "up"), d, 1536n, 576n)
+    down : TA.Bands<576n, 1536n> <- get_bands(nm(layer, "down"), d, 576n, 1536n)
+    return Y.LW{ln1, q, k, v, o, ln2, gate, up, down}
