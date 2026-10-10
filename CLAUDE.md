@@ -10,9 +10,14 @@ typed layers will become the BendHub package `bend-ml-llama`. **Private for now.
 
 - `docs/plan.md`: the milestones, each with its pass criterion, and the laws to prove.
 - `NOTES.md`: every finding, measurement and decision, by date. Read it before changing anything.
-- `reference/`: the Python side: `prep.py` (download at a pinned revision, bf16 → F32, tokenizer tables, and
-  `--check`), and later the PyTorch/`transformers` oracle and the tests.
-- `data/` (not committed): what `make prep` downloads and writes.
+- `llama/main.bend`: the typed package (future `bend-ml-llama`): `Cfg`, `LW<c>`, `Model<c>`, `Cache(t)`, `block`,
+  `forward`, the loader and every law; `llama/README.md` explains the laws. `make laws` runs bend and `--verdict`.
+- `demo/`: programs on the package (`forward.bend`, `gen.bend`, `layer_test.bend`) and the SmolLM2 tokenizer
+  (`tok.bend`, `unicode.bend`); each takes the model directory as its first argument.
+- `reference/`: the Python side: `models.py` (the pinned models; `MODEL=` picks one), `prep.py` (download,
+  bf16 → F32, `cfg.txt`, tokenizer tables, `--check`), the `transformers` oracles (`*_ref.py`), the tests
+  (`test_*.py`) and `bits.py` (exact outputs, to show a refactor changes no bit: `make bits`).
+- `data/<MODEL>/` (not committed): what `make prep MODEL=...` downloads and writes (default `smollm2-135m`).
 - bend-ml (`~/Repos/bend2-ml`, https://github.com/nuxyel/bend-ml) is the parent project: its packages are
   imported from BendHub at pinned versions (`bend-ml-tensor-array@0.1.6.0`, `bend-ml-bpe-tokenizer@0.1.2.0`),
   and its GPT-2 demo (`demos/gpt2/`) is the pattern for the loader, the tokenizer and the oracle tests. Its
