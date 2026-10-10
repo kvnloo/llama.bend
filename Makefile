@@ -1,5 +1,8 @@
 # llama.bend: setup and verification shortcuts. Run `make setup`, `make prep` once, then `make check`.
+# MODEL picks the model (reference/models.py): `make prep check MODEL=smollm2-360m`.
 export BEND_NO_TELEMETRY := 1
+export MODEL ?= smollm2-135m
+DIR := data/$(MODEL)
 export PATH := $(HOME)/.bend/bin:$(HOME)/.elan/bin:$(PATH)
 PY := reference/.venv/bin/python
 
@@ -8,7 +11,7 @@ PY := reference/.venv/bin/python
 setup:            ## check the pinned Bend, create the Python venv
 	scripts/setup.sh
 
-prep:             ## download SmolLM2-135M (pinned revision) and write data/ (about 270 MB down, 540 MB written)
+prep:             ## download MODEL (pinned revision) and write data/MODEL/ (135M: 270 MB down, 540 MB written)
 	$(PY) reference/prep.py
 
 laws:             ## the package's proofs, checked by bend and again by the kernel proved in Lean (--verdict)
@@ -22,17 +25,17 @@ check: laws       ## the laws, prep, the Bend tokenizer against `tokenizers`; on
 	bend demo/tok.bend -o .scratch/tok
 	$(PY) reference/test_tok.py .scratch/tok
 	$(PY) reference/test_detok.py .scratch/tok
-	[ -f data/test/inv_freq.bin ] || $(PY) reference/layer_ref.py
+	[ -f $(DIR)/test/inv_freq.bin ] || $(PY) reference/layer_ref.py
 	bend demo/layer_test.bend -o .scratch/layer_test
 	$(PY) reference/test_layer.py .scratch/layer_test
-	[ -f data/test/fwd10_logits.bin ] || $(PY) reference/forward_ref.py
+	[ -f $(DIR)/test/fwd10_logits.bin ] || $(PY) reference/forward_ref.py
 	bend demo/forward.bend -o .scratch/forward
 	$(PY) reference/test_forward.py .scratch/forward
-	[ -f data/test/gen.json ] || $(PY) reference/gen_ref.py
+	[ -f $(DIR)/test/gen.json ] || $(PY) reference/gen_ref.py
 	bend demo/gen.bend -o .scratch/gen
 	$(PY) reference/test_gen.py .scratch/gen
 
-bits:             ## forward and gen give the same bits as the saved ones (data/test/bits/; `bits.py save` writes them)
+bits:             ## forward and gen give the same bits as the saved ones ($(DIR)/test/bits/; `bits.py save` writes them)
 	mkdir -p .scratch
 	bend demo/forward.bend -o .scratch/forward
 	bend demo/gen.bend -o .scratch/gen
