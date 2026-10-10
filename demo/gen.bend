@@ -1,46 +1,18 @@
-# Greedy generation with SmolLM2-135M in Bend: the prompt is tokenized in Bend, runs through the forward pass of
-# forward.bend position by position (one key/value cache per layer), and then each new token is the argmax of the
-# logits, fed back in. Generation stops after n tokens, or after the end-of-text token (id 0), as transformers'
-# generate does. reference/test_gen.py compares the ids, the chosen logits and the text with transformers.
+# Greedy generation with a Llama model in Bend (bend-ml-llama, llama/main.bend; SmolLM2's tokenizer,
+# demo/tok.bend): the prompt is tokenized in Bend, runs through the forward pass position by position (one
+# key/value cache per layer), and then each new token is the argmax of the logits, fed back in. Generation
+# stops after n tokens, or after the end-of-text token (id 0), as transformers' generate does.
+# reference/test_gen.py compares the ids, the chosen logits and the text with transformers.
 #
-#   gen "prompt" n
+#   gen "prompt" n               (the model in data/: cfg.txt and w/, written by reference/prep.py)
 #
 # prints `prompt ids: ...`, one line per new token (`id <id> logit <F32 bits> <logit> t=<seconds>`) and
 # `text: <prompt and continuation>`.
 
 import Base
 import ./tok.bend as K
-import ./forward.bend as F
-import ./layer.bend as Y
+import ../llama/main.bend as M
 import bend-ml-bpe-tokenizer@0.1.2.0/main.bend as BPE
-
-# ---- argmax: the first index of the largest value (torch.argmax does the same) ----
-
-type AM is Data:
-  AM{i: Nat, v: F32}
-
-def gt_head(xs: List<&2, F32>, +v: F32) -> Bool:
-  match xs:
-    case Nil{}:
-      False{}
-    case Con{+h, t}:
-      F32.is_gt(h, v)
-
-def argmax.go(xs: List<&2, F32>, g: Bool, +i: Nat, +bi: Nat, +bv: F32) -> AM:
-  match xs g:
-    case Nil{} _:
-      AM{bi, bv}
-    case Con{+h, +t} True{}:
-      argmax.go(t, gt_head(t, h), 1n+i, i, h)
-    case Con{h, +t} False{}:
-      argmax.go(t, gt_head(t, bv), 1n+i, bi, bv)
-
-def argmax(xs: List<&2, F32>) -> AM:
-  match xs:
-    case Nil{}:
-      AM{0n, 0.0}
-    case Con{+h, +t}:
-      argmax.go(t, gt_head(t, h), 1n, 0n, h)
 
 # ---- the prompt as UTF-8 bytes ----
 
@@ -63,14 +35,6 @@ def utf8_of(cs: List<&2, Char>) -> List<&2, U32>:
 
 # ---- the generation loop ----
 
-# cs: the caches; tok: the id to run at position pos; queue: the prompt ids still to feed; left: tokens still to
-# generate; gen: the generated ids, newest first
-type St is Data:
-  St{cs: List<&2, Y.KV>, tok: Nat, pos: Nat, queue: List<&2, Nat>, left: Nat, gen: List<&2, Nat>}
-
-type SM is Type:
-  SM{st: St, m: F.Model}
-
 def bits(f: F32) -> U32:
   match f:
     case F32{w}:
@@ -84,47 +48,29 @@ def tsec(t1: Nat, t0: Nat) -> String:
 
 # after the end-of-text token nothing more is generated
 def left_after(+id: Nat, +left: Nat) -> Nat:
-  K.sel(Nat.is_eq(id, 0n), 0n, Nat.sub(left, 1n))
+  K.sel(Nat.is_eq(id, 0n), 0n, left)
 
-def adv3(left: Nat, +pos: Nat, gen: List<&2, Nat>, +t0: Nat, cs: List<&2, Y.KV>, m: F.Model, am: AM) -> IO(SM):
-  match am:
-    case AM{+id, +v}:
-      do IO<SM>:
-        t1 : Nat <- IO.now()
-        IO.print("  id " ++ Nat.show(id) ++ "  logit " ++ U32.show(bits(v)) ++ " " ++ F32.show(v) ++ "  t=" ++ tsec(t1, t0))
-        return SM{St{cs, id, 1n+pos, Nil{}, left_after(id, left), id <> gen}, m}
-
-# while the prompt is being fed the logits are not used; after it, the argmax is the next token
-def adv2(queue: List<&2, Nat>, left: Nat, +pos: Nat, gen: List<&2, Nat>, +t0: Nat, r: F.Out) -> IO(SM):
-  match queue r:
-    case Con{q, qt} F.Out{lg, hs, nf, cs, m}:
-      IO.pure(SM, SM{St{cs, q, 1n+pos, qt, left, gen}, m})
-    case Nil{} F.Out{lg, hs, nf, cs, m}:
-      adv3(left, pos, gen, t0, cs, m, argmax(lg))
-
-def adv(m: F.Model, st: St, t0: Nat) -> IO(SM):
-  match st:
-    case St{cs, +tok, +pos, queue, left, gen}:
-      adv2(queue, left, pos, gen, t0, F.fwd(m, cs, tok, pos))
-
-# fuel bounds the number of forward passes; the loop also stops when nothing is left to generate
-def loop(fuel: Nat, +t0: Nat, sm: SM) -> IO(St):
-  match fuel sm:
-    case 0n SM{st, m}:
-      IO.pure(St, st)
-    case 1n+p SM{St{cs, tok, pos, queue, 0n, gen}, m}:
-      IO.pure(St, St{cs, tok, pos, queue, 0n, gen})
-    case 1n+p SM{st, m}:
-      do IO<St>:
-        s2 : SM <- adv(m, st, t0)
-        loop(p, t0, s2)
+# tok runs at position t; queue: the prompt ids still to feed; left: tokens still to generate; gen: the generated
+# ids, newest first. Returns the generated ids in order.
+def loop(fuel: Nat, +c: M.Cfg, +t0: Nat, +t: Nat, +tok: Nat, queue: List<&2, Nat>, left: Nat, gen: List<&2, Nat>, m: M.Model<c>, cs: List<&2, M.Cache(t)>) -> IO(List<&2, Nat>):
+  match fuel queue left:
+    case 0n _ _:
+      IO.pure(List<&2, Nat>, List.reverse(&2, Nat, gen))
+    case 1n+p _ 0n:
+      IO.pure(List<&2, Nat>, List.reverse(&2, Nat, gen))
+    case 1n+p Con{+q, qt} 1n+lp:
+      M.Out.then(IO(List<&2, Nat>), c, t, M.forward(c, t, m, cs, tok), lg => nf => acts => cs2 => m2 =>
+        loop(p, c, t0, 1n+t, q, qt, 1n+lp, gen, m2, cs2))
+    case 1n+p Nil{} 1n+lp:
+      M.Out.then(IO(List<&2, Nat>), c, t, M.forward(c, t, m, cs, tok), lg => nf => acts => cs2 => m2 =>
+        +am = M.argmax(lg)
+        +id = M.AM.i(am)
+        do IO<List<&2, Nat>>:
+          t1 : Nat <- IO.now()
+          IO.print("  id " ++ Nat.show(id) ++ "  logit " ++ U32.show(bits(M.AM.v(am))) ++ " " ++ F32.show(M.AM.v(am)) ++ "  t=" ++ tsec(t1, t0))
+          loop(p, c, t0, 1n+t, id, Nil{}, left_after(id, lp), id <> gen, m2, cs2))
 
 # ---- main program ----
-
-def fin(+table: List<&2, BPE.Rule>, +perm: List<&2, Nat>, ids: List<&2, Nat>, st: St) -> IO(Unit):
-  match st:
-    case St{cs, tok, pos, queue, left, gen}:
-      IO.print("text: " ++ K.decode_text(table, perm, List.append(&2, Nat, ids, List.reverse(&2, Nat, gen))))
 
 def show_nats(xs: List<&2, Nat>) -> String:
   match xs:
@@ -133,19 +79,19 @@ def show_nats(xs: List<&2, Nat>) -> String:
     case Con{h, t}:
       Nat.show(h) ++ " " ++ show_nats(t)
 
-def start2(model: F.Model, +table: List<&2, BPE.Rule>, +perm: List<&2, Nat>, +ids: List<&2, Nat>, +n: Nat) -> IO(Unit):
+def start2(+c: M.Cfg, model: M.Model<c>, +table: List<&2, BPE.Rule>, +perm: List<&2, Nat>, +ids: List<&2, Nat>, +n: Nat) -> IO(Unit):
   match ids:
     case Nil{}:
       IO.print("empty prompt")
-    case Con{t0, qt}:
+    case Con{+t0, qt}:
       do IO<Unit>:
         t0ms : Nat <- IO.now()
         IO.print("prompt ids: " ++ show_nats(ids))
-        st : St <- loop(Nat.add(List.length(&2, Nat, ids), n), t0ms, SM{St{F.empty_cs(30n), t0, 0n, qt, n, Nil{}}, model})
-        fin(table, perm, ids, st)
+        gen : List<&2, Nat> <- loop(Nat.add(List.length(&2, Nat, ids), n), c, t0ms, 0n, t0, qt, n, Nil{}, model, M.caches(M.Cfg.layers(c)))
+        IO.print("text: " ++ K.decode_text(table, perm, List.append(&2, Nat, ids, gen)))
 
-def generate(model: F.Model, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Nat) -> IO(Unit):
-  start2(model, K.rules.go(K.nums(mb), 0n), K.nums(pb), K.encode_text(K.rules.go(K.nums(mb), 0n), K.nums(pb), utf8_of(String.to_list(prompt))), n)
+def generate(+c: M.Cfg, model: M.Model<c>, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Nat) -> IO(Unit):
+  start2(c, model, K.rules.go(K.nums(mb), 0n), K.nums(pb), K.encode_text(K.rules.go(K.nums(mb), 0n), K.nums(pb), utf8_of(String.to_list(prompt))), n)
 
 # refuse to run on a malformed merges table (checked before the weights are loaded)
 def run3(ok: Bool, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Nat) -> IO(Unit):
@@ -153,10 +99,11 @@ def run3(ok: Bool, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Na
     case True{}:
       do IO<Unit>:
         t0 : Nat <- IO.now()
-        model : F.Model <- F.load_model()
+        +c : M.Cfg <- M.read_cfg("data")
+        model : M.Model<c> <- M.load_model(c, "data")
         t1 : Nat <- IO.now()
         IO.print("weights loaded in " ++ tsec(t1, t0))
-        generate(model, mb, pb, prompt, n)
+        generate(c, model, mb, pb, prompt, n)
     case False{}:
       IO.print("invalid merges table")
 
