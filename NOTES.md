@@ -136,3 +136,19 @@ The pass criterion was 1e-5. Notes:
   other. The layer is a chain of small defs (`b1` … `b13`) because each product hands its bands back and `match`
   only reads parameters, the same pattern as bend-ml's `k1` … `k6b`. The plan for milestone 6 (typed heads, a
   cache indexed by position) should shorten it.
+
+## 2026-10-10: the roadmap after milestone 3
+
+### Decisions
+
+- **The goal grows**: llama.bend should be the reference Llama implementation in Bend, generic over the Llama
+  family, not a SmolLM2-135M demo. The test of that is a second model with other sizes (SmolLM2-360M) running
+  with only the config changed (milestone 8).
+- **First make it work, then the API.** Milestones 4 (full forward) and 5 (generation) go on the current code,
+  sizes fixed and the `b1` … `b13` chain, to settle the numerical risk of 30 layers first. Then the generic typed
+  API (milestone 6), checked bit for bit against milestone 5, and the laws proved on that API (milestone 7), so
+  they are not proved twice.
+- **A base for a training framework later, not designed now.** I have not decided what the larger framework
+  after bend-ml will be. What llama.bend leaves for it: each block returns an activations record (today's `Tr`),
+  and `docs/bendtorch.md` (milestone 11) lists what each op's backward pass needs from it.
+- The new milestones and their pass criteria are in `docs/plan.md`.

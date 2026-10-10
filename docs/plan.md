@@ -8,6 +8,8 @@ v1.2.1 now offers.
 - **Token for token against PyTorch** (`transformers`, greedy), logits within a small tolerance, as bend-ml's
   GPT-2 demo does.
 - Typed Llama layers that other people can build models on: the BendHub package `bend-ml-llama`.
+- The reference Llama implementation in Bend: generic over the Llama family (a second model with other sizes
+  runs with only the config changed), its structure proved, its numbers tested.
 - A post replying to the "llama.bend" line of the wishlist once it works.
 
 ## What I reuse from bend-ml
@@ -50,11 +52,43 @@ v1.2.1 now offers.
 2. **Tokenizer in Bend**: digits rule + GPT-2 regex + SmolLM2 merges. Pass: ids equal to `tokenizers` on
    bend-ml's GPT-2 tokenizer texts plus texts with numbers (prices, dates, long numbers, non-ASCII digits). **Done 2026-10-09** (v0.0.1).
 3. **One layer**: RMSNorm, RoPE, GQA, SwiGLU on a fixed input. Pass: layer output within 1e-5 of PyTorch. **Done 2026-10-09** (v0.0.2): every intermediate within 2.2e-6.
-4. **Full forward**: pass: logits within ~2e-4 and the same argmax on 10+ prompts.
-5. **Generation**: greedy, 32 tokens. Pass: the same ids as `transformers` with `do_sample = False`.
-6. **Laws**: the four above, `--verdict`, in the package README.
-7. **Publish and measure**: `bend-ml-llama@0.1.0.0`; per-token and load time against PyTorch on 1 and 16
-   threads.
+
+Milestones 4-11 were rewritten on 2026-10-10 (NOTES): the goal is now the reference Llama implementation in
+Bend, generic over the Llama family, and a base that later helps build a training framework. Phase A makes it
+work on the current code (fixed sizes); phase B turns it into the typed, generic API and proves the laws on that
+API; phase C publishes it.
+
+**Phase A: it works (current code)**
+
+4. **Full forward**: the 30 layers, the final RMSNorm and the tied LM head (`Bands.matvec_l` over the
+   embedding); the oracle also writes the hidden state after every layer, to trace drift. Pass: logits within
+   ~2e-4 and the same argmax on 10+ prompts.
+5. **Generation**: greedy, 32 tokens, key/value cache per layer, tokenizer in and out. Pass: the same ids as
+   `transformers` with `do_sample = False`. First timings in NOTES (not a benchmark).
+
+**Phase B: the reference API**
+
+6. **Generic typed API**, in one file (the future package): a `Config` whose structure is in the types
+   (`n_heads = n_kv × g`, `head = 2 × half`, `hidden = n_heads × head`), typed heads, `KV<t>`, one record per
+   layer instead of the `b1` … `b13` chain. Each block returns its output and an activations record (today's
+   `Tr`), which serves the tests now and a backward pass later. Pass: logits and ids bit for bit equal to
+   phase A (a pure refactor).
+7. **Laws** on that API, `--verdict`: the four above, plus "the SmolLM2 configs satisfy `Config`", each in the
+   README in plain language.
+8. **Generality**: `prep.py --model`, and SmolLM2-360M with only the config changed. Pass: the same 32 greedy
+   tokens as `transformers`. Stretch: SmolLM2-1.7B if the memory allows (measure first).
+
+**Phase C: publish**
+
+9. **Package and measurements**: `bend-ml-llama@0.1.0.0` (one file, `LICENSE`, the laws in the README);
+   `BENCHMARK.md` per rule 7 (idle, `taskset -c 3`, 1 and 16 threads, load time and resident peak against
+   PyTorch); CI modeled on bend-ml's.
+10. **Public**: the repository goes public, bend-ml's README links it, a post answering the wishlist line.
+11. **Bridge to a training framework**: `docs/bendtorch.md`, for each op what its backward pass needs from the
+    activations record and what the affine rules made hard. A document, no code.
+
+Optional, after 8: read `model.safetensors` directly in Bend (bf16 → F32 is a shift by 16), so running needs no
+Python; decided after measuring, since `File.read_at` is the cost of loading (bend-ml exp. 13).
 
 ## Risks and open questions
 
