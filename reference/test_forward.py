@@ -1,4 +1,5 @@
-"""The whole SmolLM2-135M forward pass in Bend (demo/forward.bend) against transformers (reference/forward_ref.py).
+"""The whole forward pass in Bend (demo/forward.bend) against transformers (reference/forward_ref.py), for the model
+MODEL (models.py).
 
   reference/.venv/bin/python reference/test_forward.py <compiled forward>
 
@@ -9,9 +10,10 @@ how the error grows with depth; it is not a pass criterion.
 import os, subprocess, sys, time
 import numpy as np
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-T_DIR = os.path.join(ROOT, "data", "test")
+from models import ROOT, D, T_DIR, sizes
+
 EXE = sys.argv[1]
+HIDDEN, LAYERS, VOCAB = sizes()[0], sizes()[4], sizes()[5]
 TOL = 2e-4
 N_PROMPTS = 11
 
@@ -26,7 +28,7 @@ def rel(got, want):
 
 def run(ids):
     t0 = time.time()
-    r = subprocess.run([EXE] + [str(x) for x in ids], capture_output=True, text=True, cwd=ROOT)
+    r = subprocess.run([EXE, D] + [str(x) for x in ids], capture_output=True, text=True, cwd=ROOT)
     dt = time.time() - t0
     rows = {}
     for line in r.stdout.splitlines():
@@ -44,7 +46,7 @@ def main():
         ids = [int(x) for x in open(os.path.join(T_DIR, f"fwd{i}_ids.txt")).read().split()]
         t = len(ids)
         rows, dt = run(ids)
-        lg, nf, hs = ref(i, "logits", 49152), ref(i, "nf", 576), ref(i, "h", 576).reshape(30, t, 576)
+        lg, nf, hs = ref(i, "logits", VOCAB), ref(i, "nf", HIDDEN), ref(i, "h", HIDDEN).reshape(LAYERS, t, HIDDEN)
         worst, where, same = 0.0, -1, True
         for p in range(t):
             got = rows.get(("logits", p))
@@ -59,7 +61,7 @@ def main():
         failures += not ok
         print(f"{'ok  ' if ok else 'ERROR'} fwd{i} ({t} positions, {dt:.1f} s): logits worst {worst:.2e} (position {where}), argmax {'same' if same else 'DIFFERS'}")
         drift = []
-        for l in range(30):
+        for l in range(LAYERS):
             e = max((rel(rows[(f'h{l}', p)], hs[l, p]) for p in range(t) if (f'h{l}', p) in rows), default=float("inf"))
             drift.append(e)
         e_nf = max((rel(rows[("nf", p)], nf[p]) for p in range(t) if ("nf", p) in rows), default=float("inf"))
