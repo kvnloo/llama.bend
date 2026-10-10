@@ -281,9 +281,38 @@ def head_split(xs, half):
 # The numeric pieces (tested against transformers, never proved: F32 is not a real number)
 # =====================================================================================================
 
+# the squares of xs
+def squares(xs: List<&2, F32>) -> List<&2, F32>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{+h, t}:
+      (h * h : F32) <> squares(t)
+
+# adjacent pairs added: [a, b, c, d, e] -> [a + b, c + d, e]
+def pair_sums(xs: List<&2, F32>) -> List<&2, F32>:
+  match xs:
+    case Con{+a, Con{+b, t}}:
+      (a + b : F32) <> pair_sums(t)
+    case _:
+      xs
+
+# the sum as a balanced tree of additions (pairwise summation): its rounding error grows with log2(n), not n, as
+# in PyTorch's cascade sum. A running sum loses the small squares next to a large one (NOTES, 2026-10-10).
+def tree_sum(fuel: Nat, xs: List<&2, F32>) -> F32:
+  match fuel xs:
+    case _ Nil{}:
+      0.0
+    case _ Con{+a, Nil{}}:
+      a
+    case 0n Con{+a, t}:
+      T.sum.go(t, a)
+    case 1n+p Con{+a, t}:
+      tree_sum(p, pair_sums(Con{a, t}))
+
 # RMSNorm: g * (x * (1 / sqrt(mean(x²) + eps))), in this order (LlamaRMSNorm.forward)
 def rmsnorm(+c: Cfg, +x: List<&2, F32>, +g: List<&2, F32>) -> List<&2, F32>:
-  T.zip_with.mul(g, T.scale.l((1.0 / F32.sqrt(((T.sq_sum(x, 0.0) / F32.from_nat(Cfg.dim(c)) : F32) + Cfg.eps(c) : F32)) : F32), x))
+  T.zip_with.mul(g, T.scale.l((1.0 / F32.sqrt(((tree_sum(Cfg.dim(c), squares(x)) / F32.from_nat(Cfg.dim(c)) : F32) + Cfg.eps(c) : F32)) : F32), x))
 
 # inv_freq[i] = 1 / (theta ^ (2i / head)), i = 0..half-1 (LlamaRotaryEmbedding, default rope)
 def inv_freq.go(n: Nat, +i: Nat, +theta: F32, +hd: F32) -> List<&2, F32>:
