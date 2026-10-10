@@ -16,8 +16,8 @@ current position, and the weight layout covers the file exactly.
 | 3. One layer | output within 1e-5 of PyTorch | done (2026-10-09): every intermediate within 2.2e-6 |
 | 4. Full forward | logits within ~2e-4, same argmax on 10+ prompts | done (2026-10-10): within 2.5e-5, same argmax at all 88 positions of 11 prompts |
 | 5. Generation | the same 32 greedy tokens as `transformers` | done (2026-10-10): the same ids and text on 12 prompts |
-| 6. Generic typed API | a `Config` in the types; bit for bit equal to milestone 5 | |
-| 7. Laws | the laws on that API, `--verdict` | |
+| 6. Generic typed API | a `Config` in the types; bit for bit equal to milestone 5 | done (2026-10-10): [`llama/`](llama/), all outputs identical |
+| 7. Laws | the laws on that API, `--verdict` | done (2026-10-10): [the laws](llama/README.md#the-laws-in-plain-language) |
 | 8. Generality | SmolLM2-360M with only the config changed | |
 | 9. Package and benchmark | `bend-ml-llama` on BendHub; time per token against PyTorch | |
 
@@ -26,7 +26,8 @@ The plan is in [`docs/plan.md`](docs/plan.md) and what I find along the way in [
 ```bash
 make setup   # needs Bend 2.0.35 (bend-ml's scripts/setup.sh installs it) and Python 3.12+
 make prep    # downloads SmolLM2-135M at a pinned revision into data/
-make check   # prep checks, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against `transformers`
+make laws    # the package's proofs: bend, then --verdict (Bend's kernel proved in Lean)
+make check   # the laws, prep checks, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against `transformers`
 ```
 
 To generate text (greedy, here 32 tokens):
