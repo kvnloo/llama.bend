@@ -2,8 +2,10 @@
 
 Llama-architecture language models in Bend 2: RMSNorm, rotary position embeddings, grouped-query attention with a
 key/value cache, and SwiGLU. The sizes of a model come from a config (`Cfg`), and **every weight matrix has its
-shape in its type**, computed from that config, so a model of other sizes is the same code with another config. The structure is proved by Bend's checker and again by its kernel proved in Lean. The numbers are tested
-against PyTorch: they match `transformers` token for token in the
+shape in its type**, computed from that config, so a model of other sizes is the same code with another config:
+SmolLM2-135M, SmolLM2-360M and SmolLM2-1.7B (plain multi-head attention, another RoPE base) all run on it. The
+structure is proved by Bend's checker and again by its kernel proved in Lean. The numbers are tested against
+PyTorch: all three models give the same greedy tokens as `transformers` in the
 [llama.bend](https://github.com/nuxyel/llama.bend) repository.
 
 - Bend: **2.0.35** · License: MIT · Depends on `bend-ml-tensor@0.1.2.0` and `bend-ml-tensor-array@0.1.6.0`.
@@ -26,15 +28,17 @@ def step(+c: M.Cfg, +t: Nat, m: M.Model<c>, cs: List<&2, M.Cache(t)>, +tok: Nat)
 | `gqa_head` | With `g` query heads per key/value head, query head `j·g + i` (for `i < g`) reads key/value head `(j·g + i) / g = j`. That division is how `transformers` maps query heads to key/value heads (`repeat_kv`). This package groups the query heads instead (group `j` reads key/value head `j`), and the law says both choose the same key/value head. The proof goes through `Nat.div` itself: `j·g` is `j` whole blocks of `g`, and `i < g` more numbers do not complete another one. |
 | `groups_len`, `cols_len` | The query heads form exactly `kv` groups, and the cache gives exactly `kv` key/value columns. Attention walks the two lists together, so every group meets a key/value head; none is dropped, and none reads a missing head. |
 | `rows_len`, `causal` | The cache has the type `Cache(t)`: the number of positions it holds is in its type. At position `t`, attention runs over the cache of `t` earlier positions plus the new one: exactly `t + 1` rows, positions `0..t`. A later position cannot be read because the value does not contain it. |
-| `layout_135m`, `layout_360m` | The shapes that the types give to the weights (the embedding, every layer's nine tensors and the final norm) add up to 134,515,008 numbers for SmolLM2-135M and 361,821,120 for SmolLM2-360M, the number of values in each checkpoint. The loader stops on any file whose size differs from the shape in its type, so together the files cover the checkpoint exactly. |
-| `smollm2_135m_sizes`, `smollm2_360m_sizes` | The two configs give the sizes of their `config.json`: SmolLM2-135M has 9 query heads of 64 numbers, a hidden size of 576 and keys 192 wide; SmolLM2-360M has 15 heads of 64 numbers, a hidden size of 960 and keys 320 wide. |
+| `layout_135m`, `layout_360m`, `layout_1_7b` | The shapes that the types give to the weights (the embedding, every layer's nine tensors and the final norm) add up to 134,515,008 numbers for SmolLM2-135M, 361,821,120 for SmolLM2-360M and 1,711,376,384 for SmolLM2-1.7B, the number of values in each checkpoint. The loader stops on any file whose size differs from the shape in its type, so together the files cover the checkpoint exactly. |
+| `smollm2_135m_sizes`, `smollm2_360m_sizes`, `smollm2_1_7b_sizes` | The configs give the sizes of their `config.json`: SmolLM2-135M has 9 query heads of 64 numbers, a hidden size of 576 and keys 192 wide; SmolLM2-360M has 15 heads of 64, a hidden size of 960 and keys 320 wide; SmolLM2-1.7B has 32 heads of 64, a hidden size of 2048 and keys 2048 wide (one query head per key/value head). |
 
 `add_zero`, `add_succ`, `add_one`, `add_assoc`, `div_block`, `div_blocks` and `div_rest` are the arithmetic lemmas that
 the proofs above use.
 
 What is **not** proved: the numbers. `F32` is not a real number. RMSNorm, RoPE, softmax and silu follow the order
-of operations of `transformers`' `modeling_llama.py`, and the tests check the results (logits within 2.5e-5 of
-PyTorch, the same greedy tokens). The vectors between layers are lists whose length is not in their type.
+of operations of `transformers`' `modeling_llama.py`, and the tests check the results: logits within 8.3e-5 of
+PyTorch (relative to the largest logit, over 11 prompts and the three models), the same greedy tokens. RMSNorm sums
+its squares as a balanced tree, which keeps it within ~1e-7 of float64 next to the large activations of deep
+layers. The vectors between layers are lists whose length is not in their type.
 
 ## How a model is described
 
@@ -44,10 +48,10 @@ type Cfg is Data:
 ```
 
 `kv` key/value heads, `g` query heads per key/value head, heads of `2·half` numbers, MLP width `f`. From these
-fields: `Cfg.heads = kv·g`, `Cfg.dim = heads·2·half`, `Cfg.kvw = kv·2·half`. `smollm2_135m()` and `smollm2_360m()`
-are given, and `read_cfg(dir)` reads `<dir>/cfg.txt` (written by llama.bend's `reference/prep.py`, which checks
-that the `config.json` describes a model this package runs: a Llama with SwiGLU, no biases, plain RoPE and a tied
-LM head).
+fields: `Cfg.heads = kv·g`, `Cfg.dim = heads·2·half`, `Cfg.kvw = kv·2·half`. `smollm2_135m()`, `smollm2_360m()`
+and `smollm2_1_7b()` are given, and `read_cfg(dir)` reads `<dir>/cfg.txt`, written by llama.bend's
+`reference/prep.py`, which checks that the `config.json` describes a model this package runs: a Llama with
+SwiGLU, no biases, plain RoPE and a tied LM head.
 
 ## API
 
