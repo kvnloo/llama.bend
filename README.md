@@ -1,11 +1,32 @@
 # llama.bend
 
 [![CI](https://github.com/nuxyel/llama.bend/actions/workflows/ci.yml/badge.svg?branch=devel)](https://github.com/nuxyel/llama.bend/actions/workflows/ci.yml)
+[![Bend 2.0.35](https://img.shields.io/badge/Bend-2.0.35-7b68ae)](https://github.com/bendlang/bend)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Llama-architecture language models running in [Bend 2](https://github.com/bendlang/bend), with the shapes in the
 types. One typed package, [`llama/`](llama/) (the future BendHub package `bend-ml-llama`), runs SmolLM2-135M,
 SmolLM2-360M and SmolLM2-1.7B. Only the config changes between them. All three give the same greedy tokens as
 PyTorch (`transformers`).
+
+```console
+$ ./gen data/smollm2-1.7b "The capital of France is" 32
+weights loaded in 72.6s
+prompt ids: 504 3575 282 4649 314
+  id 7042  logit 1099424379 16.985586  t=1.4s
+  id 30  logit 1100828526 19.663784  t=1.8s
+  ...
+text: The capital of France is Paris.
+
+The capital of the United States is Washington, D.C.
+
+The capital of the United Kingdom is London.
+
+The capital
+```
+
+Those are the same 32 tokens that `transformers` generates, computed in Bend on the CPU (prompt tokenized in Bend
+too; the logit of each chosen token is printed as its exact F32 bits and its value).
 
 The structure is proved by Bend's checker and again by its kernel proved in Lean (`--verdict`). The numbers are
 tested against PyTorch, because `F32` is not a real number and cannot be proved. It follows
@@ -14,7 +35,30 @@ tested against PyTorch, because `F32` is not a real number and cannot be proved.
 ## What is proved
 
 The laws are in [`llama/main.bend`](llama/main.bend). Each one is explained in plain language in
-[`llama/README.md`](llama/README.md#the-laws-in-plain-language).
+[`llama/README.md`](llama/README.md#the-laws-in-plain-language). They look like this:
+
+```python
+# the key/value cache of t positions: its type says how many it holds
+def Cache(t: Nat) -> Data:
+  match t:
+    case 0n:
+      Unit
+    case 1n+p:
+      Snoc<Cache(p)>
+
+# one layer at position t takes the cache of t positions and returns it with t + 1;
+# its weights LW<c> have their shapes from the config c
+def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: Cache(t), +rt: Rot, +x: List<&2, F32>) -> BR<c, t>
+
+# with g = 1 + i + k query heads per key/value head, query head j·g + i reads key/value head j
+law gqa_head:
+  for +j: Nat
+  for +i: Nat
+  for +k: Nat
+  {Nat.div(Nat.add(Nat.mul(j, 1n+Nat.add(i, k)), i), 1n+Nat.add(i, k)) == j : Nat}
+```
+
+In short:
 
 - **Grouped-query attention reads the right heads.** With g query heads per key/value head, query head
   j·g + i reads key/value head (j·g + i) / g = j, the mapping `transformers` uses. This is proved over `Nat.div`
@@ -66,7 +110,7 @@ The other models are one variable away: `make prep check MODEL=smollm2-360m`, or
 ## Limits
 
 - **Not benchmarked yet.** Informally, on my machine (Core Ultra 7 155H, 16 threads), SmolLM2-135M loads in
-  ~4 s and runs a forward pass in ~0.12 s. The 1.7B loads in ~83 s and runs a pass in ~0.8 s, with a peak of
+  ~4 s and runs a forward pass in ~0.12 s. The 1.7B loads in 73-83 s and runs a pass in ~0.8 s, with a peak of
   6.9 GB. A real benchmark against PyTorch is the next milestone.
 - CPU only; base models, greedy decoding, no chat template. The vectors between layers are lists whose length is
   not in their type, and the numerics are tested, never proved.
