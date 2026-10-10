@@ -1,9 +1,10 @@
-"""Prepares SmolLM2-135M for Bend (milestone 1) and checks the result.
+"""Prepares a model for Bend (milestone 1) and checks the result. The model is MODEL (models.py; default
+smollm2-135m), downloaded at its pinned revision into data/<MODEL>/.
 
-  reference/.venv/bin/python reference/prep.py          download (pinned revision) and write data/
-  reference/.venv/bin/python reference/prep.py --check  verify what is in data/
+  reference/.venv/bin/python reference/prep.py          download (pinned revision) and write data/<MODEL>/
+  reference/.venv/bin/python reference/prep.py --check  verify what is in data/<MODEL>/
 
-Writes to data/:
+Writes to data/<MODEL>/:
   hf/            config.json, tokenizer.json, model.safetensors as downloaded
   w/<name>.bin   one little-endian float32 file per tensor, row = output (the PyTorch Linear layout), the layout
                  bend-ml's loader reads; names in WEIGHTS below
@@ -22,12 +23,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(__file__))
 import bpe_ref
 
-REPO = "HuggingFaceTB/SmolLM2-135M"
-REV = "93efa2f097d58c2a74874c7e644dbc9b0cee75a2"  # checked 2026-10-09
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-D = os.path.join(ROOT, "data")
-HF = os.path.join(D, "hf")
-W = os.path.join(D, "w")
+from models import REPO, REV, D, HF, W, config
 
 # the GPT-2 regex of the ByteLevel pre-tokenizer (use_regex = true)
 GPT2_PAT = r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
@@ -54,10 +50,6 @@ def bytes_to_unicode():
         if b not in bs:
             bs.append(b); cs.append(256 + n); n += 1
     return dict(zip(bs, map(chr, cs)))
-
-
-def config():
-    return json.load(open(os.path.join(HF, "config.json")))
 
 
 def weights(c):
@@ -100,7 +92,7 @@ def download():
     from huggingface_hub import hf_hub_download
     for name in ["config.json", "tokenizer.json", "model.safetensors"]:
         hf_hub_download(REPO, name, revision=REV, local_dir=HF)
-    print(f"downloaded {REPO}@{REV[:7]} into data/hf/")
+    print(f"downloaded {REPO}@{REV[:7]} into {os.path.relpath(HF)}/")
 
 
 def write_weights():
@@ -114,7 +106,7 @@ def write_weights():
             a = t.float().numpy().astype("<f4")
             a.tofile(os.path.join(W, short + ".bin"))
             total += a.size
-    print(f"data/w/: {total:,} numbers")
+    print(f"{os.path.relpath(W)}/: {total:,} numbers")
 
 
 def tables():
