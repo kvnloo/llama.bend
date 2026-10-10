@@ -1,22 +1,21 @@
-"""Expected values for the whole SmolLM2-135M forward pass (milestone 4), from `transformers` in F32 with eager
-attention.
+"""Expected values for the whole forward pass (milestone 4) of the model MODEL (models.py), from `transformers` in
+F32 with eager attention.
 
   reference/.venv/bin/python reference/forward_ref.py
 
-Writes to data/test/, for every prompt i of PROMPTS (the 11 prompts of bend-ml's GPT-2 test), as little-endian
-F32 arrays:
+Writes to data/<MODEL>/test/, for every prompt i of PROMPTS (the 11 prompts of bend-ml's GPT-2 test), as
+little-endian F32 arrays:
   fwd<i>_ids.txt        the prompt's ids (`tokenizers`, no special tokens), one line
-  fwd<i>_h.bin          the output of every layer (30 x T x 576), from forward hooks on the decoder layers
-  fwd<i>_nf.bin         the final norm (T x 576)
-  fwd<i>_logits.bin     the logits (T x 49152)
+  fwd<i>_h.bin          the output of every layer (layers x T x hidden), from forward hooks on the decoder layers
+  fwd<i>_nf.bin         the final norm (T x hidden)
+  fwd<i>_logits.bin     the logits (T x vocab)
 """
 import os
 import numpy as np
 import torch
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HF = os.path.join(ROOT, "data", "hf")
-OUT = os.path.join(ROOT, "data", "test")
+from models import HF, T_DIR as OUT, sizes
+
 PROMPTS = [
     "Wait — the café costs €5 😀 and",
     "The capital of France is",
@@ -53,8 +52,9 @@ def main():
             h.remove()
         with open(os.path.join(OUT, f"fwd{i}_ids.txt"), "w") as f:
             f.write(" ".join(map(str, ids)) + "\n")
-        save(torch.stack([h.reshape(len(ids), 576) for h in hs]), f"fwd{i}_h.bin")
-        save(nf[0].reshape(len(ids), 576), f"fwd{i}_nf.bin")
+        hidden = sizes()[0]
+        save(torch.stack([h.reshape(len(ids), hidden) for h in hs]), f"fwd{i}_h.bin")
+        save(nf[0].reshape(len(ids), hidden), f"fwd{i}_nf.bin")
         save(logits, f"fwd{i}_logits.bin")
         print(f"fwd{i}: {len(ids)} positions, argmax {logits.argmax(-1).tolist()}  {prompt!r}")
 
