@@ -168,6 +168,36 @@ law smollm2_360m_sizes:
 def smollm2_360m_sizes():
   ({==}, {==}, {==}, {==})
 
+# ---- the layout: the shapes in the types add up to the number of values in the checkpoint ----
+
+def n32(+n: Nat) -> U32:
+  U32.from_nat(n)
+
+# the numbers of one layer, from the shapes of LW<c>: two norms, q and o (dim × dim), k and v (kvw × dim),
+# gate and up (ffn × dim) and down (dim × ffn)
+def Cfg.layer_size(+c: Cfg) -> U32:
+  ((2 : U32) * n32(Cfg.dim(c)) + (2 : U32) * n32(Cfg.dim(c)) * n32(Cfg.dim(c)) + (2 : U32) * n32(Cfg.kvw(c)) * n32(Cfg.dim(c)) + (3 : U32) * n32(Cfg.ffn(c)) * n32(Cfg.dim(c)) : U32)
+
+# the numbers of the model, from the shapes of Model<c>: the embedding (vocab × dim), the layers, the final norm
+def Cfg.size(+c: Cfg) -> U32:
+  (n32(Cfg.vocab(c)) * n32(Cfg.dim(c)) + n32(Cfg.layers(c)) * Cfg.layer_size(c) + n32(Cfg.dim(c)) : U32)
+
+# LAW (layout): the shapes the types give to SmolLM2-135M's weights add up to 134,515,008 numbers, and
+# SmolLM2-360M's to 361,821,120: the number of values in each model.safetensors (reference/prep.py counts them).
+# The loader checks every file's size against the shape in its type, so together the files cover the checkpoint
+# exactly. In U32, whose sums wrap at 2^32; every partial sum here is below it, so this is the exact count.
+law layout_135m:
+  {Cfg.size(smollm2_135m()) == (134515008 : U32) : U32}
+
+def layout_135m():
+  {==}
+
+law layout_360m:
+  {Cfg.size(smollm2_360m()) == (361821120 : U32) : U32}
+
+def layout_360m():
+  {==}
+
 # =====================================================================================================
 # Heads
 # =====================================================================================================
