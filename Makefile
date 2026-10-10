@@ -17,6 +17,7 @@ check:            ## prep, the Bend tokenizer against `tokenizers`, one layer an
 	mkdir -p .scratch
 	bend demo/tok.bend -o .scratch/tok
 	$(PY) reference/test_tok.py .scratch/tok
+	$(PY) reference/test_detok.py .scratch/tok
 	[ -f data/test/inv_freq.bin ] || $(PY) reference/layer_ref.py
 	bend demo/layer_test.bend -o .scratch/layer_test
 	$(PY) reference/test_layer.py .scratch/layer_test
