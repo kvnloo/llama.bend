@@ -79,7 +79,10 @@ API; phase C publishes it.
    README in plain language. **Done 2026-10-10**: GQA mapping through `Nat.div`, groups and columns, `Cache(t)`,
    head split, layout (in `U32`) and config sizes; `--verdict` ok.
 8. **Generality**: `prep.py --model`, and SmolLM2-360M with only the config changed. Pass: the same 32 greedy
-   tokens as `transformers`. Stretch: SmolLM2-1.7B if the memory allows (measure first).
+   tokens as `transformers`. Stretch: SmolLM2-1.7B if the memory allows (measure first). **Done 2026-10-10**, the
+   stretch too: `MODEL=` picks the model (`reference/models.py`); SmolLM2-360M and SmolLM2-1.7B (32 key/value heads
+   of one query head, RoPE theta 130000) give the same tokens on the 12 prompts with no code change. Found on the
+   way: RMSNorm now sums its squares pairwise (NOTES).
 
 **Phase C: publish**
 
