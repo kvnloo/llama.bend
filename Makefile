@@ -8,7 +8,7 @@ PY := reference/.venv/bin/python
 
 .PHONY: setup prep laws check bits
 
-setup:            ## check the pinned Bend, create the Python venv
+setup:            ## install the pinned Bend and Lean if missing, create the Python venv
 	scripts/setup.sh
 
 prep:             ## download MODEL (pinned revision) and write data/MODEL/ (135M: 270 MB down, 540 MB written)
