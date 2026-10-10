@@ -16,8 +16,10 @@ current position, and the weight layout covers the file exactly.
 | 3. One layer | output within 1e-5 of PyTorch | done (2026-10-09): every intermediate within 2.2e-6 |
 | 4. Full forward | logits within ~2e-4, same argmax on 10+ prompts | |
 | 5. Generation | the same 32 greedy tokens as `transformers` | |
-| 6. Laws | the four laws, `--verdict` | |
-| 7. Package and benchmark | `bend-ml-llama` on BendHub; time per token against PyTorch | |
+| 6. Generic typed API | a `Config` in the types; bit for bit equal to milestone 5 | |
+| 7. Laws | the laws on that API, `--verdict` | |
+| 8. Generality | SmolLM2-360M with only the config changed | |
+| 9. Package and benchmark | `bend-ml-llama` on BendHub; time per token against PyTorch | |
 
 The plan is in [`docs/plan.md`](docs/plan.md) and what I find along the way in [`NOTES.md`](NOTES.md).
 
