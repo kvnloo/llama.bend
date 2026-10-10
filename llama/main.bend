@@ -154,8 +154,13 @@ def smollm2_135m() -> Cfg:
 def smollm2_360m() -> Cfg:
   Cfg{5n, 3n, 32n, 2560n, 32n, 49152n, 0.00001, 100000.0}
 
+# SmolLM2-1.7B: 32 key/value heads of one query head each (plain multi-head attention), heads of 64
+def smollm2_1_7b() -> Cfg:
+  Cfg{32n, 1n, 32n, 8192n, 24n, 49152n, 0.00001, 130000.0}
+
 # LAW (the configs): SmolLM2-135M has 9 query heads of 64, a hidden size of 576 and keys of 192; SmolLM2-360M
-# has 15 query heads of 64, a hidden size of 960 and keys of 320, as their config.json files say.
+# has 15 query heads of 64, a hidden size of 960 and keys of 320; SmolLM2-1.7B has 32 query heads of 64, a hidden
+# size of 2048 and keys of 2048 (as many key/value heads as query heads), as their config.json files say.
 law smollm2_135m_sizes:
   {Cfg.dim(smollm2_135m()) == 576n : Nat} & {Cfg.heads(smollm2_135m()) == 9n : Nat} & {Cfg.head(smollm2_135m()) == 64n : Nat} & {Cfg.kvw(smollm2_135m()) == 192n : Nat}
 
@@ -166,6 +171,12 @@ law smollm2_360m_sizes:
   {Cfg.dim(smollm2_360m()) == 960n : Nat} & {Cfg.heads(smollm2_360m()) == 15n : Nat} & {Cfg.head(smollm2_360m()) == 64n : Nat} & {Cfg.kvw(smollm2_360m()) == 320n : Nat}
 
 def smollm2_360m_sizes():
+  ({==}, {==}, {==}, {==})
+
+law smollm2_1_7b_sizes:
+  {Cfg.dim(smollm2_1_7b()) == 2048n : Nat} & {Cfg.heads(smollm2_1_7b()) == 32n : Nat} & {Cfg.head(smollm2_1_7b()) == 64n : Nat} & {Cfg.kvw(smollm2_1_7b()) == 2048n : Nat}
+
+def smollm2_1_7b_sizes():
   ({==}, {==}, {==}, {==})
 
 # ---- the layout: the shapes in the types add up to the number of values in the checkpoint ----
@@ -182,8 +193,8 @@ def Cfg.layer_size(+c: Cfg) -> U32:
 def Cfg.size(+c: Cfg) -> U32:
   (n32(Cfg.vocab(c)) * n32(Cfg.dim(c)) + n32(Cfg.layers(c)) * Cfg.layer_size(c) + n32(Cfg.dim(c)) : U32)
 
-# LAW (layout): the shapes the types give to SmolLM2-135M's weights add up to 134,515,008 numbers, and
-# SmolLM2-360M's to 361,821,120: the number of values in each model.safetensors (reference/prep.py counts them).
+# LAW (layout): the shapes the types give to SmolLM2-135M's weights add up to 134,515,008 numbers,
+# SmolLM2-360M's to 361,821,120 and SmolLM2-1.7B's to 1,711,376,384: the number of values in each model.safetensors (reference/prep.py counts them).
 # The loader checks every file's size against the shape in its type, so together the files cover the checkpoint
 # exactly. In U32, whose sums wrap at 2^32; every partial sum here is below it, so this is the exact count.
 law layout_135m:
@@ -196,6 +207,12 @@ law layout_360m:
   {Cfg.size(smollm2_360m()) == (361821120 : U32) : U32}
 
 def layout_360m():
+  {==}
+
+law layout_1_7b:
+  {Cfg.size(smollm2_1_7b()) == (1711376384 : U32) : U32}
+
+def layout_1_7b():
   {==}
 
 # =====================================================================================================
