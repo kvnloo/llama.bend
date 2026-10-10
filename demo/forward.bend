@@ -3,7 +3,7 @@
 # `name t b0 b1 ...` (name h<l> for layer l, nf, logits). reference/test_forward.py compares them with
 # transformers.
 #
-#   forward <id> <id> ...        (the model in data/: cfg.txt and w/, written by reference/prep.py)
+#   forward <dir> <id> <id> ...   (the model in dir: cfg.txt and w/, written by reference/prep.py)
 
 import Base
 import ../llama/main.bend as M
@@ -64,18 +64,18 @@ def read_ids(xs: List<String>) -> List<&2, Nat>:
     case Con{s, r}:
       read1(Nat.read(s), read_ids(r))
 
-def run_ids(+ids: List<&2, Nat>) -> IO(Unit):
+def run_ids(+dir: String, +ids: List<&2, Nat>) -> IO(Unit):
   do IO<Unit>:
-    +c : M.Cfg <- M.read_cfg("data")
-    m : M.Model<c> <- M.load_model(c, "data")
+    +c : M.Cfg <- M.read_cfg(dir)
+    m : M.Model<c> <- M.load_model(c, dir)
     go(ids, c, 0n, m, M.caches(M.Cfg.layers(c)))
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:
-    case Con{prog, Con{a, r}}:
-      run_ids(read_ids(Con{a, r}))
+    case Con{prog, Con{d, Con{a, r}}}:
+      run_ids(d, read_ids(Con{a, r}))
     case _:
-      IO.print("usage: forward <id> <id> ...")
+      IO.print("usage: forward <dir> <id> <id> ...")
 
 def main() -> IO(Unit):
   do IO<Unit>:
