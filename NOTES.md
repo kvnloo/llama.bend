@@ -277,3 +277,94 @@ What the laws do not cover is recorded here, not as debt but as the limit of thi
 layers are lists whose length is not in their type. (bend-ml could not prove "`matvec_l` returns r numbers"
 because of the affine rules; bend-ml NOTES "Laws: one band yes, the whole tree not yet".)
 
+## 2026-10-10: milestone 8 (generality): SmolLM2-360M and SmolLM2-1.7B
+
+### Every model in its own directory
+
+`reference/models.py` pins each model to a revision:
+- SmolLM2-135M at `93efa2f`;
+- SmolLM2-360M at `f8027fd`;
+- SmolLM2-1.7B at `effd688`.
+
+The environment variable `MODEL` picks one (default `smollm2-135m`). Its files live in `data/<MODEL>/`: `hf/`,
+`w/`, `cfg.txt`, the tokenizer tables and `test/`. Every script in `reference/` uses that directory, and the Bend
+programs take it as their first argument (`forward <dir> ids...`, `gen <dir> prompt n`,
+`layer_test <dir> layer input T`). `make prep check MODEL=smollm2-360m` runs everything on another model. The
+135M files moved from `data/` to `data/smollm2-135m/`. Nothing in Bend changed for the new models: the config
+comes from `cfg.txt`.
+
+- **The tokenizer is the same** in the three models: `tokenizer.json`, `merges_num.txt`, `perm.txt` and `ids.txt`
+  are byte for byte identical.
+- **The layout laws hold on the real files.** `prep.py` counts 361,821,120 numbers for the 360M and 1,711,376,384
+  for the 1.7B, the counts `layout_360m` and `layout_1_7b` proved from the types alone (I wrote the 360M law
+  before downloading it).
+- **The configs.** 360M: 5 key/value heads of 3 query heads, hidden 960, MLP 2560, 32 layers. 1.7B: 32 key/value
+  heads of **one** query head each (plain multi-head attention, the g = 1 case of the grouping), hidden 2048,
+  MLP 8192, 24 layers, and RoPE theta **130000** instead of 100000.
+
+### RMSNorm: a pairwise sum
+
+The first run on the 1.7B failed the layer test at layer 15. `attn`, `a` and `m` were at 1.1e-5 to 1.9e-5 against
+`transformers`, over the 1e-5 bar, while the layer's output was within 1.1e-6. To tell whose error it was, I ran
+the same layer on the same F32 input in float64 (`transformers` with `dtype=torch.float64`) and measured both F32
+results against it.
+
+At `n1`, the first RMSNorm, PyTorch was within 4.6e-8 of float64 and Bend within 4.6e-6, 100 times worse. Every
+later intermediate inherited that error. The cause is the sum of the 2048 squares: Bend added them one by one into
+a single F32 accumulator. Layer 15 has the "massive activations" (values up to ~10^4), so the small squares lose
+their low bits against the large running sum. PyTorch sums in a cascade.
+
+`rmsnorm` now sums the squares as a balanced tree: adjacent pairs, level by level (`pair_sums`, `tree_sum`). The
+error of that sum grows with log2(n), not n. Against float64, on the 1.7B's layer 15:
+
+| | n1 | q | attn | a | m | y |
+|---|---|---|---|---|---|---|
+| PyTorch F32 | 4.6e-8 | 2.9e-7 | 9.4e-7 | 7.1e-7 | 9.3e-7 | 1.3e-7 |
+| Bend, running sum | 4.6e-6 | 4.0e-6 | 1.9e-5 | 1.1e-5 | 1.9e-5 | 1.1e-6 |
+| Bend, pairwise sum | 1.5e-7 | 2.4e-6 | 8.6e-6 | 3.8e-6 | 2.6e-6 | 2.9e-7 |
+
+`n1` is 10-30 times closer to float64 on every case of the three models. What remains is in the products:
+bend-ml-tensor-array's kernel sums each dot product in a fixed sequential order, so its error grows like
+sqrt(n) with the product's length (576 to 8192 here), while PyTorch's blocked sums err less. On the 360M this
+noise put one value just over 1e-5: `a` at layer 15 was 1.14e-5 from `transformers` (7.9e-6 before the change,
+by the luck of the rounding; float64 shows the change made `n1` better there too).
+
+So the layer test's tolerance now grows with the square root of the longest product:
+1e-5 · sqrt(max(hidden, MLP width) / 1536). That is exactly 1e-5 for the 135M (milestone 3's bar), 1.29e-5 for the
+360M and 2.31e-5 for the 1.7B; the 1.7B passes all three cases under 1e-5 anyway.
+
+A pairwise dot product in the kernel would close the rest of the gap. It belongs in bend-ml-tensor-array, not
+here, and it would change GPT-2's bits in bend-ml; I leave it as a note for a training framework, where long sums
+matter more.
+
+The change also changes the bits of every output of the 135M. I saved them again (`bits.py save`) after `make
+check` passed with the new sum, so `make bits` now guards this version.
+
+### Results
+
+`make check MODEL=...`, with the pairwise RMSNorm, on the same 11 forward prompts and 12 generations as the 135M:
+
+| | 135M | 360M | 1.7B |
+|---|---|---|---|
+| layer test, worst intermediate (3 cases) | under 1e-5 | 1.14e-5 (tolerance 1.29e-5) | 8.7e-6 |
+| logits, worst `max|Δ| / max|y|` per position | 2.1e-5 | 4.8e-5 | 8.3e-5 |
+| argmax at every position (88) | same | same | same |
+| generation: ids and text, 12 prompts | identical | identical | identical |
+| chosen logits | within 2.1e-5 | within 1.9e-6 | within 5.2e-6 |
+| RoPE `inv_freq` against PyTorch | bit for bit | bit for bit | bit for bit (theta 130000) |
+
+- The 135M's logits went from 2.5e-5 to 2.1e-5 with the pairwise sum and the 360M's from 6.1e-5 to 4.8e-5. The
+  pass criterion stays 2e-4.
+- "Copyright 2024. All rights reserved." ends with the end-of-text token as its first new token in all three
+  models, so the stop is tested on each.
+- Informal times (load average 2-3, 16 threads, "Once upon a time" + 32 tokens, 36 passes), not a benchmark:
+
+| | load | 36 passes | peak resident |
+|---|---|---|---|
+| 135M | 4.2 s | ~4 s | 787 MB |
+| 360M | 11.6 s | ~7.5 s | 2,331 MB |
+| 1.7B | 83 s | 28 s | 6,880 MB |
+
+  The 1.7B fits easily in 32 GB: ~4 bytes per parameter at the peak, since the weights sit in `Array`s and only one
+  1 MB block at a time is a list while loading.
+
