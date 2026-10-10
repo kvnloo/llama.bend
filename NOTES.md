@@ -178,3 +178,32 @@ the 49,152 logits as exact F32 bits. `reference/forward_ref.py` takes the same v
   numbers and turning 49,152 logits per position into text. One run of 3 positions: 7.7 s with 1 thread, 5.2 s
   with 16.
 
+## 2026-10-10: milestone 5 (generation)
+
+`demo/gen.bend` tokenizes the prompt in Bend, feeds it through the forward pass of `demo/forward.bend` one
+position at a time (one key/value cache per layer), then takes the argmax of the logits as the next token and
+feeds it back, up to n tokens or until the end-of-text token (id 0), after which `generate` stops too. It
+prints each new id with its logit, and the decoded text of the prompt and the continuation.
+
+- **Decoding** is new in `demo/tok.bend` (`decode_text`, and a `--decode` mode for tests). Ids 0-16 are special
+  tokens and are left out, as `decode(skip_special_tokens = True)` does; 17-251 are bytes; 252 + k is merge k.
+  Bytes that are not valid UTF-8 become U+FFFD the way Rust's `String::from_utf8_lossy` does it (the decoder of
+  `tokenizers`): one U+FFFD for each maximal invalid prefix. My first version accepted any continuation byte
+  after a first byte and failed 1 of 300 random id sequences per seed. Unicode's table 3-7 narrows the second byte
+  after 0xE0, 0xED, 0xF0 and 0xF4 (no overlong forms, no surrogates, nothing above U+10FFFF), and 0xC0, 0xC1 and
+  0xF5-0xFF never start a sequence. With these ranges `reference/test_detok.py` passes every case: the 68 test
+  texts, and 300 random id sequences for each of seeds 7, 11, 23, 47, 99. The random sequences mix the whole
+  vocabulary, the special tokens and the byte tokens, so most of them are invalid UTF-8.
+- **Generation:** `reference/gen_ref.py` runs `generate(do_sample = False, max_new_tokens = 32)` in F32, eager
+  attention, on the 11 prompts of milestone 4. A twelfth prompt, "Copyright 2024. All rights reserved.", produces
+  the end-of-text token as its first new token. `reference/test_gen.py` passes all 12:
+  - the prompt ids from Bend's tokenizer are the same;
+  - the generated ids are the same: 32 per prompt, and the single end-of-text token for the twelfth;
+  - the decoded text is identical;
+  - each chosen logit is within 3.2e-5 relative ("Once upon a time"), most within 1e-5.
+- Time, informal (load average 2-3, two alternated runs each, "Once upon a time" + 32 tokens, 36 forward
+  passes): with 1 thread pinned to CPU 3, loading takes 6.3 s and the passes 5.1 s; with 16 threads, 4.0-4.3 s and
+  4.4-4.5 s. So 16 threads gain little over one here (GPT-2 in bend-ml: 5.3 s against 3.7 s for its 36 passes).
+  Each layer has 7 products over 576-wide vectors, all smaller than GPT-2's, so the bands may have too little work
+  each; the attention and the other list code run sequentially. Not measured yet; it is milestone 9's question.
+
