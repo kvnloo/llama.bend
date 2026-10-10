@@ -207,3 +207,73 @@ prints each new id with its logit, and the decoded text of the prompt and the co
   Each layer has 7 products over 576-wide vectors, all smaller than GPT-2's, so the bands may have too little work
   each; the attention and the other list code run sequentially. Not measured yet; it is milestone 9's question.
 
+## 2026-10-10: milestone 6 (the generic, typed API) and milestone 7 (the laws)
+
+The demo code of milestones 3-5 (`demo/layer.bend`, `demo/load.bend`) is replaced by one file, `llama/main.bend`,
+the future BendHub package `bend-ml-llama`. `demo/layer_test.bend`, `demo/forward.bend` and `demo/gen.bend` now
+use it.
+
+### What the types carry
+
+- **A config**, `Cfg{kv, g, half, f, layers, vocab, eps, theta}`, read at run time from `data/cfg.txt`. The file
+  is written by `reference/prep.py`, which first checks that the `config.json` describes what the package runs:
+  `LlamaForCausalLM` with silu, query heads a multiple of the key/value heads, an even head size with
+  heads × head size = hidden, no biases, plain rotate-half RoPE, a tied LM head. The config stores `half`, so a
+  head (`2·half`) is even by construction, and the hidden size is `kv·g·2·half` by construction.
+- **Every weight's shape** is in its type, computed from the config: `LW<c>` holds `Bands<Cfg.dim(c), Cfg.dim(c)>`
+  for q, `Bands<Cfg.kvw(c), Cfg.dim(c)>` for k and v, and so on, and `Model<c>` holds the embedding as
+  `Bands<Cfg.vocab(c), Cfg.dim(c)>`. The products take those sizes, so a product with the wrong matrix does not
+  type-check, and the loader checks every file's size against the shape in its type.
+- **The key/value cache** of t positions has the type `Cache(t)`, a type computed by recursion on t:
+  `Cache(0) = Unit` and `Cache(1 + p) = Snoc<Cache(p)>`, the older positions plus one row. A layer at position t
+  takes a `Cache(t)` and returns a `Cache(1 + t)`. Pushing a row is O(1), and attention lists the rows oldest
+  first. I had to give `Snoc` its own type: the pair `A & B` has kind `Type`, while a cache must be `Data`
+  (attention reads it once per head).
+- **Heads** are `Head{lo, hi}`, the two halves RoPE pairs. **Grouped-query attention** cuts the query heads into
+  `kv` groups of `g` (`groups`) and walks them together with the `kv` key/value columns of the cache (`cols`), so
+  group j reads key/value head j with no index arithmetic at run time.
+- **A layer is written in direct style.** `mv(r, c, W, x, W => y => ...)` runs a product and hands the matrix and
+  the result to a closure, so `block` is one def instead of the chain `b1` … `b13` (`match` only reads
+  parameters, which forced one def per product). The loops over positions recurse inside `Out.then` /
+  `BR.then` closures, which the termination checker accepts. That avoids mutual recursion, and generation runs
+  no forward pass after the last token.
+- **`Act`** (formerly the test's `Tr`) holds every intermediate of a layer. `forward` returns the `Act` of every
+  layer: the tests print them, and a backward pass would read them.
+
+### Milestone 6 pass: bit for bit
+
+`reference/bits.py save` stored the exact output of milestone 5's binaries (`data/test/bits/`): the forward pass
+on the 11 prompts (every layer, the final norm and the logits as F32 bits, 60 MB) and the 12 generations (ids,
+logit bits, text). `bits.py check` with the new code: **all 23 identical**. The layer test is also identical on
+its three cases (layers 0 and 15 of a prompt, 40 positions of noise). `make bits` repeats the check for later
+refactors. The forward run on 3 positions went from ~5.3 s to 4.5 s: RoPE's cosines and sines are now computed
+once per position, not once per layer (`rot_at`).
+
+### Milestone 7: the laws, proved with `--verdict`
+
+All in `llama/main.bend`, explained in `llama/README.md`; `make laws` runs `bend` and `bend --verdict` on it,
+and `make check` runs `make laws` first.
+
+- **`gqa_head`**: for g = 1 + i + k (so g > 0 and i < g), `Nat.div(j·g + i, g) == j`: query head j·g + i reads
+  key/value head j, transformers' `repeat_kv` mapping. The proof goes through Base's `Nat.divmod.go`:
+  - `div_block`: one block of g numbers adds one to the quotient;
+  - `div_blocks`: j blocks add j;
+  - `div_rest`: fewer than g numbers add nothing.
+
+  Rewrites with `%`: `_` marks where the *right* side of the equation sits in the current goal. I had them
+  backwards at first. Each lemma that needs the other direction goes through `Equal.sym`.
+- **`groups_len`, `cols_len`**: exactly `kv` groups and `kv` columns, so the walk pairs them all.
+- **`rows_len`, `causal`**: a `Cache(t)` lists exactly t rows, and attention at position t reads t + 1. The value
+  holds no position past t.
+- **`head_split`**: `join(split(half, xs)) == xs` for every list and every half.
+- **`layout_135m`, `layout_360m`**: the shapes the types give add up to 134,515,008 and 361,821,120 numbers.
+  `Nat` is unary in the checker: `{==}` on 134 M as a `Nat` overflows its stack ("the machine stack overflowed").
+  So the count is in `U32`, where the checker computes it at once. I checked that it refuses 134,515,009. Every
+  partial sum is below 2^32, so wrapping cannot hide an error.
+- **`smollm2_135m_sizes`, `smollm2_360m_sizes`**: the configs give 576 / 960 hidden, 9 / 15 heads of 64,
+  192 / 320 key width.
+
+What the laws do not cover is recorded here, not as debt but as the limit of this design: the vectors between
+layers are lists whose length is not in their type. (bend-ml could not prove "`matvec_l` returns r numbers"
+because of the affine rules; bend-ml NOTES "Laws: one band yes, the whole tree not yet".)
+
