@@ -4,9 +4,9 @@ bit (milestone 6 checks the typed API against milestone 5's code this way).
   reference/.venv/bin/python reference/bits.py save  <compiled forward> <compiled gen>
   reference/.venv/bin/python reference/bits.py check <compiled forward> <compiled gen>
 
-`save` writes data/<MODEL>/test/bits/ (MODEL: models.py): the forward output (every layer, the final norm and the logits, as F32 bits) for the
-11 prompts of forward_ref.py, and the generated ids with the bits of their logits and the text for the 12 prompts
-of gen_ref.py. `check` runs the binaries again and compares byte for byte. Timings printed by gen are left out.
+`save` writes data/<MODEL>/test/bits/ (MODEL: models.py): the forward output (every layer, the final norm and the
+logits, as F32 bits) for the 11 prompts of forward_ref.py, and the generated ids with the bits of their logits and
+the text for the 12 prompts of gen_ref.py. `check` runs the binaries again and compares byte for byte. Timings printed by gen are left out.
 """
 import json, os, re, subprocess, sys
 
