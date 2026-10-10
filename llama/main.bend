@@ -584,6 +584,13 @@ type Act is Data:
 type BR<-c: Cfg, -t: Nat> is Type:
   BR{y: List<&2, F32>, kv: Cache(1n+t), lw: LW<c>, act: Act}
 
+# continues with the fields of a layer's result (a computed value cannot be matched; a loop over positions
+# recurses inside k)
+def BR.then(-R: Type, -c: Cfg, -t: Nat, b: BR<c, t>, k: List<&2, F32> -> Cache(1n+t) -> LW<c> -> Act -> R) -> R:
+  match b:
+    case BR{y, kv, lw, act}:
+      k(y, kv, lw, act)
+
 def mv.go(-B: Type, -r: Nat, -k: Nat, bl: TA.BL<r, k>, then: TA.Bands<r, k> -> List<&2, F32> -> B) -> B:
   match bl:
     case TA.BL{w, y}:
@@ -646,6 +653,12 @@ def layers(+c: Cfg, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&2, Cache(t
 type Out<-c: Cfg, -t: Nat> is Type:
   Out{lg: List<&2, F32>, nf: List<&2, F32>, acts: List<&2, Act>, cs: List<&2, Cache(1n+t)>, m: Model<c>}
 
+# continues with the fields of a position's result: logits, final norm, activations, caches, model
+def Out.then(-R: Type, -c: Cfg, -t: Nat, o: Out<c, t>, k: List<&2, F32> -> List<&2, F32> -> List<&2, Act> -> List<&2, Cache(1n+t)> -> Model<c> -> R) -> R:
+  match o:
+    case Out{lg, nf, acts, cs, m}:
+      k(lg, nf, acts, cs, m)
+
 # the final norm, then logits = emb · nf (the LM head is the embedding matrix)
 def head_of(+c: Cfg, -t: Nat, emb: TA.Bands<Cfg.vocab(c), Cfg.dim(c)>, +lnf: List<&2, F32>, r: Run<c, t>) -> Out<c, t>:
   match r:
@@ -675,6 +688,16 @@ def caches(n: Nat) -> List<&2, Cache(0n)>:
 # the first index of the largest value (torch.argmax does the same), and the value
 type AM is Data:
   AM{i: Nat, v: F32}
+
+def AM.i(am: AM) -> Nat:
+  match am:
+    case AM{i, v}:
+      i
+
+def AM.v(am: AM) -> F32:
+  match am:
+    case AM{i, v}:
+      v
 
 def gt_head(xs: List<&2, F32>, +v: F32) -> Bool:
   match xs:
