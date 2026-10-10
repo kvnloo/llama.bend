@@ -10,7 +10,7 @@ import os, random, subprocess, sys, tempfile
 from tokenizers import Tokenizer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-D = os.path.join(ROOT, "data")
+from models import D  # noqa: E402  (the tokenizer tables of MODEL)
 EXE = sys.argv[1]
 from test_tok import CASES  # noqa: E402
 
