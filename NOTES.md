@@ -152,3 +152,29 @@ The pass criterion was 1e-5. Notes:
   after bend-ml will be. What llama.bend leaves for it: each block returns an activations record (today's `Tr`),
   and `docs/bendtorch.md` (milestone 11) lists what each op's backward pass needs from it.
 - The new milestones and their pass criteria are in `docs/plan.md`.
+
+## 2026-10-10: milestone 4 (the whole forward pass)
+
+`demo/forward.bend` runs the embedding row, the 30 layers of `demo/layer.bend` (one key/value cache each), the
+final RMSNorm and the tied LM head, position by position, and prints every layer's output, the final norm and
+the 49,152 logits as exact F32 bits. `reference/forward_ref.py` takes the same values from `transformers` 5.19
+(F32, eager attention; forward hooks on the 30 decoder layers and on the final norm), and
+`reference/test_forward.py` compares them on the 11 prompts of bend-ml's GPT-2 test (3 to 13 positions each,
+88 in all). The loader for one layer moved from the layer test into `demo/load.bend` (`load_lw`).
+
+- **Logits: worst `max|Δ| / max|y|` per position 2.5e-5** (`"The capital of France is"` and the quick-brown-fox
+  prompt), against the pass criterion of 2e-4; **the argmax is the same at all 88 positions.** It passed the
+  first time it compiled; the only error the checker gave was the order of a printing helper's arguments
+  (termination reads them left to right).
+- The worst position is position 0 in every prompt. I have not looked into why.
+- **The error does not grow with depth.** Worst relative error of each layer's output over a prompt's positions:
+  ~1e-6 for layers 0-8, a peak of 1e-5 to 5e-5 around layers 9-11, back to ~1e-6 to 1e-5 by layer 20, and 1e-5 to
+  2e-5 at layers 28-29. The final norm is within 1.5e-5. The 30 layers do not pile up error; whatever happens
+  around layer 10 fades afterwards. So the drift risk listed in the plan did not show up.
+- **Threads:** the output is the same bit for bit with `--threads 1` and `--threads 16` (11 positions, 8 MB of
+  printed bits each). A first comparison said "identical" because both files were empty: I had called
+  `/usr/bin/time`, which this machine does not have, so the program never ran. I check sizes before `cmp` now.
+- Time per run, not a benchmark (load average ~2): 4.5-5.8 s for 3-13 positions, most of it loading 134.5 M
+  numbers and turning 49,152 logits per position into text. One run of 3 positions: 7.7 s with 1 thread, 5.2 s
+  with 16.
+
