@@ -4,7 +4,7 @@
 # stops after n tokens, or after the end-of-text token (id 0), as transformers' generate does.
 # reference/test_gen.py compares the ids, the chosen logits and the text with transformers.
 #
-#   gen "prompt" n               (the model in data/: cfg.txt and w/, written by reference/prep.py)
+#   gen <dir> "prompt" n         (the model in dir: cfg.txt, w/ and the tokenizer tables, from reference/prep.py)
 #
 # prints `prompt ids: ...`, one line per new token (`id <id> logit <F32 bits> <logit> t=<seconds>`) and
 # `text: <prompt and continuation>`.
@@ -94,38 +94,38 @@ def generate(+c: M.Cfg, model: M.Model<c>, +mb: List<&2, U32>, +pb: List<&2, U32
   start2(c, model, K.rules.go(K.nums(mb), 0n), K.nums(pb), K.encode_text(K.rules.go(K.nums(mb), 0n), K.nums(pb), utf8_of(String.to_list(prompt))), n)
 
 # refuse to run on a malformed merges table (checked before the weights are loaded)
-def run3(ok: Bool, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Nat) -> IO(Unit):
+def run3(ok: Bool, +dir: String, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Nat) -> IO(Unit):
   match ok:
     case True{}:
       do IO<Unit>:
         t0 : Nat <- IO.now()
-        +c : M.Cfg <- M.read_cfg("data")
-        model : M.Model<c> <- M.load_model(c, "data")
+        +c : M.Cfg <- M.read_cfg(dir)
+        model : M.Model<c> <- M.load_model(c, dir)
         t1 : Nat <- IO.now()
         IO.print("weights loaded in " ++ tsec(t1, t0))
         generate(c, model, mb, pb, prompt, n)
     case False{}:
       IO.print("invalid merges table")
 
-def run2(+mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Nat) -> IO(Unit):
-  run3(K.ids_ok(K.nums(mb), 0n), mb, pb, prompt, n)
+def run2(+dir: String, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Nat) -> IO(Unit):
+  run3(K.ids_ok(K.nums(mb), 0n), dir, mb, pb, prompt, n)
 
-def run1(prompt: String, mn: Maybe<&2, Nat>) -> IO(Unit):
+def run1(+dir: String, prompt: String, mn: Maybe<&2, Nat>) -> IO(Unit):
   match mn:
     case None{}:
-      IO.print("usage: gen <prompt> <n_tokens>")
+      IO.print("usage: gen <dir> <prompt> <n_tokens>")
     case Some{n}:
       do IO<Unit>:
-        mb : List<&2, U32> <- K.read_bytes("data/merges_num.txt")
-        pb : List<&2, U32> <- K.read_bytes("data/perm.txt")
-        run2(mb, pb, prompt, n)
+        mb : List<&2, U32> <- K.read_bytes(dir ++ "/merges_num.txt")
+        pb : List<&2, U32> <- K.read_bytes(dir ++ "/perm.txt")
+        run2(dir, mb, pb, prompt, n)
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:
-    case Con{prog, Con{prompt, Con{n, Nil{}}}}:
-      run1(prompt, Nat.read(n))
+    case Con{prog, Con{d, Con{prompt, Con{n, Nil{}}}}}:
+      run1(d, prompt, Nat.read(n))
     case _:
-      IO.print("usage: gen <prompt> <n_tokens>")
+      IO.print("usage: gen <dir> <prompt> <n_tokens>")
 
 def main() -> IO(Unit):
   do IO<Unit>:
