@@ -65,7 +65,8 @@ API; phase C publishes it.
    ~2e-4 and the same argmax on 10+ prompts. **Done 2026-10-10**: within 2.5e-5, the same argmax at all 88
    positions of 11 prompts.
 5. **Generation**: greedy, 32 tokens, key/value cache per layer, tokenizer in and out. Pass: the same ids as
-   `transformers` with `do_sample = False`. First timings in NOTES (not a benchmark).
+   `transformers` with `do_sample = False`. First timings in NOTES (not a benchmark). **Done 2026-10-10**: the
+   same ids, text and chosen logits (within 3.2e-5) on 12 prompts, one of them ending at the end-of-text token.
 
 **Phase B: the reference API**
 
