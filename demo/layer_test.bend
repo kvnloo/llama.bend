@@ -65,23 +65,10 @@ def go(xs: List<&2, List<&2, F32>>, +t: Nat, pend: Y.BR) -> IO(Unit):
     case Nil{} Y.BR{y, kv, lw, tr}:
       show_tr(Nat.sub(t, 1n), tr)
 
-def load_lw(+layer: Nat, +d: Nat) -> IO(Y.LW):
-  do IO<Y.LW>:
-    ln1 : List<&2, F32> <- L.get_list(L.nm(layer, "ln1"), 576n)
-    q : TA.Bands<576n, 576n> <- L.get_bands(L.nm(layer, "q"), d, 576n, 576n)
-    k : TA.Bands<192n, 576n> <- L.get_bands(L.nm(layer, "k"), d, 192n, 576n)
-    v : TA.Bands<192n, 576n> <- L.get_bands(L.nm(layer, "v"), d, 192n, 576n)
-    o : TA.Bands<576n, 576n> <- L.get_bands(L.nm(layer, "o"), d, 576n, 576n)
-    ln2 : List<&2, F32> <- L.get_list(L.nm(layer, "ln2"), 576n)
-    gate : TA.Bands<1536n, 576n> <- L.get_bands(L.nm(layer, "gate"), d, 1536n, 576n)
-    up : TA.Bands<1536n, 576n> <- L.get_bands(L.nm(layer, "up"), d, 1536n, 576n)
-    down : TA.Bands<576n, 1536n> <- L.get_bands(L.nm(layer, "down"), d, 576n, 1536n)
-    return Y.LW{ln1, q, k, v, o, ln2, gate, up, down}
-
 def run(+layer: Nat, path: String, +n: Nat) -> IO(Unit):
   do IO<Unit>:
     threads : U32 <- IO.thread_count()
-    lw : Y.LW <- load_lw(layer, L.depth_for(threads))
+    lw : Y.LW <- L.load_lw(layer, L.depth_for(threads))
     IO.print("inv_freq" ++ show_bits(Y.inv_freq()))
     xs : List<&2, F32> <- L.read_floats(path, Nat.mul(n, 576n))
     go(rows(n, 576n, xs), 0n, Y.BR{Nil{}, Y.KV{Nil{}, Nil{}}, lw, Y.Tr{Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}, Nil{}}})
