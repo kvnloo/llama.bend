@@ -385,6 +385,7 @@ check` passed with the new sum, so `make bits` now guards this version.
 - **CI** (`.github/workflows/ci.yml`, modeled on bend-ml's) runs `make setup prep check` on SmolLM2-135M on every
   push to `main` or `devel`, on pull requests and weekly. Only the toolchain and the Hugging Face download are
   cached. The weights, tables and the oracles' expected values are written again on every run, so a test never
-  compares against stale references. The larger models stay out of CI (disk and time).
+  compares against stale references. The larger models stay out of CI (disk and time). The first run (push of
+  `devel`, run 38071088670) passed in 8 min 28 s on GitHub's `ubuntu-24.04` runner, with empty caches.
 - **The README** is rewritten for a first visit: what is proved, what is tested (a table over the three models),
   how to run it, and the limits, starting with "not benchmarked yet".
