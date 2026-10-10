@@ -368,3 +368,23 @@ check` passed with the new sum, so `make bits` now guards this version.
   The 1.7B fits easily in 32 GB: ~4 bytes per parameter at the peak, since the weights sit in `Array`s and only one
   1 MB block at a time is a list while loading.
 
+
+## 2026-10-10: ready to open (reproducibility, CI, README)
+
+- **`make setup` installs everything.** It used to only check for Bend and send people to bend-ml's script. Now
+  `scripts/setup.sh` installs Bend 2.0.35 (checked by SHA256) and Lean 4.34.0 when missing, the same steps as
+  bend-ml's, then the Python venv.
+- **The Python dependencies are pinned** to the versions every test ran with (`reference/requirements.txt`:
+  torch 2.14.1+cpu, transformers 5.19.0, tokenizers 0.23.2, …). The numeric tests compare against transformers'
+  order of F32 operations, and a range like `transformers>=4.46` could move the expected values.
+- **A run from nothing passes.** I used a clean clone of `devel` and an empty `HOME`: no Bend, no Lean, no BendHub
+  packages, no pip cache, and a `PATH` of only the system directories. Then I ran the three commands of the
+  README: `make setup` installed Bend and Lean, `bend` fetched bend-ml's packages from BendHub, `make prep`
+  downloaded SmolLM2-135M and checked it, and `make check` passed: the laws with `--verdict`, prep, the
+  tokenizer, the decoding, the layer, the forward pass and generation.
+- **CI** (`.github/workflows/ci.yml`, modeled on bend-ml's) runs `make setup prep check` on SmolLM2-135M on every
+  push to `main` or `devel`, on pull requests and weekly. Only the toolchain and the Hugging Face download are
+  cached. The weights, tables and the oracles' expected values are written again on every run, so a test never
+  compares against stale references. The larger models stay out of CI (disk and time).
+- **The README** is rewritten for a first visit: what is proved, what is tested (a table over the three models),
+  how to run it, and the limits, starting with "not benchmarked yet".
