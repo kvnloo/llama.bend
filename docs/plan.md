@@ -62,7 +62,8 @@ API; phase C publishes it.
 
 4. **Full forward**: the 30 layers, the final RMSNorm and the tied LM head (`Bands.matvec_l` over the
    embedding); the oracle also writes the hidden state after every layer, to trace drift. Pass: logits within
-   ~2e-4 and the same argmax on 10+ prompts.
+   ~2e-4 and the same argmax on 10+ prompts. **Done 2026-10-10**: within 2.5e-5, the same argmax at all 88
+   positions of 11 prompts.
 5. **Generation**: greedy, 32 tokens, key/value cache per layer, tokenizer in and out. Pass: the same ids as
    `transformers` with `do_sample = False`. First timings in NOTES (not a benchmark).
 
@@ -94,8 +95,8 @@ Python; decided after measuring, since `File.read_at` is the cost of loading (be
 
 - ~~The token id scheme~~ settled in milestone 1: 21 bytes have no token, the bytes are ids 17-251 and merge k
   is id 252 + k; the Bend tokenizer must drop the 21 bytes before the merges, as `tokenizers` does (NOTES).
-- RoPE float drift over 30 layers: `inv_freq` is bit for bit equal to PyTorch's (milestone 3), so the fallback
-  table is not needed; the drift over 30 layers is milestone 4's question.
+- ~~RoPE float drift over 30 layers~~: `inv_freq` is bit for bit equal to PyTorch's (milestone 3), and the error
+  does not grow over the 30 layers (milestone 4, NOTES).
 - 30 layers: compile time (a data point for the launch question about deeper nets).
 - The chat template (`<|im_start|>` …) is out of scope; the base model is enough.
 - Larger Llama models later (SmolLM2-360M): only the config should change if the package stays generic.
