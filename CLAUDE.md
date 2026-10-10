@@ -12,8 +12,8 @@ typed layers will become the BendHub package `bend-ml-llama`. **Private for now.
 - `NOTES.md`: every finding, measurement and decision, by date. Read it before changing anything.
 - `llama/main.bend`: the typed package (future `bend-ml-llama`): `Cfg`, `LW<c>`, `Model<c>`, `Cache(t)`, `block`,
   `forward`, the loader and every law; `llama/README.md` explains the laws. `make laws` runs bend and `--verdict`.
-- `demo/`: programs on the package (`forward.bend`, `gen.bend`, `layer_test.bend`) and the SmolLM2 tokenizer
-  (`tok.bend`, `unicode.bend`); each takes the model directory as its first argument.
+- `demo/`: programs on the package (`forward.bend`, `gen.bend`, `layer_test.bend`, which take the model
+  directory as their first argument) and the SmolLM2 tokenizer (`tok.bend`, `unicode.bend`).
 - `reference/`: the Python side: `models.py` (the pinned models; `MODEL=` picks one), `prep.py` (download,
   bf16 → F32, `cfg.txt`, tokenizer tables, `--check`), the `transformers` oracles (`*_ref.py`), the tests
   (`test_*.py`) and `bits.py` (exact outputs, to show a refactor changes no bit: `make bits`).
@@ -85,6 +85,17 @@ in type theory: explain each proof in plain language, in a comment and in chat. 
   loading (bend-ml exp. 13), and erasing a large unread list costs more than walking it.
 - An `import ... as M` does not re-export, so a publishable package is one file. Relative imports
   (`import ./x.bend as X`) work for local copies.
+- `Nat` is unary in the checker: `{==}` on a count of millions overflows its stack. State large counts in
+  `U32` (the checker computes them at once; mind the 2^32 wrap) and keep `Nat` for sizes in types.
+- The pair `A & B` has kind `Type`; a value that must be `Data` (reused, like a cache read once per head) needs its
+  own datatype (`Snoc<A>`). A type can be computed by recursion (`def Cache(t: Nat) -> Data`).
+- Scrutinees of a multi-`match` follow parameter order: `match fuel queue left`, never `match fuel left queue`
+  when `queue` is declared first.
+- A loop that must match a computed result (a forward pass at each position) recurses inside a closure: pass the
+  result to a `then`-style def that matches it and calls a lambda (`Out.then(o, lg => ... => loop(p, ...))`). The
+  termination checker accepts the recursive call inside the lambda, and there is no mutual recursion.
+- A running F32 sum loses the small terms next to a large one (Llama's massive activations): sum long reductions
+  as a balanced tree (`tree_sum` in `llama/main.bend`), and compare against a float64 run before blaming PyTorch.
 
 ## Agent skills
 
