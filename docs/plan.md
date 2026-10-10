@@ -74,9 +74,10 @@ API; phase C publishes it.
    (`n_heads = n_kv × g`, `head = 2 × half`, `hidden = n_heads × head`), typed heads, `KV<t>`, one record per
    layer instead of the `b1` … `b13` chain. Each block returns its output and an activations record (today's
    `Tr`), which serves the tests now and a backward pass later. Pass: logits and ids bit for bit equal to
-   phase A (a pure refactor).
+   phase A (a pure refactor). **Done 2026-10-10**: `llama/main.bend`; all 23 outputs of `reference/bits.py` identical.
 7. **Laws** on that API, `--verdict`: the four above, plus "the SmolLM2 configs satisfy `Config`", each in the
-   README in plain language.
+   README in plain language. **Done 2026-10-10**: GQA mapping through `Nat.div`, groups and columns, `Cache(t)`,
+   head split, layout (in `U32`) and config sizes; `--verdict` ok.
 8. **Generality**: `prep.py --model`, and SmolLM2-360M with only the config changed. Pass: the same 32 greedy
    tokens as `transformers`. Stretch: SmolLM2-1.7B if the memory allows (measure first).
 
