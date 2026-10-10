@@ -25,21 +25,23 @@ The plan is in [`docs/plan.md`](docs/plan.md) and what I find along the way in [
 
 ```bash
 make setup   # needs Bend 2.0.35 (bend-ml's scripts/setup.sh installs it) and Python 3.12+
-make prep    # downloads SmolLM2-135M at a pinned revision into data/
+make prep    # downloads SmolLM2-135M at a pinned revision into data/smollm2-135m/
 make laws    # the package's proofs: bend, then --verdict (Bend's kernel proved in Lean)
 make check   # the laws, prep checks, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against `transformers`
 ```
 
+Another model of `reference/models.py` is one variable away: `make prep check MODEL=smollm2-360m`.
+
 To generate text (greedy, here 32 tokens):
 
 ```bash
-bend demo/gen.bend -o gen && ./gen "The capital of France is" 32
+bend demo/gen.bend -o gen && ./gen data/smollm2-135m "The capital of France is" 32
 ```
 
 To tokenize a file with the Bend tokenizer:
 
 ```bash
-bend demo/tok.bend -o tok && ./tok data/merges_num.txt data/perm.txt my_text.txt
+bend demo/tok.bend -o tok && ./tok data/smollm2-135m/merges_num.txt data/smollm2-135m/perm.txt my_text.txt
 ```
 
 MIT · Renan Vinícius (@nuxyel)
