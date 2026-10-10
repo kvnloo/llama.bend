@@ -1,6 +1,6 @@
 # Plan: SmolLM2-135M in Bend
 
-Written 2026-10-09 from my notes of 2026-10-05, updated with what bend-ml
+Written 2026-10-09 from my planning notes of 2026-10-05, updated with what bend-ml
 v1.2.1 now offers.
 
 ## Goal and success bar
