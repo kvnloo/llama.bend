@@ -9,6 +9,7 @@ import json, os
 MODELS = {
     "smollm2-135m": ("HuggingFaceTB/SmolLM2-135M", "93efa2f097d58c2a74874c7e644dbc9b0cee75a2"),  # checked 2026-10-09
     "smollm2-360m": ("HuggingFaceTB/SmolLM2-360M", "f8027fd0eaeea54caa13c31d31b9fdc459c38b49"),  # checked 2026-10-10
+    "smollm2-1.7b": ("HuggingFaceTB/SmolLM2-1.7B", "effd688a12921b4cc83e3312b6feb579f70f9c71"),  # checked 2026-10-10
 }
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
