@@ -1,49 +1,92 @@
 # llama.bend
 
-Llama-architecture language models (SmolLM2-135M, -360M and -1.7B) running in
-[Bend 2](https://github.com/bendlang/bend), with the shapes in the types: one typed package,
-[`llama/`](llama/) (the future BendHub package `bend-ml-llama`), and a config per model. Work in progress,
-private for now.
+[![CI](https://github.com/nuxyel/llama.bend/actions/workflows/ci.yml/badge.svg?branch=devel)](https://github.com/nuxyel/llama.bend/actions/workflows/ci.yml)
 
-It follows [bend-ml](https://github.com/nuxyel/bend-ml), where GPT-2 small runs in Bend and gives the same
-tokens as PyTorch. Here the bar is the same (token for token against `transformers`, greedy), and the new
-layers come with laws checked by Bend's kernel: every query head of grouped-query attention reads an existing
-key/value head, the rotary head size is even by construction, the key/value cache cannot be read past the
-current position, and the weight layout covers the file exactly.
+Llama-architecture language models running in [Bend 2](https://github.com/bendlang/bend), with the shapes in the
+types. One typed package, [`llama/`](llama/) (the future BendHub package `bend-ml-llama`), runs SmolLM2-135M,
+SmolLM2-360M and SmolLM2-1.7B. Only the config changes between them. All three give the same greedy tokens as
+PyTorch (`transformers`).
 
-| Milestone | Pass criterion | Status |
-|---|---|---|
-| 1. Prep | weights bit for bit, sizes, tokenizer tables equivalent to `tokenizers` | done (2026-10-09) |
-| 2. Tokenizer in Bend | same ids as `tokenizers` | done (2026-10-09): 68 texts + 600 random ones |
-| 3. One layer | output within 1e-5 of PyTorch | done (2026-10-09): every intermediate within 2.2e-6 |
-| 4. Full forward | logits within ~2e-4, same argmax on 10+ prompts | done (2026-10-10): within 2.5e-5, same argmax at all 88 positions of 11 prompts |
-| 5. Generation | the same 32 greedy tokens as `transformers` | done (2026-10-10): the same ids and text on 12 prompts |
-| 6. Generic typed API | a `Config` in the types; bit for bit equal to milestone 5 | done (2026-10-10): [`llama/`](llama/), all outputs identical |
-| 7. Laws | the laws on that API, `--verdict` | done (2026-10-10): [the laws](llama/README.md#the-laws-in-plain-language) |
-| 8. Generality | SmolLM2-360M with only the config changed | done (2026-10-10): 360M and 1.7B, the same tokens |
-| 9. Package and benchmark | `bend-ml-llama` on BendHub; time per token against PyTorch | |
+The structure is proved by Bend's checker and again by its kernel proved in Lean (`--verdict`). The numbers are
+tested against PyTorch, because `F32` is not a real number and cannot be proved. It follows
+[bend-ml](https://github.com/nuxyel/bend-ml), where GPT-2 small runs in Bend token for token.
 
-The plan is in [`docs/plan.md`](docs/plan.md) and what I find along the way in [`NOTES.md`](NOTES.md).
+## What is proved
+
+The laws are in [`llama/main.bend`](llama/main.bend). Each one is explained in plain language in
+[`llama/README.md`](llama/README.md#the-laws-in-plain-language).
+
+- **Grouped-query attention reads the right heads.** With g query heads per key/value head, query head
+  j·g + i reads key/value head (j·g + i) / g = j, the mapping `transformers` uses. This is proved over `Nat.div`
+  itself. The query groups and the key/value heads pair up one to one.
+- **The cache is causal by its type.** The key/value cache at position t has the type `Cache(t)` and holds
+  exactly t positions. Attention at position t reads t + 1 rows (positions 0..t), and nothing later exists in the
+  value.
+- **A head is even by construction.** The config stores half a head. Splitting a head into the two halves RoPE
+  rotates together, then joining them, gives the head back.
+- **The weights cover the checkpoint.** Every weight matrix has its shape in its type, computed from the config.
+  Those shapes add up to the number of values in each checkpoint (134,515,008, 361,821,120 and 1,711,376,384),
+  and the loader stops on any file whose size differs from its type.
+
+## What is tested
+
+All against `transformers` 5.19 in F32 with eager attention, by the scripts in [`reference/`](reference/):
+
+| | SmolLM2-135M | SmolLM2-360M | SmolLM2-1.7B |
+|---|---|---|---|
+| config | 3 key/value heads × 3 query heads, 30 layers | 5 × 3, 32 layers | 32 × 1, 24 layers, RoPE base 130,000 |
+| logits, worst error relative to the largest logit (11 prompts) | 2.1e-5 | 4.8e-5 | 8.3e-5 |
+| argmax at each of the 88 positions | the same | the same | the same |
+| 32 greedy tokens and decoded text (12 prompts) | identical | identical | identical |
+
+The tokenizer is written in Bend too (SmolLM2's digit split, the GPT-2 regex and 48,900 merges). It gives the
+same ids as `tokenizers` on 68 fixed texts and 600 random ones, and decodes like it on 1,500 random id
+sequences, most of them invalid UTF-8.
+
+## Running it
+
+Linux (or WSL) and Python 3.14, the version the pinned dependencies were tested with. About 2 GB of disk:
+1.2 GB for the Python venv with PyTorch, 0.9 GB for SmolLM2-135M's files.
 
 ```bash
-make setup   # needs Bend 2.0.35 (bend-ml's scripts/setup.sh installs it) and Python 3.12+
-make prep    # downloads SmolLM2-135M at a pinned revision into data/smollm2-135m/
-make laws    # the package's proofs: bend, then --verdict (Bend's kernel proved in Lean)
-make check   # the laws, prep checks, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against `transformers`
+make setup   # installs Bend 2.0.35 (SHA256-checked) and Lean 4.34.0 if missing, and the Python venv of reference/
+make prep    # downloads SmolLM2-135M at a pinned revision into data/smollm2-135m/ and checks it
+make check   # the laws (--verdict), then every test above against tokenizers and transformers (~4 min)
 ```
 
-Another model of `reference/models.py` is one variable away: `make prep check MODEL=smollm2-360m`.
-
-To generate text (greedy, here 32 tokens):
+Then, to generate text (greedy, 32 tokens):
 
 ```bash
 bend demo/gen.bend -o gen && ./gen data/smollm2-135m "The capital of France is" 32
 ```
 
-To tokenize a file with the Bend tokenizer:
+The other models are one variable away: `make prep check MODEL=smollm2-360m`, or `MODEL=smollm2-1.7b`.
+`reference/models.py` pins each one to a revision.
 
-```bash
-bend demo/tok.bend -o tok && ./tok data/smollm2-135m/merges_num.txt data/smollm2-135m/perm.txt my_text.txt
-```
+## Limits
+
+- **Not benchmarked yet.** Informally, on my machine (Core Ultra 7 155H, 16 threads), SmolLM2-135M loads in
+  ~4 s and runs a forward pass in ~0.12 s. The 1.7B loads in ~83 s and runs a pass in ~0.8 s, with a peak of
+  6.9 GB. A real benchmark against PyTorch is the next milestone.
+- CPU only; base models, greedy decoding, no chat template. The vectors between layers are lists whose length is
+  not in their type, and the numerics are tested, never proved.
+
+## Where things are
+
+| Path | What |
+|---|---|
+| [`llama/`](llama/) | the package: config, layers, model, loader and laws |
+| [`demo/`](demo/) | `gen.bend` (generation), `forward.bend` and `layer_test.bend` (what the tests read), the tokenizer |
+| [`reference/`](reference/) | download and preparation, the `transformers` and `tokenizers` oracles, the tests |
+| [`NOTES.md`](NOTES.md) | every finding, measurement and decision, by date |
+| [`docs/plan.md`](docs/plan.md) | the milestones and their pass criteria |
+
+| Milestone | Status |
+|---|---|
+| 1-3. Prep, tokenizer in Bend, one layer | done (2026-10-09) |
+| 4-5. The whole forward pass, generation | done (2026-10-10) |
+| 6-7. The generic typed package, its laws | done (2026-10-10) |
+| 8. Other sizes: SmolLM2-360M, SmolLM2-1.7B | done (2026-10-10) |
+| 9. Benchmark against PyTorch; `bend-ml-llama` on BendHub | next |
 
 MIT · Renan Vinícius (@nuxyel)
