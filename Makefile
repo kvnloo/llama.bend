@@ -11,7 +11,7 @@ setup:            ## check the pinned Bend, create the Python venv
 prep:             ## download SmolLM2-135M (pinned revision) and write data/ (about 270 MB down, 540 MB written)
 	$(PY) reference/prep.py
 
-check:            ## prep, the Bend tokenizer against `tokenizers`, one layer and the whole forward against transformers
+check:            ## prep, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against transformers
 	! grep -n "@unsafe\|?TODO" demo/*.bend
 	$(PY) reference/prep.py --check
 	mkdir -p .scratch
@@ -24,3 +24,6 @@ check:            ## prep, the Bend tokenizer against `tokenizers`, one layer an
 	[ -f data/test/fwd10_logits.bin ] || $(PY) reference/forward_ref.py
 	bend demo/forward.bend -o .scratch/forward
 	$(PY) reference/test_forward.py .scratch/forward
+	[ -f data/test/gen.json ] || (cd reference && ../$(PY) gen_ref.py)
+	bend demo/gen.bend -o .scratch/gen
+	$(PY) reference/test_gen.py .scratch/gen
