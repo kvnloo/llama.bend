@@ -1,9 +1,9 @@
-"""Expected greedy generations (milestone 5), from `transformers`' generate(do_sample = False) in F32 with eager
-attention.
+"""Expected greedy generations (milestone 5) of the model MODEL (models.py), from `transformers`'
+generate(do_sample = False) in F32 with eager attention.
 
   reference/.venv/bin/python reference/gen_ref.py
 
-Writes data/test/gen.json: for every prompt of forward_ref.PROMPTS and EXTRA, the prompt ids, the N_NEW generated
+Writes data/<MODEL>/test/gen.json: for every prompt of forward_ref.PROMPTS and EXTRA, the prompt ids, the N_NEW generated
 ids (fewer if the end-of-text token comes first; generate stops after it), the logit of each chosen id and the
 decoded text (prompt and continuation, special tokens skipped).
 """
