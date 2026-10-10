@@ -3,7 +3,7 @@ export BEND_NO_TELEMETRY := 1
 export PATH := $(HOME)/.bend/bin:$(HOME)/.elan/bin:$(PATH)
 PY := reference/.venv/bin/python
 
-.PHONY: setup prep check
+.PHONY: setup prep laws check bits
 
 setup:            ## check the pinned Bend, create the Python venv
 	scripts/setup.sh
@@ -11,8 +11,12 @@ setup:            ## check the pinned Bend, create the Python venv
 prep:             ## download SmolLM2-135M (pinned revision) and write data/ (about 270 MB down, 540 MB written)
 	$(PY) reference/prep.py
 
-check:            ## prep, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against transformers
-	! grep -n "@unsafe\|?TODO" demo/*.bend
+laws:             ## the package's proofs, checked by bend and again by the kernel proved in Lean (--verdict)
+	! grep -n "@unsafe\|?TODO" llama/*.bend demo/*.bend
+	bend llama/main.bend
+	bend llama/main.bend --verdict | tee /dev/stderr | tail -1 | grep -qx "ALL PROOFS CHECK"
+
+check: laws       ## the laws, prep, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against transformers
 	$(PY) reference/prep.py --check
 	mkdir -p .scratch
 	bend demo/tok.bend -o .scratch/tok
@@ -27,3 +31,9 @@ check:            ## prep, the Bend tokenizer against `tokenizers`; one layer, t
 	[ -f data/test/gen.json ] || $(PY) reference/gen_ref.py
 	bend demo/gen.bend -o .scratch/gen
 	$(PY) reference/test_gen.py .scratch/gen
+
+bits:             ## forward and gen give the same bits as the saved ones (data/test/bits/; `bits.py save` writes them)
+	mkdir -p .scratch
+	bend demo/forward.bend -o .scratch/forward
+	bend demo/gen.bend -o .scratch/gen
+	$(PY) reference/bits.py check .scratch/forward .scratch/gen
