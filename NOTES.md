@@ -435,3 +435,15 @@ producing the same tokens. Cost per generated token (loading and the prompt excl
 
 Expected: the 1.7B back to about its 0.8 s floor at any length up to a few hundred tokens (about 3x over 128 tokens,
 more over longer ones). After that, the floor itself is the weight products, which is bend-ml's work.
+
+### Next steps, in order (2026-10-11)
+
+1. **Move to `bend-ml-tensor-array@0.1.7.0`** (one import in `llama/main.bend`): -7.5% per token on the 135M and -2.8% on
+   the 360M at 16 threads, -8.5% on the 1.7B at one thread, no worse anywhere beyond the spread. It changes the order of
+   the dot products' additions, so `make bits` will report new bits: check `make check` against transformers first,
+   then save the bits again (`bits.py save`). Same step: decide on the Bend pin (2.0.36 is bend-ml's now; 2.0.37 when
+   it carries #1377).
+2. **Milestone 9: the key/value cache in flat Arrays** (plan above). Pass criterion: a per-token cost that does not grow
+   with the position, within the spread, over 128 and 512 tokens on the three models; the same tokens as transformers;
+   `rows_len` and `causal` restated over the new cache.
+3. Measure again with the measurement harness after each of the two, so the published numbers stay current.
