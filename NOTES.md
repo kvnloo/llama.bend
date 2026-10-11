@@ -389,3 +389,49 @@ check` passed with the new sum, so `make bits` now guards this version.
   `devel`, run 38071088670) passed in 8 min 28 s on GitHub's `ubuntu-24.04` runner, with empty caches.
 - **The README** is rewritten for a first visit: what is proved, what is tested (a table over the three models),
   how to run it, and the limits, starting with "not benchmarked yet".
+
+
+## 2026-10-11: first real benchmark, and the next step: an Array key/value cache
+
+The evidence run of my measurement harness (private for now) measured
+llama.bend at commit `80483ac` on an idle machine, against transformers 5.19, llama.cpp (F32) and candle (F32), all
+producing the same tokens. Cost per generated token (loading and the prompt excluded), ms:
+
+| | 135M, 1 / 16 threads | 360M, 1 / 16 threads | 1.7B over 128 tokens, 1 / 16 threads |
+|---|---|---|---|
+| llama.bend, tensor-array 0.1.6.0 | 143.6 / 108.3 | 336.1 / 220.8 | 2105 / 1587 |
+| llama.bend, tensor-array 0.1.7.0 | 146.9 / 100.2 | 320.3 / 214.6 | 1927 / 1564 |
+| transformers 5.19 (PyTorch 2.14.1) | 26.4 / 23.4 | 59.3 / 32.4 | 234 / 129 |
+| llama.cpp, F32 | 23.7 / 13.6 | 63.0 / 28.3 | 321 / 101 |
+
+- bend-ml-tensor-array 0.1.7.0 (four partial sums in the dot product) is worth moving to: -7.5% on the 135M and
+  -2.8% on the 360M at 16 threads, -8.5% on the 1.7B at one thread, and no worse anywhere beyond the spread.
+- **The cost of a token grows with the context.** Over 128 generated tokens, the 1.7B's own timestamps give 0.82 s
+  per token in the first quarter and 2.54 s in the last at 16 threads (1.39 to 2.73 s at one thread): about 18 ms more
+  for each position already in the cache. llama.cpp takes 101 ms per token for 32 tokens and for 128. Over 32 tokens
+  llama.bend is 6x behind llama.cpp on 16 threads; over 128 it is 15x behind. At 0.82 s, the start of the curve is the
+  weight products (the bands of bend-ml); everything above it is attention.
+- **Why.** At every token and in every layer, `attention` (`llama/main.bend`) rebuilds the list of all cached rows
+  (`rows`), transposes them into one column per key/value head (`cols`), scores the query against each key (`scores`,
+  not tail-recursive) and builds the weighted sum one position at a time with a fresh list each time (`weighted`:
+  `zip_with.add` of `scale.l`). Nothing in it runs in parallel. A cached position of the 1.7B holds 24 layers x 2 x 2048
+  numbers, about 98,000; 18 ms per position is about 180 ns for each, against a few ns of arithmetic.
+
+### Next step (milestone 9 candidate): the key/value cache in flat Arrays
+
+1. **Cache.** Per layer, one `Array<F32>` for the keys and one for the values, capacity `maxT x kvw`, position t
+   written in place at row t. The index stays in the type: a cache of t positions holds t rows, with a proved capacity
+   bound (t < maxT, like `cap_ok` in tensor-array) instead of the `Snoc` chain. Restate `rows_len` and `causal` over it
+   so the "a step cannot read a position not computed yet" guarantee survives.
+2. **Attention kernels on the Arrays.** Scores of one query head against the t keys of its key/value head are a
+   matrix · vector product with a stride (tensor-array's `gemm` already takes row and column strides); the weighted
+   sum of the values is a transposed product. No list per position, no transposition per step.
+3. **Parallel over key/value heads.** One parallel let over the head groups (32 for the 1.7B, 3 for the 135M), with the
+   leaf as its own def (bend-ml NOTES, exp. 11 and 15) and one copy of the query per task, not of the cache.
+4. **Measure** the per-position curve over 128 and 512 tokens on the three models, with the evidence harness, against
+   llama.cpp. Pass criterion: a flat curve within the spread, as llama.cpp's, and the same tokens and logits within the
+   current tolerance against transformers (the order of the sums in attention changes, so the logits will move in the
+   last bits; `make bits` will show it).
+
+Expected: the 1.7B back to about its 0.8 s floor at any length up to a few hundred tokens (about 3x over 128 tokens,
+more over longer ones). After that, the floor itself is the weight products, which is bend-ml's work.
