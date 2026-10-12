@@ -62,9 +62,9 @@ SwiGLU, no biases, plain RoPE and a tied LM head.
 
 | Name | What |
 |---|---|
-| `LW<c>`, `Model<c>` | a layer's weights and the whole model; each matrix is a `bend-ml-tensor-array` `Bands<rows, cols>` with its shape from `c` |
+| `LW<c>`, `Model<c>` | a layer's weights and the whole model; each matrix is a `bend-ml-tensor-array` `Bands<rows, cols>` with its shape from `c`, and the model keeps its parallel depth `d` (`depth_for` of the thread count) |
 | `KV<t>`, `KV.empty(c, cap)`, `KV.push`, `caches(c, n, cap)` | the key/value cache of `t` positions, in arrays with room for `cap` positions |
-| `block(c, lw, t, kv, rot, x) -> BR<c, t>` | one layer at position `t`: the output, the cache grown to `t + 1` positions, the weights handed back, and the activations (`Act`) |
+| `block(c, d, lw, t, kv, rot, x) -> BR<c, t>` | one layer at position `t` (`d = 0`: attention's key/value heads one after another; otherwise in parallel): the output, the cache grown to `t + 1` positions, the weights handed back, and the activations (`Act`) |
 | `forward(c, t, m, cs, tok) -> Out<c, t>` | one position of the whole model: logits, the final norm, every layer's `Act`, the caches, the model |
 | `BR.then`, `Out.then` | continue with the fields of a result; a loop over positions recurses inside them |
 | `argmax`, `AM.i`, `AM.v` | the first index of the largest logit, and that logit |
