@@ -672,13 +672,70 @@ def group_att(hs: List<&2, Head>, +hd: Nat, +t: Nat, +scale: F32, k: Array<F32>,
 type AT is Type:
   AT{ks: List<&1, Array<F32>>, vs: List<&1, Array<F32>>, o: List<&2, F32>}
 
-def attend(gs: List<&2, List<&2, Head>>, ks: List<&1, Array<F32>>, vs: List<&1, Array<F32>>, +hd: Nat, +t: Nat, +scale: F32, aks: List<&1, Array<F32>>, avs: List<&1, Array<F32>>, +acc: List<&2, F32>) -> AT:
+def at_join(p: AT, q: AT) -> AT:
+  match p q:
+    case AT{k1, v1, o1} AT{k2, v2, o2}:
+      AT{List.append(&1, Array<F32>, k1, k2), List.append(&1, Array<F32>, v1, v2), List.append(&2, F32, o1, o2)}
+
+# one key/value head's work: its group of query heads, its keys and its values
+type GW is Type:
+  GW{g: List<&2, Head>, k: Array<F32>, v: Array<F32>}
+
+def gws(gs: List<&2, List<&2, Head>>, ks: List<&1, Array<F32>>, vs: List<&1, Array<F32>>) -> List<&1, GW>:
   match gs ks vs:
     case Con{g, gt} Con{k, kt} Con{v, vt}:
-      HO.then(AT, group_att(g, hd, t, scale, k, v, Nil{}), k2 => v2 => +o =>
-        attend(gt, kt, vt, hd, t, scale, k2 <> aks, v2 <> avs, List.append(&2, F32, acc, o)))
+      GW{g, k, v} <> gws(gt, kt, vt)
     case _ _ _:
+      Nil{}
+
+# some groups one after another, in order
+def seq_att(ws: List<&1, GW>, +hd: Nat, +t: Nat, +scale: F32, aks: List<&1, Array<F32>>, avs: List<&1, Array<F32>>, +acc: List<&2, F32>) -> AT:
+  match ws:
+    case Con{w, wt}:
+      match w:
+        case GW{g, k, v}:
+          HO.then(AT, group_att(g, hd, t, scale, k, v, Nil{}), k2 => v2 => +o =>
+            seq_att(wt, hd, t, scale, k2 <> aks, v2 <> avs, List.append(&2, F32, acc, o)))
+    case Nil{}:
       AT{List.reverse(&1, Array<F32>, aks), List.reverse(&1, Array<F32>, avs), acc}
+
+# a list of groups cut after its first n (a tail loop: a helper in the fork tree must not hold the stack)
+type GS is Type:
+  GS{l: List<&1, GW>, r: List<&1, GW>}
+
+def cut(n: Nat, xs: List<&1, GW>, acc: List<&1, GW>) -> GS:
+  match n xs:
+    case 1n+m Con{x, xt}:
+      cut(m, xt, x <> acc)
+    case _ _:
+      GS{List.reverse(&1, GW, acc), xs}
+
+# how many times n groups are halved (the larger half kept) until one or none is left
+def halvings(fuel: Nat, +n: Nat) -> Nat:
+  match fuel:
+    case 0n:
+      0n
+    case 1n+f:
+      match n:
+        case 0n:
+          0n
+        case 1n+p:
+          match p:
+            case 0n:
+              0n
+            case 1n+q:
+              1n+halvings(f, Nat.sub(2n+q, TA.half(2n+q)))
+
+# the n groups of gs (cut in two halves) in a tree of parallel lets of depth d, each leaf a half of a node; the
+# outputs and the caches come back in group order, so every head computes what it computed one after another
+def par_att(d: Nat, gs: GS, +n: Nat, +hd: Nat, +t: Nat, +scale: F32) -> AT:
+  match d gs:
+    case 0n GS{l, r}:
+      p q = seq_att(l, hd, t, scale, Nil{}, Nil{}, Nil{}) seq_att(r, hd, t, scale, Nil{}, Nil{}, Nil{})
+      at_join(p, q)
+    case 1n++e GS{l, r}:
+      p q = par_att(e, cut(TA.half(TA.half(n)), l, Nil{}), TA.half(n), hd, t, scale) par_att(e, cut(TA.half(Nat.sub(n, TA.half(n))), r, Nil{}), Nat.sub(n, TA.half(n)), hd, t, scale)
+      at_join(p, q)
 
 # the attention output and the cache handed back
 type KA<-t: Nat> is Type:
@@ -694,11 +751,12 @@ def KA.then(-R: Type, -t: Nat, ka: KA<t>, then: KV<t> -> List<&2, F32> -> R) -> 
     case KA{kv, o}:
       then(kv, o)
 
-# attention of the (rotated) query heads at position t over the cache of positions 0..t (the newest included)
+# attention of the (rotated) query heads at position t over the cache of positions 0..t (the newest included);
+# the key/value heads run in parallel, one group per leaf
 def attention(+c: Cfg, +t: Nat, qs: List<&2, Head>, kv: KV<1n+t>) -> KA<1n+t>:
   match kv:
     case KV{ks, vs}:
-      ka_of(1n+t, attend(groups(Cfg.kv(c), Cfg.g(c), qs), ks, vs, Cfg.head(c), t, (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32), Nil{}, Nil{}, Nil{}))
+      ka_of(1n+t, par_att(Nat.sub(halvings(Cfg.kv(c), Cfg.kv(c)), 1n), cut(TA.half(Cfg.kv(c)), gws(groups(Cfg.kv(c), Cfg.g(c), qs), ks, vs), Nil{}), Cfg.kv(c), Cfg.head(c), t, (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32)))
 
 # =====================================================================================================
 # A layer
