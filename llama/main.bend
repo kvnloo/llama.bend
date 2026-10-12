@@ -751,11 +751,15 @@ def KA.then(-R: Type, -t: Nat, ka: KA<t>, then: KV<t> -> List<&2, F32> -> R) -> 
     case KA{kv, o}:
       then(kv, o)
 
-# attention of the (rotated) query heads at position t over the cache of positions 0..t (the newest included);
-# the key/value heads run in parallel, one group per leaf
-def attention(+c: Cfg, +t: Nat, qs: List<&2, Head>, kv: KV<1n+t>) -> KA<1n+t>:
-  match kv:
-    case KV{ks, vs}:
+# attention of the (rotated) query heads at position t over the cache of positions 0..t (the newest included).
+# d is the model's parallel depth (depth_for): with d = 0 (two threads or fewer) the key/value heads run one after
+# another, since a fork tree on one thread is only overhead (+5% on the 1.7B, NOTES 2026-10-12); otherwise they run
+# in parallel, one group per leaf. Both orders compute every head the same way, so the bits are the same.
+def attention(+c: Cfg, +d: Nat, +t: Nat, qs: List<&2, Head>, kv: KV<1n+t>) -> KA<1n+t>:
+  match d kv:
+    case 0n KV{ks, vs}:
+      ka_of(1n+t, seq_att(gws(groups(Cfg.kv(c), Cfg.g(c), qs), ks, vs), Cfg.head(c), t, (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32), Nil{}, Nil{}, Nil{}))
+    case 1n+e KV{ks, vs}:
       ka_of(1n+t, par_att(Nat.sub(halvings(Cfg.kv(c), Cfg.kv(c)), 1n), cut(TA.half(Cfg.kv(c)), gws(groups(Cfg.kv(c), Cfg.g(c), qs), ks, vs), Nil{}), Cfg.kv(c), Cfg.head(c), t, (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32)))
 
 # =====================================================================================================
@@ -792,8 +796,9 @@ def mv.go(-B: Type, -r: Nat, -k: Nat, bl: TA.BL<r, k>, then: TA.Bands<r, k> -> L
 def mv(-B: Type, +r: Nat, +k: Nat, w: TA.Bands<r, k>, +x: List<&2, F32>, then: TA.Bands<r, k> -> List<&2, F32> -> B) -> B:
   mv.go(B, r, k, TA.Bands.matvec_l(r, k, w, x), then)
 
-# the layer at position t (0-based) on input x, with the cache of positions 0..t-1 and the rotation of t
-def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: KV<t>, +rt: Rot, +x: List<&2, F32>) -> BR<c, t>:
+# the layer at position t (0-based) on input x, with the cache of positions 0..t-1 and the rotation of t; d is the
+# parallel depth of attention (see attention)
+def block(+c: Cfg, +d: Nat, lw: LW<c>, +t: Nat, kv: KV<t>, +rt: Rot, +x: List<&2, F32>) -> BR<c, t>:
   match lw:
     case LW{+ln1, wq, wk, wv, wo, +ln2, wg, wu, wd}:
       +n1 = rmsnorm(c, x, ln1)
@@ -802,7 +807,7 @@ def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: KV<t>, +rt: Rot, +x: List<&2, F32>) -
           mv(BR<c, t>, Cfg.kvw(c), Cfg.dim(c), wv, n1, wv => +v =>
             +qs = ropes(rt, heads(Cfg.heads(c), Cfg.half(c), q))
             +ks = ropes(rt, heads(Cfg.kv(c), Cfg.half(c), k))
-            KA.then(BR<c, t>, 1n+t, attention(c, t, qs, KV.push(c, t, kv, joins(ks), chunks(Cfg.kv(c), Cfg.head(c), v))), kv2 => +at =>
+            KA.then(BR<c, t>, 1n+t, attention(c, d, t, qs, KV.push(c, t, kv, joins(ks), chunks(Cfg.kv(c), Cfg.head(c), v))), kv2 => +at =>
             mv(BR<c, t>, Cfg.dim(c), Cfg.dim(c), wo, at, wo => +a =>
               +x1 = T.zip_with.add(x, a)
               +n2 = rmsnorm(c, x1, ln2)
@@ -818,24 +823,24 @@ def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: KV<t>, +rt: Rot, +x: List<&2, F32>) -
 
 # emb: the embedding (vocab rows; also the LM head, tied); lnf: the final norm's gains
 type Model<-c: Cfg> is Type:
-  Model{emb: TA.Bands<Cfg.vocab(c), Cfg.dim(c)>, layers: List<&1, LW<c>>, lnf: List<&2, F32>}
+  Model{d: Nat, emb: TA.Bands<Cfg.vocab(c), Cfg.dim(c)>, layers: List<&1, LW<c>>, lnf: List<&2, F32>}
 
 # the last layer's output, the layers and caches handed back, and every layer's activations
 type Run<-c: Cfg, -t: Nat> is Type:
   Run{x: List<&2, F32>, layers: List<&1, LW<c>>, cs: List<&1, KV<1n+t>>, acts: List<&2, Act>}
 
 # pend is the previous layer's result: its output is the next layer's input
-def run(+c: Cfg, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<t>>, al: List<&1, LW<c>>, ac: List<&1, KV<1n+t>>, aa: List<&2, Act>, pend: BR<c, t>) -> Run<c, t>:
+def run(+c: Cfg, +d: Nat, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<t>>, al: List<&1, LW<c>>, ac: List<&1, KV<1n+t>>, aa: List<&2, Act>, pend: BR<c, t>) -> Run<c, t>:
   match ls cs pend:
     case Con{l, lt} Con{k, kt} BR{+y, kv, l0, act}:
-      run(c, t, rt, lt, kt, l0 <> al, kv <> ac, act <> aa, block(c, l, t, k, rt, y))
+      run(c, d, t, rt, lt, kt, l0 <> al, kv <> ac, act <> aa, block(c, d, l, t, k, rt, y))
     case _ _ BR{+y, kv, l0, act}:
       Run{y, List.reverse(&1, LW<c>, l0 <> al), List.reverse(&1, KV<1n+t>, kv <> ac), List.reverse(&2, Act, act <> aa)}
 
-def layers(+c: Cfg, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<t>>, +x: List<&2, F32>) -> Run<c, t>:
+def layers(+c: Cfg, +d: Nat, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<t>>, +x: List<&2, F32>) -> Run<c, t>:
   match ls cs:
     case Con{l, lt} Con{k, kt}:
-      run(c, t, rt, lt, kt, Nil{}, Nil{}, Nil{}, block(c, l, t, k, rt, x))
+      run(c, d, t, rt, lt, kt, Nil{}, Nil{}, Nil{}, block(c, d, l, t, k, rt, x))
     case _ _:
       Run{x, Nil{}, Nil{}, Nil{}}
 
@@ -851,22 +856,22 @@ def Out.then(-R: Type, -c: Cfg, -t: Nat, o: Out<c, t>, k: List<&2, F32> -> List<
       k(lg, nf, acts, cs, m)
 
 # the final norm, then logits = emb · nf (the LM head is the embedding matrix)
-def head_of(+c: Cfg, -t: Nat, emb: TA.Bands<Cfg.vocab(c), Cfg.dim(c)>, +lnf: List<&2, F32>, r: Run<c, t>) -> Out<c, t>:
+def head_of(+c: Cfg, -t: Nat, +d: Nat, emb: TA.Bands<Cfg.vocab(c), Cfg.dim(c)>, +lnf: List<&2, F32>, r: Run<c, t>) -> Out<c, t>:
   match r:
     case Run{+x, ls, cs, acts}:
       +nf = rmsnorm(c, x, lnf)
-      mv(Out<c, t>, Cfg.vocab(c), Cfg.dim(c), emb, nf, emb => +lg => Out{lg, nf, acts, cs, Model{emb, ls, lnf}})
+      mv(Out<c, t>, Cfg.vocab(c), Cfg.dim(c), emb, nf, emb => +lg => Out{lg, nf, acts, cs, Model{d, emb, ls, lnf}})
 
-def forward.go(+c: Cfg, +t: Nat, ls: List<&1, LW<c>>, +lnf: List<&2, F32>, cs: List<&1, KV<t>>, r: TA.BRow<Cfg.vocab(c), Cfg.dim(c)>) -> Out<c, t>:
+def forward.go(+c: Cfg, +t: Nat, +d: Nat, ls: List<&1, LW<c>>, +lnf: List<&2, F32>, cs: List<&1, KV<t>>, r: TA.BRow<Cfg.vocab(c), Cfg.dim(c)>) -> Out<c, t>:
   match r:
     case TA.BRow{emb, row}:
-      head_of(c, t, emb, lnf, layers(c, t, rot_at(c, t), ls, cs, row))
+      head_of(c, t, d, emb, lnf, layers(c, d, t, rot_at(c, t), ls, cs, row))
 
 # token tok at position t (0-based), with the caches of positions 0..t-1 (one per layer)
 def forward(+c: Cfg, +t: Nat, m: Model<c>, cs: List<&1, KV<t>>, +tok: Nat) -> Out<c, t>:
   match m:
-    case Model{emb, ls, +lnf}:
-      forward.go(c, t, ls, lnf, cs, TA.Bands.read_row(Cfg.vocab(c), Cfg.dim(c), emb, tok))
+    case Model{+d, emb, ls, +lnf}:
+      forward.go(c, t, d, ls, lnf, cs, TA.Bands.read_row(Cfg.vocab(c), Cfg.dim(c), emb, tok))
 
 # n empty caches, one per layer, each with room for cap positions
 def caches(+c: Cfg, n: Nat, +cap: Nat) -> List<&1, KV<0n>>:
@@ -1095,7 +1100,7 @@ def load_model(+c: Cfg, +dir: String) -> IO(Model<c>):
     emb : TA.Bands<Cfg.vocab(c), Cfg.dim(c)> <- get_bands(dir, "emb", Nat.add(d, Nat.min(d, 1n)), Cfg.vocab(c), Cfg.dim(c))
     ls : List<&1, LW<c>> <- load_layers(Cfg.layers(c), c, dir, d, 0n, Nil{})
     lnf : List<&2, F32> <- get_list(dir, "lnf", Cfg.dim(c))
-    return Model{emb, ls, lnf}
+    return Model{d, emb, ls, lnf}
 
 # ---- the config file: kv g half f layers vocab, then the bits of eps and theta as F32, in decimal ----
 
