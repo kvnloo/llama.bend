@@ -447,3 +447,11 @@ more over longer ones). After that, the floor itself is the weight products, whi
    with the position, within the spread, over 128 and 512 tokens on the three models; the same tokens as transformers;
    `rows_len` and `causal` restated over the new cache.
 3. Measure again with the measurement harness after each of the two, so the published numbers stay current.
+
+## 2026-10-11: Bend 2.0.36
+
+Moved from Bend 2.0.35 to 2.0.36, as bend-ml did in v1.2.2 (2.0.36 does not carry #1377 yet; the erased-last-parameter
+pitfall still applies). `make laws` passes with both kernels, and `make bits` reports every forward and generation output
+of the 135M identical to the bits saved on 2.0.35 (0 failures): the compiler change does not move a single F32 bit here.
+Pins updated in `scripts/setup.sh` (version and both SHA256 sums), the CI step, the README badge and setup line, the
+package README and CLAUDE.md.
