@@ -521,22 +521,42 @@ reused with `1n++e`; the last parameter is a runtime one and the list cut is a t
 - **1.7B against transformers:** the twelve generations give the same ids and text, chosen logits within 1.1e-6
   (0 failures; run alone after a first attempt next to other work was cut by a time limit). The 1.7B is where the
   tree is deepest (32 groups, depth 4).
-- **Not measured yet.** The evidence run was prepared for tonight: three builds of `demo/gen.bend` on Bend
-  2.0.36 (`f1dc8d4` list cache, `6fa7e7f` Array cache with the heads in sequence, `6a2e6f8` the heads in parallel), 128
-  tokens on the 1.7B against transformers, llama.cpp and candle, and new 512-token blocks against llama.cpp. It was
-  stopped after 6 samples: the laptop was on battery in the `balanced` profile, so the timings would not compare with
-  the protocol's, and the measurement harness now refuses to measure that way. No timing of the parallel heads is recorded
-  here: the pass criterion of milestone 9 (a flat per-token cost over 128 and 512 tokens on the three models) is still
-  open.
+- **Measured** in the evidence run of 2026-10-12 (the measurement harness), after a first attempt on
+  battery was stopped (the harness now refuses to measure off mains power or outside the `performance` profile).
 
-To run when the machine is on AC power in the `performance` profile and idle (about four hours):
+## 2026-10-12: milestone 9 closed (the evidence run)
 
-```bash
-cd <the measurement harness>
-export RESULTS=$PWD/results/$(date +%F)
-python3 harness/env.py start
-REPS=2 python3 harness/run.py smol17long
-python3 harness/run.py curve17 curve135 curve360 smol135 smol360
-python3 harness/env.py end
-python3 harness/analyze.py $RESULTS
-```
+Three builds on Bend 2.0.36 with tensor-array 0.1.7.0, on mains power in the `performance` profile, idle: `f1dc8d4` (list
+cache), `6fa7e7f` (Array cache, key/value heads in sequence), `6a2e6f8` (Array cache, heads in parallel), against
+transformers, llama.cpp and candle; the 1.7B over 128 tokens (2 rounds), the three models over 32 (5 rounds) and, new,
+over 512 tokens against llama.cpp (2 rounds).
+
+**Pass criterion met.** The per-token cost no longer grows with the position: from the program's own timestamps, the
+least-squares slope over 512 tokens is 0.18 / 0.00 ms per position on the 1.7B (1 / 16 threads), 0.08 / 0.04 on the 360M
+and 0.05 / 0.04 on the 135M, against 15 / 20 ms per position with the list cache over 128 tokens. Over 512 tokens the
+1.7B's first quarter costs 452 ms per token at 16 threads and the last 453. The tokens are the same as transformers' in
+every block (32 tokens on all three models, 128 on the 1.7B), and a transformers run of 513 tokens on the 360M gives
+llama.bend's ids exactly; llama.cpp leaves both after about 340 tokens on that prompt (its own F32 order of additions).
+
+Cost per generated token, ms (medians):
+
+| | list cache | Arrays, heads in sequence | Arrays, heads in parallel | llama.cpp |
+|---|---|---|---|---|
+| 1.7B, 128 tokens, 1 thread | 1985 | 1230 | 1288 | 319 |
+| 1.7B, 128 tokens, 16 threads | 1692 | 427 | 385 | 98 |
+| 360M, 32 tokens, 1 / 16 threads | 334 / 212 | 286 / 145 | 308 / 136 | 64 / 28 |
+| 135M, 32 tokens, 1 / 16 threads | 141 / 100 | 122 / 67 | 121 / 74 | 24 / 14 |
+
+- The Array cache makes the 1.7B 4.0x faster over 128 tokens at 16 threads (1.6x at one thread), and the gap to
+  llama.cpp goes from 17x to 4.4x (3.9x with the heads in parallel).
+- **The heads in parallel are a mixed result.** They help where there are many key/value heads and many threads (1.7B,
+  32 heads, 16 threads: -10%, ranges not overlapping) and cost where there is nothing to split: +5% on the 1.7B and +7%
+  on the 360M at one thread, where the fork tree is pure overhead; on the 135M (3 heads) and 360M (5) at 16 threads the
+  difference is within the spread. I keep them; a next step is to choose the depth from the thread count, as the weight
+  bands do (`depth_for`), so one thread runs the plain fold. That changes the timings, so it waits for the next run.
+- At 16 threads the 1.7B's level varies between runs (367-516 ms per token, package at 75-90 °C) while each run's curve is
+  flat; numbers at 16 threads carry that spread.
+- What is left is the weight products (bend-ml's matrix · vector bands): 1.2 s per token on the 1.7B at one thread
+  against llama.cpp's 0.32 s.
+
+Still open from milestone 9: the capacity bound in the type (the debt above); a step past `cap` still wraps around.
