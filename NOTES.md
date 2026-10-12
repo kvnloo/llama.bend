@@ -464,3 +464,43 @@ forward's worst logit error relative to the logits' magnitude drops from 2.1e-5 
 position: the new order of the additions is closer to transformers', as it was for bend-ml's GPT-2. The order changes the
 bits, so I saved them again (`bits.py save`); `make bits` passes against the new ones. Timings from the evidence run of
 the same day: -7.5% per token on the 135M and -2.8% on the 360M at 16 threads, -8.5% on the 1.7B at one thread.
+
+## 2026-10-11: milestone 9, the key/value cache in flat Arrays
+
+`KV<t>` replaces the `Snoc` chain: per layer, one `Array<F32>` of keys and one of values for each key/value head,
+position p at `[p·head, p·head + head)`, written in place by `KV.push`. Attention no longer rebuilds or transposes
+anything: the scores of a query head are one `gemm` of tensor-array (1 row, t + 1 columns, the keys' array read with
+its row stride), and the weighted sum of the values another (t + 1 weights times t + 1 rows of `head`). The arrays are
+handed back through records (`HO`, `AT`, `KA`), since an `Array` is not `Data`.
+
+Laws: `causal` (attention at position t gives exactly t + 1 scores; the proof opens `gemm`'s one-constructor result
+without computing the product and counts the numbers read back with `read_len`), `arrays_len` and `kv_heads` (an empty
+cache holds one array of keys and one of values per key/value head). `rows_len` and `cols_len` went with the list
+cache. Both kernels pass.
+
+**Debt: the capacity is not proved.** `KV.empty(c, cap)` allocates `TA.cap_depth(cap·head)` slots, and an index past
+the end wraps around, so a step beyond `cap` would overwrite position 0 silently. The demos pass the number of
+positions they run (gen: prompt + n; forward: the ids; layer_test: n). The plan's bound (t < cap in the type, like
+`cap_ok` in tensor-array) is left for later; until then the guarantee of `causal` is the number of rows read, not
+that the later slots are absent from the value (they exist and hold zeros).
+
+`make check` passes on the 135M: same ids and text as transformers on the twelve generations, forward logits worst
+1.04e-5 (unchanged, at position 0), argmax the same everywhere, layer test 0 failures. The order of the sums in
+attention changed, so 23 outputs had new bits; saved again (`bits.py save`), `make bits` passes.
+
+First timing, old (`f1dc8d4`) against new on the same build setup, "Once upon a time" + 128 generated tokens, ms per
+token from the program's own timestamps (one run each; the machine was not idle, so the old 135M is slower than in the
+evidence run; the ratios and the slopes are the point, the absolute numbers wait for the harness):
+
+| | first quarter | last quarter | mean | growth per position |
+|---|---|---|---|---|
+| 135M, 16 threads, old / new | 265 / 139 | 1129 / 187 | 687 / 170 | 9.0 / 0.5 ms |
+| 135M, 1 thread | 213 / 155 | 790 / 200 | 477 / 186 | 6.0 / 0.5 ms |
+| 1.7B, 16 threads | 1074 / 774 | 3842 / 897 | 2439 / 854 | 28.8 / 1.3 ms |
+| 1.7B, 1 thread | 1781 / 1181 | 3200 / 1255 | 2620 / 1237 | 14.8 / 0.8 ms |
+
+Same ids old and new in all four. The 1.7B over 128 tokens goes from 2.4 s to 0.85 s per token at 16 threads (2.9x),
+back near the 0.8 s floor the plan expected. The curve is not perfectly flat: about 1 ms more per position on the 1.7B
+(attention still reads t + 1 rows, and its heads run one after another; the plan's step 3, a parallel let over the
+key/value heads, is not done). Still open for the pass criterion: 512 tokens, the 360M, and the evidence harness on an
+idle machine against llama.cpp (next step).
