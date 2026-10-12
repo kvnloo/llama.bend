@@ -8,10 +8,11 @@
 # - a head has 2·half numbers and is split into two halves of half numbers (RoPE rotates each number with the
 #   one half a head later), and splitting a head and joining the halves gives it back (head_split);
 # - the query heads are cut into kv groups of g heads, and group j reads key/value head j: there are exactly kv
-#   groups and kv key/value columns (groups_len, cols_len), and query head j·g + i reads key/value head
-#   (j·g + i) / g = j, transformers' repeat_kv mapping (gqa_head);
-# - the key/value cache at position t has the type Cache(t) and holds exactly t positions, so attention at
-#   position t reads positions 0..t and nothing after (rows_len, causal);
+#   groups (groups_len) and an empty cache holds one array of keys and one of values per key/value head
+#   (kv_heads, arrays_len), and query head j·g + i reads key/value head (j·g + i) / g = j, transformers'
+#   repeat_kv mapping (gqa_head);
+# - the key/value cache at position t has the type KV<t>: t positions written in flat arrays, so attention at
+#   position t scores exactly the positions 0..t and nothing after (causal, read_len);
 # - the shapes of the weights in the types add up to the number of values in the weight files (layout laws).
 #
 # The order of every F32 operation follows transformers' modeling_llama.py (5.19), so the results match it to a
@@ -393,125 +394,76 @@ def swiglu(g: List<&2, F32>, u: List<&2, F32>) -> List<&2, F32>:
       Nil{}
 
 # =====================================================================================================
-# The key/value cache, indexed by the number of positions it holds
+# The key/value cache in flat arrays, indexed by the number of positions it holds
 # =====================================================================================================
 
-# the keys (after RoPE) and the values of one position: one head of each per key/value head
-type Row is Data:
-  Row{k: List<&2, List<&2, F32>>, v: List<&2, List<&2, F32>>}
+# One pair of arrays per key/value head: the keys (after RoPE) and the values of positions 0..t-1, position p at
+# [p·head, p·head + head). The type index t is the number of positions written; the arrays are allocated for the
+# whole generation (KV.empty's cap), and writing past it would wrap around, so callers size cap to the number of
+# positions they will run (NOTES, milestone 9).
+type KV<-t: Nat> is Type:
+  KV{ks: List<&1, Array<F32>>, vs: List<&1, Array<F32>>}
 
-# a cache with one more position: the older positions, then the newest
-type Snoc<-A: Data> is Data:
-  Snoc{old: A, row: Row}
-
-# the cache of t positions (0..t-1). Its type says how many positions it holds, so a step cannot read a
-# position that has not been computed yet: there is none in the value.
-def Cache(t: Nat) -> Data:
-  match t:
+# n arrays of 2^d slots
+def arrays(n: Nat, +d: Nat) -> List<&1, Array<F32>>:
+  match n:
     case 0n:
-      Unit
+      Nil{}
     case 1n+p:
-      Snoc<Cache(p)>
+      Array.new(F32, d, 0.0) <> arrays(p, d)
 
-def Cache.empty() -> Cache(0n):
-  Unit{}
+# a cache with no position yet, with room for cap positions per key/value head
+def KV.empty(+c: Cfg, +cap: Nat) -> KV<0n>:
+  KV{arrays(Cfg.kv(c), TA.cap_depth(Nat.mul(cap, Cfg.head(c)))), arrays(Cfg.kv(c), TA.cap_depth(Nat.mul(cap, Cfg.head(c))))}
 
-def Cache.push(-t: Nat, c: Cache(t), r: Row) -> Cache(1n+t):
-  Snoc{c, r}
+# writes row j of rs into array j, at off
+def write_rows(arrs: List<&1, Array<F32>>, rs: List<&2, List<&2, F32>>, +off: U32) -> List<&1, Array<F32>>:
+  match arrs rs:
+    case Con{a, at} Con{r, rt}:
+      TA.fill_list(r, off, a) <> write_rows(at, rt, off)
+    case _ _:
+      arrs
 
-# the rows of the cache, oldest first, in front of acc
-def rows(+t: Nat, c: Cache(t), acc: List<&2, Row>) -> List<&2, Row>:
-  match t:
-    case 0n:
-      acc
-    case 1n+p:
-      match c:
-        case Snoc{old, r}:
-          rows(p, old, r <> acc)
+# position t: the keys and values of every key/value head written at t·head
+def KV.push(+c: Cfg, +t: Nat, kv: KV<t>, +ks: List<&2, List<&2, F32>>, +vs: List<&2, List<&2, F32>>) -> KV<1n+t>:
+  match kv:
+    case KV{ka, va}:
+      KV{write_rows(ka, ks, U32.from_nat(Nat.mul(t, Cfg.head(c)))), write_rows(va, vs, U32.from_nat(Nat.mul(t, Cfg.head(c))))}
 
-# LAW (rows_len): the cache of t positions has exactly t rows.
-law rows_len:
-  for +t: Nat
-  for c: Cache(t)
-  for +acc: List<&2, Row>
-  {List.length(&2, Row, rows(t, c, acc)) == Nat.add(t, List.length(&2, Row, acc)) : Nat}
+# the number of key/value heads a cache holds
+def kv_count(-t: Nat, kv: KV<t>) -> Nat:
+  match kv:
+    case KV{ka, va}:
+      List.length(&1, Array<F32>, ka)
 
-# PROOF: by induction on t: an empty cache adds nothing to acc; a cache of 1 + p positions moves its newest row
-# onto acc (one more) and the rest holds p rows by the induction hypothesis; 1 + (p + n) = p + (1 + n) closes it.
-def rows_len(t, c, acc):
-  match t:
+# LAW (arrays_len): arrays(n, d) makes exactly n arrays.
+law arrays_len:
+  for +n: Nat
+  for +d: Nat
+  {List.length(&1, Array<F32>, arrays(n, d)) == n : Nat}
+
+# PROOF: by induction on n: none for 0; one more than the rest for 1 + p.
+def arrays_len(n, d):
+  match n:
     case 0n:
       {==}
     case 1n+p:
-      match c:
-        case Snoc{old, r}:
-          Equal.trans(Nat, List.length(&2, Row, rows(p, old, r <> acc)), Nat.add(p, 1n+List.length(&2, Row, acc)), 1n+Nat.add(p, List.length(&2, Row, acc)), rows_len(p, old, r <> acc), Equal.sym(Nat, 1n+Nat.add(p, List.length(&2, Row, acc)), Nat.add(p, 1n+List.length(&2, Row, acc)), add_succ(p, List.length(&2, Row, acc))))
+      %arrays_len(p, d) : {1n+List.length(&1, Array<F32>, arrays(p, d)) == 1n+_ : Nat}
+      {==}
 
-# LAW (causal): attention at position t runs over the cache of t positions plus the new one: exactly t + 1
-# rows, the positions 0..t.
-law causal:
-  for +t: Nat
-  for c: Cache(t)
-  for +r: Row
-  {List.length(&2, Row, rows(1n+t, Cache.push(t, c, r), Nil{})) == 1n+t : Nat}
+# LAW (kv_heads): an empty cache holds one array of keys (and one of values) per key/value head, so key/value head j
+# of the model reads column j and no other.
+law kv_heads:
+  for +c: Cfg
+  for +cap: Nat
+  {kv_count(0n, KV.empty(c, cap)) == Cfg.kv(c) : Nat}
 
-def causal(t, c, r):
-  Equal.trans(Nat, List.length(&2, Row, rows(t, c, r <> Nil{})), Nat.add(t, 1n), 1n+t, rows_len(t, c, r <> Nil{}), add_one(t))
+def kv_heads(c, cap):
+  arrays_len(Cfg.kv(c), TA.cap_depth(Nat.mul(cap, Cfg.head(c))))
 
 # =====================================================================================================
 # Grouped-query attention
 # =====================================================================================================
-
-def nth(xs: List<&2, List<&2, F32>>, n: Nat) -> List<&2, F32>:
-  match xs n:
-    case Con{h, t} 0n:
-      h
-    case Con{h, t} 1n+p:
-      nth(t, p)
-    case Nil{} _:
-      Nil{}
-
-def keys_of(rs: List<&2, Row>, +j: Nat) -> List<&2, List<&2, F32>>:
-  match rs:
-    case Nil{}:
-      Nil{}
-    case Con{Row{k, v}, t}:
-      nth(k, j) <> keys_of(t, j)
-
-def vals_of(rs: List<&2, Row>, +j: Nat) -> List<&2, List<&2, F32>>:
-  match rs:
-    case Nil{}:
-      Nil{}
-    case Con{Row{k, v}, t}:
-      nth(v, j) <> vals_of(t, j)
-
-# the keys and the values of one key/value head at every position, oldest first
-type Col is Data:
-  Col{ks: List<&2, List<&2, F32>>, vs: List<&2, List<&2, F32>>}
-
-# the columns of key/value heads j, j+1, ..., j+n-1
-def cols(n: Nat, +j: Nat, +rs: List<&2, Row>) -> List<&2, Col>:
-  match n:
-    case 0n:
-      Nil{}
-    case 1n+p:
-      Col{keys_of(rs, j), vals_of(rs, j)} <> cols(p, 1n+j, rs)
-
-# LAW (cols_len): there is one column per key/value head.
-law cols_len:
-  for n: Nat
-  for +j: Nat
-  for +rs: List<&2, Row>
-  {List.length(&2, Col, cols(n, j, rs)) == n : Nat}
-
-def cols_len(n, j, rs):
-  match n:
-    case 0n:
-      {==}
-    case 1n+p:
-      %cols_len(p, 1n+j, rs) : {1n+List.length(&2, Col, cols(p, 1n+j, rs)) == 1n+_ : Nat}
-      {==}
-
 # the query heads in n groups of g, in order: group j holds query heads j·g .. j·g + g - 1
 def groups(n: Nat, +g: Nat, +hs: List<&2, Head>) -> List<&2, List<&2, Head>>:
   match n:
@@ -602,45 +554,151 @@ def gqa_head(j, i, k):
   %add_zero(j) : {Pair.fst(Nat, Nat, Nat.divmod.go(i, Nat.add(i, k), Nat.add(j, 0n), 0n)) == _ : Nat}
   div_rest(i, k, Nat.add(j, 0n), 0n)
 
-# q·k * scale for every key of the column, oldest first
-def scores(+qh: List<&2, F32>, ks: List<&2, List<&2, F32>>, +scale: F32) -> List<&2, F32>:
-  match ks:
-    case Nil{}:
-      Nil{}
-    case Con{k, t}:
-      (T.dot.go(qh, k, 0.0) * scale : F32) <> scores(qh, t, scale)
+# =====================================================================================================
+# Grouped-query attention over the arrays
+# =====================================================================================================
 
-def weighted(w: List<&2, F32>, vs: List<&2, List<&2, F32>>, acc: List<&2, F32>) -> List<&2, F32>:
-  match w vs:
-    case Con{+a, wt} Con{v, vt}:
-      weighted(wt, vt, T.zip_with.add(acc, T.scale.l(a, v)))
-    case _ _:
-      acc
+# the scores of one query head against the keys of its key/value head, and the keys handed back
+type SR is Type:
+  SR{k: Array<F32>, s: List<&2, F32>}
 
-# one query head over one key/value column: softmax of the scores, then the weighted sum of the values
-def head_out(+hd: Nat, +scale: F32, qh: List<&2, F32>, col: Col) -> List<&2, F32>:
-  match col:
-    case Col{ks, vs}:
-      weighted(T.softmax.l(scores(qh, ks, scale)), vs, T.fill.l(hd, 0.0))
+def sr_len(sr: SR) -> Nat:
+  match sr:
+    case SR{k, s}:
+      List.length(&2, F32, s)
 
-def group_out(+hd: Nat, +scale: F32, hs: List<&2, Head>, +col: Col) -> List<&2, F32>:
+def sr_of(k: Array<F32>, al: TA.AL) -> SR:
+  match al:
+    case TA.AL{c, l}:
+      SR{k, l}
+
+# LAW (read_len): reading m + 1 numbers of an array onto acc gives m + 1 more scores.
+# PROOF: by induction on m. With 0 left it reads one number and reverses the list (rev_len counts it); with 1 + p
+# left it reads one and recurses, and len_step moves the 1 out of the sum (tensor-array's leaf_len, for scores).
+law read_len:
+  for k: Array<F32>
+  for +m: Nat
+  for +idx: U32
+  for +acc: List<&2, F32>
+  for rc: Array<F32> & F32
+  {sr_len(sr_of(k, TA.read_l(m, idx, acc, rc))) == Nat.add(1n+m, List.length(&2, F32, acc)) : Nat}
+
+def read_len(k, m, idx, acc, rc):
+  match m rc:
+    case 0n Tuple{d, +v}:
+      TA.zero_out(List.length(&2, F32, List.reverse.go(&2, F32, v <> acc, Nil{})), 1n+List.length(&2, F32, acc), TA.rev_len(v <> acc, Nil{}))
+    case 1n+p Tuple{d, +v}:
+      TA.len_step(sr_len(sr_of(k, TA.read_l(p, (idx + 1 : U32), v <> acc, Array.get(F32, d, (idx + 1 : U32))))), p, List.length(&2, F32, acc), read_len(k, p, (idx + 1 : U32), v <> acc, Array.get(F32, d, (idx + 1 : U32))))
+
+# read the 1 + t scores the gemm wrote
+def sr_read(+t: Nat, g: TA.G) -> SR:
+  match g:
+    case TA.G{qa, k, s}:
+      sr_of(k, TA.read_l(t, 0, Nil{}, Array.get(F32, s, 0)))
+
+# q·k for the keys of positions 0..t, oldest first: K (t + 1 rows of `head` numbers) times q, the product
+# Mat.matmul_nt computes for one row (bend-ml-tensor-array's gemm)
+def scores(+hd: Nat, +t: Nat, k: Array<F32>, +q: List<&2, F32>) -> SR:
+  sr_read(t, TA.gemm(1n, 1n+t, hd, U32.from_nat(hd), 1, 1, U32.from_nat(hd), TA.fill_list(q, 0, Array.new(F32, TA.cap_depth(hd), 0.0)), k, Array.new(F32, TA.cap_depth(1n+t), 0.0)))
+
+def sr_len_g(+t: Nat, g: TA.G) -> {sr_len(sr_read(t, g)) == 1n+t : Nat}:
+  match g:
+    case TA.G{qa, k, s}:
+      TA.zero_out(sr_len(sr_of(k, TA.read_l(t, 0, Nil{}, Array.get(F32, s, 0)))), 1n+t, read_len(k, t, 0, Nil{}, Array.get(F32, s, 0)))
+
+# LAW (causal): attention at position t scores exactly t + 1 keys, the positions 0..t: one score per position
+# written, none for a position not yet computed.
+# PROOF: the gemm's result has one constructor, so matching it opens it without computing the product
+# (sr_len_g); read_len counts the 1 + t numbers read back.
+law causal:
+  for +hd: Nat
+  for +t: Nat
+  for k: Array<F32>
+  for +q: List<&2, F32>
+  {sr_len(scores(hd, t, k, q)) == 1n+t : Nat}
+
+def causal(hd, t, k, q):
+  sr_len_g(t, TA.gemm(1n, 1n+t, hd, U32.from_nat(hd), 1, 1, U32.from_nat(hd), TA.fill_list(q, 0, Array.new(F32, TA.cap_depth(hd), 0.0)), k, Array.new(F32, TA.cap_depth(1n+t), 0.0)))
+
+# the weighted sum of the values of positions 0..t: w (t + 1 weights) times V (t + 1 rows of `head` numbers)
+type WR is Type:
+  WR{v: Array<F32>, o: List<&2, F32>}
+
+def wr_of(v: Array<F32>, al: TA.AL) -> WR:
+  match al:
+    case TA.AL{c, l}:
+      WR{v, l}
+
+def wr_read(+hd: Nat, g: TA.G) -> WR:
+  match g:
+    case TA.G{wa, v, o}:
+      wr_of(v, TA.read_l(Nat.sub(hd, 1n), 0, Nil{}, Array.get(F32, o, 0)))
+
+def weighted(+hd: Nat, +t: Nat, v: Array<F32>, +w: List<&2, F32>) -> WR:
+  wr_read(hd, TA.gemm(1n, hd, 1n+t, U32.from_nat(1n+t), 1, U32.from_nat(hd), 1, TA.fill_list(w, 0, Array.new(F32, TA.cap_depth(1n+t), 0.0)), v, Array.new(F32, TA.cap_depth(hd), 0.0)))
+
+# one query head: softmax(q·K · scale) · V, and the two arrays handed back
+type HO is Type:
+  HO{k: Array<F32>, v: Array<F32>, o: List<&2, F32>}
+
+def HO.then(-R: Type, h: HO, then: Array<F32> -> Array<F32> -> List<&2, F32> -> R) -> R:
+  match h:
+    case HO{k, v, o}:
+      then(k, v, o)
+
+def head_wr(k: Array<F32>, wr: WR) -> HO:
+  match wr:
+    case WR{v, o}:
+      HO{k, v, o}
+
+def head_sr(+hd: Nat, +t: Nat, +scale: F32, v: Array<F32>, sr: SR) -> HO:
+  match sr:
+    case SR{k, s}:
+      head_wr(k, weighted(hd, t, v, T.softmax.l(T.scale.l(scale, s))))
+
+def head_att(+hd: Nat, +t: Nat, +scale: F32, k: Array<F32>, v: Array<F32>, +q: List<&2, F32>) -> HO:
+  head_sr(hd, t, scale, v, scores(hd, t, k, q))
+
+# the query heads of one group over its key/value head, in order; the arrays are threaded through
+def group_att(hs: List<&2, Head>, +hd: Nat, +t: Nat, +scale: F32, k: Array<F32>, v: Array<F32>, +acc: List<&2, F32>) -> HO:
   match hs:
     case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      List.append(&2, F32, head_out(hd, scale, join(h), col), group_out(hd, scale, t, col))
+      HO{k, v, acc}
+    case Con{h, rest}:
+      HO.then(HO, head_att(hd, t, scale, k, v, join(h)), k2 => v2 => +o =>
+        group_att(rest, hd, t, scale, k2, v2, List.append(&2, F32, acc, o)))
 
-# group j with column j, for every j: the outputs of query heads 0, 1, ..., in order
-def attend(gs: List<&2, List<&2, Head>>, cs: List<&2, Col>, +hd: Nat, +scale: F32) -> List<&2, F32>:
-  match gs cs:
-    case Con{g, gt} Con{c, ct}:
-      List.append(&2, F32, group_out(hd, scale, g, c), attend(gt, ct, hd, scale))
-    case _ _:
-      Nil{}
+# every group, in order: the outputs of query heads 0, 1, ..., and the caches handed back
+type AT is Type:
+  AT{ks: List<&1, Array<F32>>, vs: List<&1, Array<F32>>, o: List<&2, F32>}
 
-# attention of the (rotated) query heads over the positions of the cache, the newest included
-def attention(+c: Cfg, +t: Nat, qs: List<&2, Head>, kv: Cache(t)) -> List<&2, F32>:
-  attend(groups(Cfg.kv(c), Cfg.g(c), qs), cols(Cfg.kv(c), 0n, rows(t, kv, Nil{})), Cfg.head(c), (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32))
+def attend(gs: List<&2, List<&2, Head>>, ks: List<&1, Array<F32>>, vs: List<&1, Array<F32>>, +hd: Nat, +t: Nat, +scale: F32, aks: List<&1, Array<F32>>, avs: List<&1, Array<F32>>, +acc: List<&2, F32>) -> AT:
+  match gs ks vs:
+    case Con{g, gt} Con{k, kt} Con{v, vt}:
+      HO.then(AT, group_att(g, hd, t, scale, k, v, Nil{}), k2 => v2 => +o =>
+        attend(gt, kt, vt, hd, t, scale, k2 <> aks, v2 <> avs, List.append(&2, F32, acc, o)))
+    case _ _ _:
+      AT{List.reverse(&1, Array<F32>, aks), List.reverse(&1, Array<F32>, avs), acc}
+
+# the attention output and the cache handed back
+type KA<-t: Nat> is Type:
+  KA{kv: KV<t>, o: List<&2, F32>}
+
+def ka_of(-t: Nat, at: AT) -> KA<t>:
+  match at:
+    case AT{ks, vs, o}:
+      KA{KV{ks, vs}, o}
+
+def KA.then(-R: Type, -t: Nat, ka: KA<t>, then: KV<t> -> List<&2, F32> -> R) -> R:
+  match ka:
+    case KA{kv, o}:
+      then(kv, o)
+
+# attention of the (rotated) query heads at position t over the cache of positions 0..t (the newest included)
+def attention(+c: Cfg, +t: Nat, qs: List<&2, Head>, kv: KV<1n+t>) -> KA<1n+t>:
+  match kv:
+    case KV{ks, vs}:
+      ka_of(1n+t, attend(groups(Cfg.kv(c), Cfg.g(c), qs), ks, vs, Cfg.head(c), t, (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32), Nil{}, Nil{}, Nil{}))
 
 # =====================================================================================================
 # A layer
@@ -658,11 +716,11 @@ type Act is Data:
 # the layer's output at position t, its cache grown to t + 1 positions, its weights handed back, and the
 # activations
 type BR<-c: Cfg, -t: Nat> is Type:
-  BR{y: List<&2, F32>, kv: Cache(1n+t), lw: LW<c>, act: Act}
+  BR{y: List<&2, F32>, kv: KV<1n+t>, lw: LW<c>, act: Act}
 
 # continues with the fields of a layer's result (a computed value cannot be matched; a loop over positions
 # recurses inside k)
-def BR.then(-R: Type, -c: Cfg, -t: Nat, b: BR<c, t>, k: List<&2, F32> -> Cache(1n+t) -> LW<c> -> Act -> R) -> R:
+def BR.then(-R: Type, -c: Cfg, -t: Nat, b: BR<c, t>, k: List<&2, F32> -> KV<1n+t> -> LW<c> -> Act -> R) -> R:
   match b:
     case BR{y, kv, lw, act}:
       k(y, kv, lw, act)
@@ -677,7 +735,7 @@ def mv(-B: Type, +r: Nat, +k: Nat, w: TA.Bands<r, k>, +x: List<&2, F32>, then: T
   mv.go(B, r, k, TA.Bands.matvec_l(r, k, w, x), then)
 
 # the layer at position t (0-based) on input x, with the cache of positions 0..t-1 and the rotation of t
-def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: Cache(t), +rt: Rot, +x: List<&2, F32>) -> BR<c, t>:
+def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: KV<t>, +rt: Rot, +x: List<&2, F32>) -> BR<c, t>:
   match lw:
     case LW{+ln1, wq, wk, wv, wo, +ln2, wg, wu, wd}:
       +n1 = rmsnorm(c, x, ln1)
@@ -686,8 +744,7 @@ def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: Cache(t), +rt: Rot, +x: List<&2, F32>
           mv(BR<c, t>, Cfg.kvw(c), Cfg.dim(c), wv, n1, wv => +v =>
             +qs = ropes(rt, heads(Cfg.heads(c), Cfg.half(c), q))
             +ks = ropes(rt, heads(Cfg.kv(c), Cfg.half(c), k))
-            +kv2 = Cache.push(t, kv, Row{joins(ks), chunks(Cfg.kv(c), Cfg.head(c), v)})
-            +at = attention(c, 1n+t, qs, kv2)
+            KA.then(BR<c, t>, 1n+t, attention(c, t, qs, KV.push(c, t, kv, joins(ks), chunks(Cfg.kv(c), Cfg.head(c), v))), kv2 => +at =>
             mv(BR<c, t>, Cfg.dim(c), Cfg.dim(c), wo, at, wo => +a =>
               +x1 = T.zip_with.add(x, a)
               +n2 = rmsnorm(c, x1, ln2)
@@ -695,7 +752,7 @@ def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: Cache(t), +rt: Rot, +x: List<&2, F32>
                 mv(BR<c, t>, Cfg.ffn(c), Cfg.dim(c), wu, n2, wu => +u =>
                   mv(BR<c, t>, Cfg.dim(c), Cfg.ffn(c), wd, swiglu(g, u), wd => +m =>
                     +y = T.zip_with.add(x1, m)
-                    BR{y, kv2, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Act{n1, q, k, v, flat(qs), flat(ks), at, a, n2, m, y}})))))))
+                    BR{y, kv2, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Act{n1, q, k, v, flat(qs), flat(ks), at, a, n2, m, y}}))))))))
 
 # =====================================================================================================
 # The model
@@ -707,17 +764,17 @@ type Model<-c: Cfg> is Type:
 
 # the last layer's output, the layers and caches handed back, and every layer's activations
 type Run<-c: Cfg, -t: Nat> is Type:
-  Run{x: List<&2, F32>, layers: List<&1, LW<c>>, cs: List<&2, Cache(1n+t)>, acts: List<&2, Act>}
+  Run{x: List<&2, F32>, layers: List<&1, LW<c>>, cs: List<&1, KV<1n+t>>, acts: List<&2, Act>}
 
 # pend is the previous layer's result: its output is the next layer's input
-def run(+c: Cfg, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&2, Cache(t)>, al: List<&1, LW<c>>, ac: List<&2, Cache(1n+t)>, aa: List<&2, Act>, pend: BR<c, t>) -> Run<c, t>:
+def run(+c: Cfg, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<t>>, al: List<&1, LW<c>>, ac: List<&1, KV<1n+t>>, aa: List<&2, Act>, pend: BR<c, t>) -> Run<c, t>:
   match ls cs pend:
     case Con{l, lt} Con{k, kt} BR{+y, kv, l0, act}:
       run(c, t, rt, lt, kt, l0 <> al, kv <> ac, act <> aa, block(c, l, t, k, rt, y))
     case _ _ BR{+y, kv, l0, act}:
-      Run{y, List.reverse(&1, LW<c>, l0 <> al), List.reverse(&2, Cache(1n+t), kv <> ac), List.reverse(&2, Act, act <> aa)}
+      Run{y, List.reverse(&1, LW<c>, l0 <> al), List.reverse(&1, KV<1n+t>, kv <> ac), List.reverse(&2, Act, act <> aa)}
 
-def layers(+c: Cfg, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&2, Cache(t)>, +x: List<&2, F32>) -> Run<c, t>:
+def layers(+c: Cfg, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<t>>, +x: List<&2, F32>) -> Run<c, t>:
   match ls cs:
     case Con{l, lt} Con{k, kt}:
       run(c, t, rt, lt, kt, Nil{}, Nil{}, Nil{}, block(c, l, t, k, rt, x))
@@ -727,10 +784,10 @@ def layers(+c: Cfg, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&2, Cache(t
 # what one position produces: the logits, the final norm, every layer's activations, the caches grown to t + 1
 # positions and the model handed back
 type Out<-c: Cfg, -t: Nat> is Type:
-  Out{lg: List<&2, F32>, nf: List<&2, F32>, acts: List<&2, Act>, cs: List<&2, Cache(1n+t)>, m: Model<c>}
+  Out{lg: List<&2, F32>, nf: List<&2, F32>, acts: List<&2, Act>, cs: List<&1, KV<1n+t>>, m: Model<c>}
 
 # continues with the fields of a position's result: logits, final norm, activations, caches, model
-def Out.then(-R: Type, -c: Cfg, -t: Nat, o: Out<c, t>, k: List<&2, F32> -> List<&2, F32> -> List<&2, Act> -> List<&2, Cache(1n+t)> -> Model<c> -> R) -> R:
+def Out.then(-R: Type, -c: Cfg, -t: Nat, o: Out<c, t>, k: List<&2, F32> -> List<&2, F32> -> List<&2, Act> -> List<&1, KV<1n+t>> -> Model<c> -> R) -> R:
   match o:
     case Out{lg, nf, acts, cs, m}:
       k(lg, nf, acts, cs, m)
@@ -742,24 +799,24 @@ def head_of(+c: Cfg, -t: Nat, emb: TA.Bands<Cfg.vocab(c), Cfg.dim(c)>, +lnf: Lis
       +nf = rmsnorm(c, x, lnf)
       mv(Out<c, t>, Cfg.vocab(c), Cfg.dim(c), emb, nf, emb => +lg => Out{lg, nf, acts, cs, Model{emb, ls, lnf}})
 
-def forward.go(+c: Cfg, +t: Nat, ls: List<&1, LW<c>>, +lnf: List<&2, F32>, cs: List<&2, Cache(t)>, r: TA.BRow<Cfg.vocab(c), Cfg.dim(c)>) -> Out<c, t>:
+def forward.go(+c: Cfg, +t: Nat, ls: List<&1, LW<c>>, +lnf: List<&2, F32>, cs: List<&1, KV<t>>, r: TA.BRow<Cfg.vocab(c), Cfg.dim(c)>) -> Out<c, t>:
   match r:
     case TA.BRow{emb, row}:
       head_of(c, t, emb, lnf, layers(c, t, rot_at(c, t), ls, cs, row))
 
 # token tok at position t (0-based), with the caches of positions 0..t-1 (one per layer)
-def forward(+c: Cfg, +t: Nat, m: Model<c>, cs: List<&2, Cache(t)>, +tok: Nat) -> Out<c, t>:
+def forward(+c: Cfg, +t: Nat, m: Model<c>, cs: List<&1, KV<t>>, +tok: Nat) -> Out<c, t>:
   match m:
     case Model{emb, ls, +lnf}:
       forward.go(c, t, ls, lnf, cs, TA.Bands.read_row(Cfg.vocab(c), Cfg.dim(c), emb, tok))
 
-# n empty caches, one per layer
-def caches(n: Nat) -> List<&2, Cache(0n)>:
+# n empty caches, one per layer, each with room for cap positions
+def caches(+c: Cfg, n: Nat, +cap: Nat) -> List<&1, KV<0n>>:
   match n:
     case 0n:
       Nil{}
     case 1n+p:
-      Cache.empty() <> caches(p)
+      KV.empty(c, cap) <> caches(c, p, cap)
 
 # the first index of the largest value (torch.argmax does the same), and the value
 type AM is Data:

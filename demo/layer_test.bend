@@ -47,7 +47,7 @@ def show_act(+t: Nat, act: M.Act) -> IO(Unit):
         line("y", t, y)
 
 # xs[0] runs at position t with the cache of positions 0..t-1; then the rest
-def go(xs: List<&2, List<&2, F32>>, +c: M.Cfg, +t: Nat, lw: M.LW<c>, kv: M.Cache(t)) -> IO(Unit):
+def go(xs: List<&2, List<&2, F32>>, +c: M.Cfg, +t: Nat, lw: M.LW<c>, kv: M.KV<t>) -> IO(Unit):
   match xs:
     case Nil{}:
       IO.pure(Unit, Unit{})
@@ -64,7 +64,7 @@ def run(+dir: String, +layer: Nat, path: String, +n: Nat) -> IO(Unit):
     lw : M.LW<c> <- M.load_lw(c, dir, layer, M.depth_for(threads))
     IO.print("inv_freq" ++ show_bits(M.inv_freq(c)))
     xs : List<&2, F32> <- M.read_floats(path, Nat.mul(n, M.Cfg.dim(c)))
-    go(rows(n, M.Cfg.dim(c), xs), c, 0n, lw, M.Cache.empty())
+    go(rows(n, M.Cfg.dim(c), xs), c, 0n, lw, M.KV.empty(c, n))
 
 def run2(+dir: String, +layer: Maybe<&2, Nat>, path: String, +n: Maybe<&2, Nat>) -> IO(Unit):
   match layer n:
