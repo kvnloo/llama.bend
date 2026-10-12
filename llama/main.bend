@@ -461,6 +461,48 @@ law kv_heads:
 def kv_heads(c, cap):
   arrays_len(Cfg.kv(c), TA.cap_depth(Nat.mul(cap, Cfg.head(c))))
 
+# a <= b  and  b <= c  ->  a <= c
+def leb_trans(a: Nat, b: Nat, c: Nat, e1: {True{} == TA.leb(a, b) : Bool}, e2: {True{} == TA.leb(b, c) : Bool}) -> {True{} == TA.leb(a, c) : Bool}:
+  match a b c:
+    case 0n _ _:
+      {==}
+    case 1n+p 0n _:
+      %e1 : TA.BD(_, Unit, {True{} == TA.leb(1n+p, c) : Bool})
+      Unit{}
+    case 1n+p 1n+q 0n:
+      %e2 : TA.BD(_, Unit, {True{} == TA.leb(1n+p, 0n) : Bool})
+      Unit{}
+    case 1n+p 1n+q 1n+r:
+      leb_trans(p, q, r, e1, e2)
+
+# a <= b  ->  a·h <= b·h
+def leb_mul(a: Nat, b: Nat, +h: Nat, e: {True{} == TA.leb(a, b) : Bool}) -> {True{} == TA.leb(Nat.mul(a, h), Nat.mul(b, h)) : Bool}:
+  match a b:
+    case 0n _:
+      {==}
+    case 1n+p 0n:
+      %e : TA.BD(_, Unit, {True{} == TA.leb(Nat.mul(1n+p, h), 0n) : Bool})
+      Unit{}
+    case 1n++p 1n++q:
+      TA.leb_add(h, h, Nat.mul(p, h), Nat.mul(q, h), TA.leb_refl(h), leb_mul(p, q, h, e))
+
+# LAW (kv_room): KV.empty(c, cap) gives each key/value head arrays of 2^cap_depth(cap·head) slots, and KV.push at
+# position t writes head numbers from t·head. For a position below the capacity (t < cap) they all fall inside the
+# slots: (1 + t)·head <= 2^cap_depth(cap·head), so a push never wraps around onto position 0. (What stays trusted is
+# tensor-array's: Array.new allocates 2^d slots.) The type does not stop a caller from pushing at t >= cap; the
+# callers size cap to the positions they run.
+law kv_room:
+  for +cap: Nat
+  for +h: Nat
+  for +t: Nat
+  for e: {True{} == TA.leb(1n+t, cap) : Bool}
+  {True{} == TA.leb(Nat.mul(1n+t, h), TA.pow2(TA.cap_depth(Nat.mul(cap, h)))) : Bool}
+
+# PROOF: (1 + t)·head <= cap·head by leb_mul, and cap·head <= 2^cap_depth(cap·head) by tensor-array's cap_ok; then
+# leb_trans.
+def kv_room(cap, h, t, e):
+  leb_trans(Nat.mul(1n+t, h), Nat.mul(cap, h), TA.pow2(TA.cap_depth(Nat.mul(cap, h))), leb_mul(1n+t, cap, h, e), TA.cap_ok(Nat.mul(cap, h)))
+
 # =====================================================================================================
 # Grouped-query attention
 # =====================================================================================================
