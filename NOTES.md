@@ -590,3 +590,16 @@ few threads (256 leaves got 3.5x from 16 threads instead of 14x). `par_att` has 
 halves before it forks. The fix, bendlang/bend#1479 ("deal a slow grow's forks to idle threads"), was merged on
 2026-10-12, after 2.0.36, so it should ship with #1377 in the next release (#1526, running such a task in place, is
 still open). The parallel heads gained 10% on the 1.7B at 16 threads; measure them again after the bump.
+
+## 2026-10-12: the cache's capacity, proved (`kv_room`)
+
+The debt of milestone 9 ("the capacity is not proved") is paid in its arithmetic form. `KV.empty(c, cap)` allocates
+`2^cap_depth(cap·head)` slots per array, and `KV.push` at position `t` writes `head` numbers from `t·head`. The law
+`kv_room` says that for `t < cap`, `(1 + t)·head <= 2^cap_depth(cap·head)`: every number of a position below the
+capacity falls inside the slots, so such a push never wraps around onto position 0. The proof is two new lemmas,
+`leb_trans` and `leb_mul` (`a <= b` gives `a·h <= b·h`), and tensor-array's `cap_ok`. Both kernels pass; no run-time code
+changed (`make bits`: every output identical).
+
+What stays open: `cap` is not in `KV`'s type, so nothing stops a caller from pushing at `t >= cap`. Putting it there
+(`KV<cap, t>`, with `KV.push` asking for `t < cap`) changes the signatures of `block`, `forward` and the demos' loops,
+which would then have to prove `t < cap` at each step; left for the package's API review before publishing.
