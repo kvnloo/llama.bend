@@ -98,7 +98,8 @@ API; phase C publishes it.
    PyTorch); CI modeled on bend-ml's.
 10. **Public**: the repository goes public, bend-ml's README links it, a post answering the wishlist line.
 11. **Bridge to a training framework**: `docs/bendtorch.md`, for each op what its backward pass needs from the
-    activations record and what the affine rules made hard. A document, no code.
+    activations record and what the affine rules made hard. A document, no code. **Done 2026-10-12**: `docs/bendtorch.md`, every operation's
+    backward pass checked against `torch.autograd` (RMSNorm, SwiGLU, softmax).
 
 Optional, after 8: read `model.safetensors` directly in Bend (bf16 → F32 is a shift by 16), so running needs no
 Python; decided after measuring, since `File.read_at` is the cost of loading (bend-ml exp. 13).
