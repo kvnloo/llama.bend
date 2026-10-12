@@ -582,3 +582,11 @@ Decision: llama.bend stays private until it moves to the Bend release that carri
 first public version is built on it, without the erased-last-parameter workaround. Milestones 9 and 10 of the plan
 (package, benchmark, public repository) wait for that bump; the timing of attention's order by thread count waits for an
 idle run.
+
+## 2026-10-12: a fork-tree fix upstream, to measure with Bend 2.0.37
+
+bendlang/bend#1475 (opened by wakamex, author of bend-bench): on the CPU, a call before each fork keeps a fork tree on a
+few threads (256 leaves got 3.5x from 16 threads instead of 14x). `par_att` has that shape: each node calls `cut` on its
+halves before it forks. The fix, bendlang/bend#1479 ("deal a slow grow's forks to idle threads"), was merged on
+2026-10-12, after 2.0.36, so it should ship with #1377 in the next release (#1526, running such a task in place, is
+still open). The parallel heads gained 10% on the 1.7B at 16 threads; measure them again after the bump.
