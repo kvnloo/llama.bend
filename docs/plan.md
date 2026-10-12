@@ -88,7 +88,8 @@ API; phase C publishes it.
    `Array<F32>` of keys and one of values per key/value head, attention through tensor-array's `gemm`, the heads in
    parallel. Pass: a per-token cost that does not grow with the position over 128 and 512 tokens on the three models,
    the same tokens as transformers. **Done 2026-10-12**: slope 0.00-0.18 ms per position over 512 tokens (15-20 before),
-   the 1.7B 4.0x faster at 16 threads; the capacity bound is not proved yet (NOTES).
+   the 1.7B 4.0x faster at 16 threads. The capacity is proved as `kv_room` (2026-10-12): a position below `cap` is
+   written inside the arrays; the type does not carry `cap`, so a caller can still write past it.
 
 **Phase C: publish**
 
