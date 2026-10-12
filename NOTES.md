@@ -504,3 +504,39 @@ back near the 0.8 s floor the plan expected. The curve is not perfectly flat: ab
 (attention still reads t + 1 rows, and its heads run one after another; the plan's step 3, a parallel let over the
 key/value heads, is not done). Still open for the pass criterion: 512 tokens, the 360M, and the evidence harness on an
 idle machine against llama.cpp (next step).
+
+## 2026-10-12: the key/value heads in parallel (milestone 9, step 3)
+
+`attention` ran its key/value heads one after another (`attend`, a fold over the groups). It is now a tree of parallel
+lets over the groups (`par_att`): the list of groups (`GW`: a group's query heads with its keys and values) is cut in
+halves down to one group per leaf, each leaf runs `seq_att` (the old fold) and `at_join` puts the outputs and the cache
+arrays back in group order. The depth comes from the number of key/value heads (`halvings`: 1 for the 135M's 3 heads,
+2 for the 360M's 5, 4 for the 1.7B's 32). The emitted C has the two joins (`PAR_ATT_J91`, `PAR_ATT_J94`); the depth is
+reused with `1n++e`; the last parameter is a runtime one and the list cut is a tail loop (the two pitfalls of CLAUDE.md).
+
+- **Same bits.** Each head computes what it computed before, in the same order of additions: `make bits` reports all 23
+  outputs of the 135M identical to the bits saved for milestone 9 (0 failures). `make laws` passes with both kernels.
+- **360M against transformers:** the twelve generations give the same ids and text, chosen logits within 7.9e-7
+  (0 failures).
+- **1.7B against transformers: not finished.** The twelve-prompt test ran in the background next to other work and was
+  stopped by a 30-minute limit before it printed; to run again on its own (`MODEL=smollm2-1.7b`, about half an hour).
+  The 1.7B is where the tree is deepest, so this check matters before the timings are trusted.
+- **Not measured yet.** The evidence run was prepared for tonight: three builds of `demo/gen.bend` on Bend
+  2.0.36 (`f1dc8d4` list cache, `6fa7e7f` Array cache with the heads in sequence, `6a2e6f8` the heads in parallel), 128
+  tokens on the 1.7B against transformers, llama.cpp and candle, and new 512-token blocks against llama.cpp. It was
+  stopped after 6 samples: the laptop was on battery in the `balanced` profile, so the timings would not compare with
+  the protocol's, and the measurement harness now refuses to measure that way. No timing of the parallel heads is recorded
+  here: the pass criterion of milestone 9 (a flat per-token cost over 128 and 512 tokens on the three models) is still
+  open.
+
+To run when the machine is on AC power in the `performance` profile and idle (about four hours):
+
+```bash
+cd <the measurement harness>
+export RESULTS=$PWD/results/$(date +%F)
+python3 harness/env.py start
+REPS=2 python3 harness/run.py smol17long
+python3 harness/run.py curve17 curve135 curve360 smol135 smol360
+python3 harness/env.py end
+python3 harness/analyze.py $RESULTS
+```
