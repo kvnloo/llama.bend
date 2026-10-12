@@ -560,3 +560,18 @@ Cost per generated token, ms (medians):
   against llama.cpp's 0.32 s.
 
 Still open from milestone 9: the capacity bound in the type (the debt above); a step past `cap` still wraps around.
+
+## 2026-10-12: attention's order from the thread count
+
+The parallel heads cost 5-7% on one thread (the fork tree is pure overhead there) and gain 10% on the 1.7B at 16
+threads. `attention` now takes the model's parallel depth `d`, the one the weight bands already use (`depth_for`: 0 with
+two threads or fewer, 4 otherwise): with `d = 0` it runs the plain fold (`seq_att`), otherwise the tree (`par_att`).
+`d` lives in `Model` (`load_model` sets it), so `forward` keeps its signature; `block` takes it as a parameter, and
+`demo/layer_test.bend` passes `depth_for` of its thread count.
+
+- **Same bits on both paths:** `make bits` (all threads, the tree) and the same check with `--threads 1` (the fold)
+  report all 23 outputs of the 135M identical (0 failures each). `make laws` passes with both kernels; the C still has
+  `par_att`'s two joins.
+- **Not measured yet.** The expected result is the faster of the two at each thread count (1.7B: about 1230 ms per token
+  on one thread, 385 on 16, from the run of 2026-10-12), but that needs an idle machine on mains power. The measurement
+  harness builds this commit as a fourth variant for the next run.
