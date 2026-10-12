@@ -31,18 +31,19 @@ def step(+c: M.Cfg, +t: Nat, m: M.Model<c>, cs: List<&1, M.KV<t>>, +tok: Nat) ->
 | `gqa_head` | With `g` query heads per key/value head, query head `j·g + i` (for `i < g`) reads key/value head `(j·g + i) / g = j`. That division is how `transformers` maps query heads to key/value heads (`repeat_kv`). This package groups the query heads instead (group `j` reads key/value head `j`), and the law says both choose the same key/value head. The proof goes through `Nat.div` itself: `j·g` is `j` whole blocks of `g`, and `i < g` more numbers do not complete another one. |
 | `groups_len`, `kv_heads`, `arrays_len` | The query heads form exactly `kv` groups, and an empty cache holds exactly `kv` arrays of keys and `kv` of values, one per key/value head. Attention walks the groups and the arrays together, so every group meets its key/value head; none is dropped, and none reads a missing head. |
 | `causal`, `read_len` | The cache has the type `KV<t>`: the number of positions written is in its type, and a layer at position `t` takes `KV<t>` and returns `KV<t + 1>`. At position `t`, attention scores the query against exactly `t + 1` keys, positions `0..t`: one score per position written. The scores come from `bend-ml-tensor-array`'s `gemm` over the first `t + 1` rows of the keys' array; `read_len` counts the numbers read back from its output. |
+| `kv_room` | The cache is created for `cap` positions: each key/value head gets arrays of `2^d` slots, with `d` chosen by `bend-ml-tensor-array` so that `2^d` is at least `cap·head` (its law `cap_ok`). Writing position `t` fills `head` numbers from `t·head`. The law says that for every position below the capacity (`t < cap`) those numbers fall inside the slots: `(t + 1)·head <= 2^d`. So a push below the capacity never wraps around onto position 0. |
 | `layout_135m`, `layout_360m`, `layout_1_7b` | The shapes that the types give to the weights (the embedding, every layer's nine tensors and the final norm) add up to 134,515,008 numbers for SmolLM2-135M, 361,821,120 for SmolLM2-360M and 1,711,376,384 for SmolLM2-1.7B, the number of values in each checkpoint. The loader stops on any file whose size differs from the shape in its type, so together the files cover the checkpoint exactly. |
 | `smollm2_135m_sizes`, `smollm2_360m_sizes`, `smollm2_1_7b_sizes` | The configs give the sizes of their `config.json`: SmolLM2-135M has 9 query heads of 64 numbers, a hidden size of 576 and keys 192 wide; SmolLM2-360M has 15 heads of 64, a hidden size of 960 and keys 320 wide; SmolLM2-1.7B has 32 heads of 64, a hidden size of 2048 and keys 2048 wide (one query head per key/value head). |
 
-`add_zero`, `add_succ`, `add_one`, `add_assoc`, `div_block`, `div_blocks` and `div_rest` are the arithmetic lemmas that
-the proofs above use.
+`add_zero`, `add_succ`, `add_one`, `add_assoc`, `div_block`, `div_blocks`, `div_rest`, `leb_trans` and `leb_mul` are the
+arithmetic lemmas that the proofs above use.
 
 What is **not** proved: the numbers. `F32` is not a real number. RMSNorm, RoPE, softmax and silu follow the order
 of operations of `transformers`' `modeling_llama.py`, and the tests check the results: logits within 8.3e-5 of
 PyTorch (relative to the largest logit, over 11 prompts and the three models), the same greedy tokens. RMSNorm sums
 its squares as a balanced tree, which keeps it within ~1e-7 of float64 next to the large activations of deep
-layers. The vectors between layers are lists whose length is not in their type. The cache's capacity is not proved
-either: its arrays are sized for `cap` positions when it is created, an index past the end wraps around, so the
+layers. The vectors between layers are lists whose length is not in their type. The cache's capacity is in `kv_room` but
+not in its type: nothing stops a caller from writing position `cap` or beyond, where an index wraps around, so the
 caller gives a `cap` at least the number of positions it will run (the demos do).
 
 ## How a model is described
