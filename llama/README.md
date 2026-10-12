@@ -8,7 +8,7 @@ structure is proved by Bend's checker and again by its kernel proved in Lean. Th
 PyTorch: all three models give the same greedy tokens as `transformers` in the
 [llama.bend](https://github.com/nuxyel/llama.bend) repository.
 
-- Bend: **2.0.35** · License: MIT · Depends on `bend-ml-tensor@0.1.2.0` and `bend-ml-tensor-array@0.1.6.0`.
+- Bend: **2.0.36** · License: MIT · Depends on `bend-ml-tensor@0.1.2.0` and `bend-ml-tensor-array@0.1.6.0`.
 - `bend llama/main.bend --verdict` → `ALL PROOFS CHECK` (no `@unsafe`, no `?TODO`, no axioms).
 
 Not on BendHub yet: until it is, import a local copy (`import ./llama/main.bend as M`, as the programs in `demo/`
