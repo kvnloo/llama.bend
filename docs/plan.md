@@ -84,6 +84,12 @@ API; phase C publishes it.
    of one query head, RoPE theta 130000) give the same tokens on the 12 prompts with no code change. Found on the
    way: RMSNorm now sums its squares pairwise (NOTES).
 
+8b. **Key/value cache in flat Arrays** (inserted 2026-10-11 after the first benchmark; "milestone 9" in NOTES): one
+   `Array<F32>` of keys and one of values per key/value head, attention through tensor-array's `gemm`, the heads in
+   parallel. Pass: a per-token cost that does not grow with the position over 128 and 512 tokens on the three models,
+   the same tokens as transformers. **Done 2026-10-12**: slope 0.00-0.18 ms per position over 512 tokens (15-20 before),
+   the 1.7B 4.0x faster at 16 threads; the capacity bound is not proved yet (NOTES).
+
 **Phase C: publish**
 
 9. **Package and measurements**: `bend-ml-llama@0.1.0.0` (one file, `LICENSE`, the laws in the README);
