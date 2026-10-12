@@ -36,7 +36,7 @@ def show_acts(acts: List<&2, M.Act>, +l: Nat, +t: Nat) -> IO(Unit):
         show_acts(r, 1n+l, t)
 
 # ids[0] runs at position t with the caches of positions 0..t-1; then the rest
-def go(ids: List<&2, Nat>, +c: M.Cfg, +t: Nat, m: M.Model<c>, cs: List<&2, M.Cache(t)>) -> IO(Unit):
+def go(ids: List<&2, Nat>, +c: M.Cfg, +t: Nat, m: M.Model<c>, cs: List<&1, M.KV<t>>) -> IO(Unit):
   match ids:
     case Nil{}:
       IO.pure(Unit, Unit{})
@@ -68,7 +68,7 @@ def run_ids(+dir: String, +ids: List<&2, Nat>) -> IO(Unit):
   do IO<Unit>:
     +c : M.Cfg <- M.read_cfg(dir)
     m : M.Model<c> <- M.load_model(c, dir)
-    go(ids, c, 0n, m, M.caches(M.Cfg.layers(c)))
+    go(ids, c, 0n, m, M.caches(c, M.Cfg.layers(c), List.length(&2, Nat, ids)))
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:

@@ -52,7 +52,7 @@ def left_after(+id: Nat, +left: Nat) -> Nat:
 
 # tok runs at position t; queue: the prompt ids still to feed; left: tokens still to generate; gen: the generated
 # ids, newest first. Returns the generated ids in order.
-def loop(fuel: Nat, +c: M.Cfg, +t0: Nat, +t: Nat, +tok: Nat, queue: List<&2, Nat>, left: Nat, gen: List<&2, Nat>, m: M.Model<c>, cs: List<&2, M.Cache(t)>) -> IO(List<&2, Nat>):
+def loop(fuel: Nat, +c: M.Cfg, +t0: Nat, +t: Nat, +tok: Nat, queue: List<&2, Nat>, left: Nat, gen: List<&2, Nat>, m: M.Model<c>, cs: List<&1, M.KV<t>>) -> IO(List<&2, Nat>):
   match fuel queue left:
     case 0n _ _:
       IO.pure(List<&2, Nat>, List.reverse(&2, Nat, gen))
@@ -87,7 +87,7 @@ def start2(+c: M.Cfg, model: M.Model<c>, +table: List<&2, BPE.Rule>, +perm: List
       do IO<Unit>:
         t0ms : Nat <- IO.now()
         IO.print("prompt ids: " ++ show_nats(ids))
-        gen : List<&2, Nat> <- loop(Nat.add(List.length(&2, Nat, ids), n), c, t0ms, 0n, t0, qt, n, Nil{}, model, M.caches(M.Cfg.layers(c)))
+        gen : List<&2, Nat> <- loop(Nat.add(List.length(&2, Nat, ids), n), c, t0ms, 0n, t0, qt, n, Nil{}, model, M.caches(c, M.Cfg.layers(c), Nat.add(List.length(&2, Nat, ids), n)))
         IO.print("text: " ++ K.decode_text(table, perm, List.append(&2, Nat, ids, gen)))
 
 def generate(+c: M.Cfg, model: M.Model<c>, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Nat) -> IO(Unit):
