@@ -521,7 +521,7 @@ reused with `1n++e`; the last parameter is a runtime one and the list cut is a t
 - **1.7B against transformers:** the twelve generations give the same ids and text, chosen logits within 1.1e-6
   (0 failures; run alone after a first attempt next to other work was cut by a time limit). The 1.7B is where the
   tree is deepest (32 groups, depth 4).
-- **Measured** in the evidence run of 2026-10-12 (the measurement harness), after a first attempt on
+- **Measured** in the evidence run of 2026-10-12 (the tables are in `BENCHMARK.md`), after a first attempt on
   battery was stopped (the harness now refuses to measure off mains power or outside the `performance` profile).
 
 ## 2026-10-12: milestone 9 closed (the evidence run)
