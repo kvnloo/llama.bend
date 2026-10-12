@@ -38,17 +38,14 @@ The laws are in [`llama/main.bend`](llama/main.bend). Each one is explained in p
 [`llama/README.md`](llama/README.md#the-laws-in-plain-language). They look like this:
 
 ```python
-# the key/value cache of t positions: its type says how many it holds
-def Cache(t: Nat) -> Data:
-  match t:
-    case 0n:
-      Unit
-    case 1n+p:
-      Snoc<Cache(p)>
+# the key/value cache of t positions: one flat array of keys and one of values per key/value head;
+# the number of positions written is in its type
+type KV<-t: Nat> is Type:
+  KV{ks: List<&1, Array<F32>>, vs: List<&1, Array<F32>>}
 
 # one layer at position t takes the cache of t positions and returns it with t + 1;
 # its weights LW<c> have their shapes from the config c
-def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: Cache(t), +rt: Rot, +x: List<&2, F32>) -> BR<c, t>
+def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: KV<t>, +rt: Rot, +x: List<&2, F32>) -> BR<c, t>
 
 # with g = 1 + i + k query heads per key/value head, query head j·g + i reads key/value head j
 law gqa_head:
@@ -63,9 +60,8 @@ In short:
 - **Grouped-query attention reads the right heads.** With g query heads per key/value head, query head
   j·g + i reads key/value head (j·g + i) / g = j, the mapping `transformers` uses. This is proved over `Nat.div`
   itself. The query groups and the key/value heads pair up one to one.
-- **The cache is causal by its type.** The key/value cache at position t has the type `Cache(t)` and holds
-  exactly t positions. Attention at position t reads t + 1 rows (positions 0..t), and nothing later exists in the
-  value.
+- **The cache is causal by its type.** The key/value cache at position t has the type `KV<t>`: t positions
+  written. Attention at position t scores exactly t + 1 keys (positions 0..t), one per position written.
 - **A head is even by construction.** The config stores half a head. Splitting a head into the two halves RoPE
   rotates together, then joining them, gives the head back.
 - **The weights cover the checkpoint.** Every weight matrix has its shape in its type, computed from the config.
