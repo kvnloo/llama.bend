@@ -112,7 +112,8 @@ The other models are one variable away: `make prep check MODEL=smollm2-360m`, or
   16 threads, llama.bend takes 385 ms per generated token, `transformers` 134 and llama.cpp 98.5; on one thread,
   1.2 to 1.3 s against 0.23 and 0.32. The cost of a token no longer grows with the position. What remains is the
   weight products and loading: 72 s to load the 1.7B and generate one token, against 4.5 s for `transformers` and
-  0.9 s for llama.cpp, because reading a file in Bend 2.0.36 gives one list cell per byte. Peak memory 6.9 GB.
+  0.9 s for llama.cpp, because reading a file in Bend 2.0.36 gives one list cell per byte. Peak memory 6.9 GB at
+  16 threads, 8.4 GB on one.
 - CPU only; base models, greedy decoding, no chat template. The vectors between layers are lists whose length is
   not in their type, and the numerics are tested, never proved.
 
