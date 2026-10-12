@@ -455,3 +455,12 @@ pitfall still applies). `make laws` passes with both kernels, and `make bits` re
 of the 135M identical to the bits saved on 2.0.35 (0 failures): the compiler change does not move a single F32 bit here.
 Pins updated in `scripts/setup.sh` (version and both SHA256 sums), the CI step, the README badge and setup line, the
 package README and CLAUDE.md.
+
+## 2026-10-11: bend-ml-tensor-array 0.1.7.0
+
+One import: the dot products now keep four partial sums (bend-ml exp. 17). On the 135M `make check` passes as before
+(laws with both kernels, tokenizer, layer, forward and the twelve generations: same ids and text as transformers), and the
+forward's worst logit error relative to the logits' magnitude drops from 2.1e-5 to 1.04e-5, the argmax the same at every
+position: the new order of the additions is closer to transformers', as it was for bend-ml's GPT-2. The order changes the
+bits, so I saved them again (`bits.py save`); `make bits` passes against the new ones. Timings from the evidence run of
+the same day: -7.5% per token on the 135M and -2.8% on the 360M at 16 threads, -8.5% on the 1.7B at one thread.
