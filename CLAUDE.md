@@ -31,7 +31,8 @@ bend-ml's `docs/VERSIONING.md` (a major only for a change in what the project is
 
 ## About Renan
 
-Works in AI engineering (agents, NLP) and writes Python and TypeScript; studies ML formally. No background
+Software developer at Sidia (Samsung R&D), where he trains NLP, ML and CV models and builds agentic
+systems over LLMs (RAG, MCP, skill routing); writes Python and TypeScript; studies ML formally. No background
 in type theory: explain each proof in plain language, in a comment and in chat. Machine: Core Ultra 7
 155H (22 threads; P-cores are CPUs 0-11, pin one-thread timings with `taskset -c 3`), 32 GB RAM, RTX 4050 6 GB
 (for these memory-bound kernels the GPU is slower than the CPU, bend-ml NOTES exp. 10).
