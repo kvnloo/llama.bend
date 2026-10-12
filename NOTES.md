@@ -575,3 +575,10 @@ two threads or fewer, 4 otherwise): with `d = 0` it runs the plain fold (`seq_at
 - **Not measured yet.** The expected result is the faster of the two at each thread count (1.7B: about 1230 ms per token
   on one thread, 385 on 16, from the run of 2026-10-12), but that needs an idle machine on mains power. The measurement
   harness builds this commit as a fourth variant for the next run.
+
+## 2026-10-12: going public waits for Bend 2.0.37
+
+Decision: llama.bend stays private until it moves to the Bend release that carries #1377 (expected 2.0.37), so the
+first public version is built on it, without the erased-last-parameter workaround. Milestones 9 and 10 of the plan
+(package, benchmark, public repository) wait for that bump; the timing of attention's order by thread count waits for an
+idle run.
