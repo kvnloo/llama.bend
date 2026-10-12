@@ -44,8 +44,8 @@ type KV<-t: Nat> is Type:
   KV{ks: List<&1, Array<F32>>, vs: List<&1, Array<F32>>}
 
 # one layer at position t takes the cache of t positions and returns it with t + 1;
-# its weights LW<c> have their shapes from the config c
-def block(+c: Cfg, lw: LW<c>, +t: Nat, kv: KV<t>, +rt: Rot, +x: List<&2, F32>) -> BR<c, t>
+# its weights LW<c> have their shapes from the config c (d is the parallel depth of attention)
+def block(+c: Cfg, +d: Nat, lw: LW<c>, +t: Nat, kv: KV<t>, +rt: Rot, +x: List<&2, F32>) -> BR<c, t>
 
 # with g = 1 + i + k query heads per key/value head, query head j·g + i reads key/value head j
 law gqa_head:
@@ -62,6 +62,9 @@ In short:
   itself. The query groups and the key/value heads pair up one to one.
 - **The cache is causal by its type.** The key/value cache at position t has the type `KV<t>`: t positions
   written. Attention at position t scores exactly t + 1 keys (positions 0..t), one per position written.
+- **The cache has room for its positions.** A cache created for `cap` positions holds every position below `cap`
+  inside its arrays, so writing one never wraps around onto position 0. (The type does not stop a write at `cap` or
+  beyond; the caller sizes the cache.)
 - **A head is even by construction.** The config stores half a head. Splitting a head into the two halves RoPE
   rotates together, then joining them, gives the head back.
 - **The weights cover the checkpoint.** Every weight matrix has its shape in its type, computed from the config.
