@@ -518,9 +518,9 @@ reused with `1n++e`; the last parameter is a runtime one and the list cut is a t
   outputs of the 135M identical to the bits saved for milestone 9 (0 failures). `make laws` passes with both kernels.
 - **360M against transformers:** the twelve generations give the same ids and text, chosen logits within 7.9e-7
   (0 failures).
-- **1.7B against transformers: not finished.** The twelve-prompt test ran in the background next to other work and was
-  stopped by a 30-minute limit before it printed; to run again on its own (`MODEL=smollm2-1.7b`, about half an hour).
-  The 1.7B is where the tree is deepest, so this check matters before the timings are trusted.
+- **1.7B against transformers:** the twelve generations give the same ids and text, chosen logits within 1.1e-6
+  (0 failures; run alone after a first attempt next to other work was cut by a time limit). The 1.7B is where the
+  tree is deepest (32 groups, depth 4).
 - **Not measured yet.** The evidence run was prepared for tonight: three builds of `demo/gen.bend` on Bend
   2.0.36 (`f1dc8d4` list cache, `6fa7e7f` Array cache with the heads in sequence, `6a2e6f8` the heads in parallel), 128
   tokens on the 1.7B against transformers, llama.cpp and candle, and new 512-token blocks against llama.cpp. It was
