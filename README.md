@@ -108,9 +108,11 @@ The other models are one variable away: `make prep check MODEL=smollm2-360m`, or
 
 ## Limits
 
-- **Not benchmarked yet.** Informally, on my machine (Core Ultra 7 155H, 16 threads), SmolLM2-135M loads in
-  ~4 s and runs a forward pass in ~0.12 s. The 1.7B loads in 73-83 s and runs a pass in ~0.8 s, with a peak of
-  6.9 GB. A real benchmark against PyTorch is the next milestone.
+- **Slower than the references** ([`BENCHMARK.md`](BENCHMARK.md), 2026-10-12). On the 1.7B over 128 tokens at
+  16 threads, llama.bend takes 385 ms per generated token, `transformers` 134 and llama.cpp 98.5; on one thread,
+  1.2 to 1.3 s against 0.23 and 0.32. The cost of a token no longer grows with the position. What remains is the
+  weight products and loading: 72 s to load the 1.7B and generate one token, against 4.5 s for `transformers` and
+  0.9 s for llama.cpp, because reading a file in Bend 2.0.36 gives one list cell per byte. Peak memory 6.9 GB.
 - CPU only; base models, greedy decoding, no chat template. The vectors between layers are lists whose length is
   not in their type, and the numerics are tested, never proved.
 
@@ -130,6 +132,9 @@ The other models are one variable away: `make prep check MODEL=smollm2-360m`, or
 | 4-5. The whole forward pass, generation | done (2026-10-10) |
 | 6-7. The generic typed package, its laws | done (2026-10-10) |
 | 8. Other sizes: SmolLM2-360M, SmolLM2-1.7B | done (2026-10-10) |
-| 9. Benchmark against PyTorch; `bend-ml-llama` on BendHub | next |
+| 8b. The key/value cache in flat arrays: a token's cost no longer grows with the position | done (2026-10-12) |
+| 9. Benchmark against PyTorch and llama.cpp | first run done (2026-10-12, [`BENCHMARK.md`](BENCHMARK.md)); again on the next Bend release |
+| 10. `bend-ml-llama` on BendHub, the repository public | waits for the Bend release with bendlang/bend#1377 |
+| 11. What a backward pass needs ([`docs/bendtorch.md`](docs/bendtorch.md)) | done (2026-10-12) |
 
 MIT · Renan Vinícius (@nuxyel)
