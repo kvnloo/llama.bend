@@ -45,10 +45,14 @@ republished only if their source changes.
    name no private repository and describe no measurement method, and since 2026-10-12 neither does the history
    (rewritten with git filter-repo; every tree on `devel` unchanged; the old -> new commit map is kept privately).
    GitHub still keeps the pull requests #1 and #2 (the v0.0.1 and v0.0.2 releases) pointing at the old commits, so
-   a public repository would show them there. To avoid it: rename this repository (it stays private), create a new
-   `nuxyel/llama.bend`, push `devel`, `main` and the tags, and recreate the two releases (a decision for Renan).
+   this repository does not go public. Decided on 2026-10-12: rename it `legacy-llama.bend` (it stays private),
+   create a new `nuxyel/llama.bend` (private until the launch), push `devel`, `main` and the tags (the rewritten
+   history, so the commits cited in `BENCHMARK.md` and `NOTES.md` exist), recreate the v0.0.1 and v0.0.2 releases
+   with the same notes, and point the local clone at it.
 2. Make the repository public; bend-ml's README links it.
-3. A pull request `devel` → `main`, then the tag `v0.1.0` on `main` (bend-ml's `docs/VERSIONING.md`).
+3. A pull request `devel` → `main`, then the tag `v1.0.0` on `main`: by bend-ml's `docs/VERSIONING.md`, 1.0 is the
+   first stable, reproducible release that matches the reference (decided 2026-10-12). The BendHub package keeps
+   its own number, `bend-ml-llama@0.1.0.0`.
 
 ## 6. BendHub (Renan)
 
