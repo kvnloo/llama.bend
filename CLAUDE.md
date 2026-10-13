@@ -69,10 +69,10 @@ in type theory: explain each proof in plain language, in a comment and in chat. 
 - `%e : P` rewrites: `_` marks where the right-hand side of `e` sits in the current goal, and the new goal
   has the left-hand side there; use `Equal.sym` to go the other way. `Nat.sub(1n+p, 1n)` does not reduce to
   `p` in the checker: pass `p` itself.
-- Parallel lets (`a b = f(..) g(..)`) silently become sequential when the def's **last parameter is
-  erased** (put a runtime parameter after it; fixed upstream by bendlang/bend#1377, not in a release yet),
-  and suffer from non-tail recursive helpers in the fork tree (use tail loops with an accumulator). Check
-  scaling with `--threads 1` against `--threads 16`, and read the emitted C (`bend X.bend -o x.c`).
+- Parallel lets (`a b = f(..) g(..)`) suffer from non-tail recursive helpers in the fork tree (use tail
+  loops with an accumulator). Check scaling with `--threads 1` against `--threads 16`, and read the emitted
+  C (`bend X.bend -o x.c`): the joins of each parallel let are there. (Up to 2.0.36 they silently became
+  sequential when the def's last parameter was erased; fixed in 2.0.37 by bendlang/bend#1377.)
 - `IO.fork` gives concurrency, not parallelism (by design, bendlang/bend#1415). Use parallel lets in pure
   code for several cores.
 - Proofs follow the affine rules too: a lemma about values that hold an `Array` cannot mention them twice at
