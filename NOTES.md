@@ -620,3 +620,29 @@ in `forward.bend` and `layer_test.bend`), and the match on the counter refines t
   output identical; the twelve generations of the 360M and the 1.7B against transformers, 0 failures.
 - **Cost for callers.** The signatures of `block` and `forward` grow by `cap` and `room`; a caller that walks the
   positions threads one erased equation. The README example compiles.
+
+## 2026-10-13: Bend 2.0.37
+
+Bend 2.0.37 came out on 2026-10-13 with the two changes the first public version waited for: bendlang/bend#1377 (my
+PR: an erased last parameter no longer turns a parallel let into a sequential call) and #1479 (a slow grow's forks
+go to idle threads, the shape of `par_att`). #1526 is not in it. Nothing in the release notes touches this code: the
+breaking changes are a `Nat` crossing to a JS host and `F32.show` passed as a function (`demo/gen.bend` calls it), and
+`--verdict` still uses Lean 4.34.0.
+
+- **Pin.** `scripts/bump_bend.sh 2.0.37`: version and both SHA256 sums in `scripts/setup.sh`, the CI step, the README
+  badge and setup line, the package README and CLAUDE.md. The Python venv had to be rebuilt (it still pointed at the
+  repository's old path).
+- **Laws.** `make laws`: both kernels, `ALL PROOFS CHECK`.
+- **Numbers.** `make check` on the 135M, 0 failures; `make bits` with all threads and with `--threads 1`, every output
+  identical to the bits saved on 2.0.36: neither fix changes the order of a sum. The twelve generations of the 360M
+  and the 1.7B against transformers, 0 failures (the 1.7B's chosen logits within 1.1e-6).
+- **The C.** `demo/gen.bend` still compiles `par_att` to its two joins (now named `PAR_ATT_J78` and `PAR_ATT_J81`).
+  The binaries are less than half the size they were (`gen`: 1.09 MB on 2.0.36, 0.57 MB on 2.0.37).
+- **No workaround to retire.** No def here relied on a runtime parameter after an erased one; the pitfall in CLAUDE.md
+  is history now, and the advice to read the joins in the C stays.
+- **Rejected programs.** `tests/bad_weight.bend` (the query and key projections of the 135M swapped) and
+  `tests/bad_cap.bend` (a third write into a cache made for two positions) must not compile; `make laws` checks that
+  the checker rejects both.
+
+The effect of the release on speed is measured on its own: the same commit built with 2.0.36 and with 2.0.37, in one
+session (`BENCHMARK.md`).
