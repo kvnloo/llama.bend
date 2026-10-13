@@ -1,5 +1,5 @@
-// Renders the real command outputs (outputs/*.txt) as Bend-style code blocks on paper cards,
-// at 2x, into shots/. Usage: node shoot.mjs [name ...]
+// Renders the real command outputs (outputs/*.txt, from scripts/capture_outputs.sh) as Bend-style code blocks on
+// paper cards, at 2x, into shots/. Usage: node shoot.mjs [name ...]
 import puppeteer from "puppeteer-core";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,23 +10,26 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const read = (f) => fs.readFileSync(path.join(here, "outputs", f), "utf8").replace(/\n+$/, "");
 export const browserPath = process.env.BRAVE || "/usr/bin/brave";
 
-const gpt2 = () => {
-  const ls = read("gpt2.txt").split("\n");
+// the 1.7B's generation, condensed: the load, the prompt, the ids it chose, and the decoded text
+const gen = () => {
+  const ls = read("gen_17b.txt").split("\n");
   const ids = ls.filter((l) => /^\s*id /.test(l)).map((l) => l.match(/id (\d+)/)[1]);
-  const text = ls.find((l) => l.startsWith("text:"));
-  return [ls[0], `generated ids: ${ids.join(" ")}`, text].join("\n");
+  const t = ls.findIndex((l) => l.startsWith("text:"));
+  return [ls[0], ls[1], `generated ids: ${ids.slice(0, 12).join(" ")} ...`, ...ls.slice(t)].join("\n");
 };
+const bad = (f, keep) => { const ls = read(f).split("\n"); return keep.map((i) => ls[i]).join("\n"); };
+const capLine = (f) => read(f).split("\n").findIndex((l) => l.startsWith("Location:"));
 
 // name, command label, text, lines to mark, caption and its class, width
 const SHOTS = [
-  { name: "shape-error", cmd: "bend tensor/tests/bad_matmul.bend", text: () => read("bad_matmul.txt").split("\n").slice(0, 4).join("\n"), mark: [2, 3],
-    cap: "(2×3) · (4×5): the inner dimensions differ, so the program is rejected before it runs", capCls: "r", width: 860 },
-  { name: "reshape-error", cmd: "bend tensor/tests/bad_reshape.bend", text: () => read("bad_reshape.txt").split("\n").slice(0, 4).join("\n"), mark: [2, 3],
-    cap: "reshape from 2×6 to 5×3 needs a proof that 12 = 15, which does not exist", capCls: "r", width: 860 },
-  { name: "law-roundtrip", cmd: "python reference/list_laws.py && bend bpe/main.bend --verdict", text: () => read("law_roundtrip.txt") + "\n\n" + read("verdict.txt"),
-    cap: "the statement the kernel checked: decoding what was encoded gives the bytes back", capCls: "g", width: 980 },
-  { name: "gpt2", cmd: 'gpt2_fast "The capital of France is" 8', text: gpt2,
-    cap: "GPT-2 small in Bend: the same 8 tokens as PyTorch, about 0.1 s each", capCls: "g", width: 980 },
+  { name: "bad-weight", cmd: "bend tests/bad_weight.bend", text: () => bad("bad_weight.txt", [0, 1, 2, 3]), mark: [2, 3],
+    cap: "the query and key projections of the 135M swapped: 576 × 576 where 192 × 576 goes, rejected", capCls: "r", width: 1080 },
+  { name: "bad-cap", cmd: "bend tests/bad_cap.bend", text: () => { const k = capLine("bad_cap.txt"); return bad("bad_cap.txt", [0, 1, 2, 3, k, k + 1, k + 2, k + 3]); }, mark: [2, 3],
+    cap: "a third write into a cache made for two positions needs a proof that 2 < 2: it does not compile", capCls: "r", width: 1080 },
+  { name: "law-gqa", cmd: "bend llama/main.bend --verdict", text: () => read("law_gqa.txt") + "\n\n" + read("verdict.txt"),
+    cap: "with g query heads per key/value head, query head j·g + i reads key/value head j, checked again by the kernel", capCls: "g", width: 1080 },
+  { name: "gen", cmd: './gen data/smollm2-1.7b "The capital of France is" 32', text: gen,
+    cap: "SmolLM2-1.7B in Bend: the same 32 tokens as transformers", capCls: "g", width: 1080 },
 ];
 
 export async function shoot(only) {
