@@ -646,3 +646,24 @@ breaking changes are a `Nat` crossing to a JS host and `F32.show` passed as a fu
 
 The effect of the release on speed is measured on its own: the same commit built with 2.0.36 and with 2.0.37, in one
 session (`BENCHMARK.md`).
+
+## 2026-10-13: the benchmark on Bend 2.0.37, against 2.0.36
+
+The same commit (`3ea435a`) built with both releases, next to transformers, llama.cpp and candle, in one session on an
+idle machine (16:26 to 19:35; `BENCHMARK.md`). Every system produced the same tokens.
+
+- **No change in speed from 2.0.37.** Every difference between the two builds is within the spread of the samples, and
+  the per-token timestamps agree (1.7B at 16 threads: 423 ms on 2.0.36, 426 on 2.0.37). The 10% that the parallel heads
+  gained on the 1.7B at 16 threads (2026-10-12) did not grow with #1479. bend-ml's GPT-2 shows the same (its NOTES).
+- **The 1.7B's black-box totals carry its loading.** The marginal cost is t(129) - t(1), and both runs load the model
+  (66-73 s, varying by several seconds): on 2.0.37 at 16 threads the samples go from 432 to 510 ms per token, while its
+  own clock says 426. The 512-token runs (423 ms at 16 threads, 1165 on one) are less exposed. A better protocol for a
+  model that loads this slowly is a longer run or the program's own clock; I kept the black-box numbers as measured and
+  say so next to them.
+- **One thread runs the heads in sequence now** (`depth_for`, 2026-10-12): the 1.7B at one thread is 1161-1203 ms per
+  token (1230-1288 for the two fixed orders on 2026-10-12), the 135M 111-121 (121-122).
+- **Flat cost holds:** 0.04-0.18 ms of growth per cached position over 512 tokens.
+- **Release media.** The README is rewritten around these results in bend-ml's identity (`docs/media/`, `make media`):
+  every figure is drawn from `docs/media/numbers.json`, exported from the run's summary, or from real outputs
+  (`scripts/capture_outputs.sh`). The launch video (`render_video.mjs`, attached to the v1.0.0 release, not committed)
+  shows the 1.7B's own clock instead of the 2.0.36 bar, since it has no room for the note on loading.
