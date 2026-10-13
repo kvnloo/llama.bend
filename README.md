@@ -1,7 +1,7 @@
 # llama.bend
 
 [![CI](https://github.com/nuxyel/llama.bend/actions/workflows/ci.yml/badge.svg?branch=devel)](https://github.com/nuxyel/llama.bend/actions/workflows/ci.yml)
-[![Bend 2.0.36](https://img.shields.io/badge/Bend-2.0.36-7b68ae)](https://github.com/bendlang/bend)
+[![Bend 2.0.37](https://img.shields.io/badge/Bend-2.0.37-7b68ae)](https://github.com/bendlang/bend)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Llama-architecture language models running in [Bend 2](https://github.com/bendlang/bend), with the shapes in the
@@ -92,7 +92,7 @@ Linux (or WSL) and Python 3.14, the version the pinned dependencies were tested 
 1.2 GB for the Python venv with PyTorch, 0.9 GB for SmolLM2-135M's files.
 
 ```bash
-make setup   # installs Bend 2.0.36 (SHA256-checked) and Lean 4.34.0 if missing, and the Python venv of reference/
+make setup   # installs Bend 2.0.37 (SHA256-checked) and Lean 4.34.0 if missing, and the Python venv of reference/
 make prep    # downloads SmolLM2-135M at a pinned revision into data/smollm2-135m/ and checks it
 make check   # the laws (--verdict), then every test above against tokenizers and transformers (~4 min)
 ```

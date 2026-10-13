@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # One-shot, idempotent setup for the llama.bend checks. No sudo.
 #
-#   scripts/setup.sh      # Bend 2.0.36, Lean 4.34.0, the Python venv of reference/
+#   scripts/setup.sh      # Bend 2.0.37, Lean 4.34.0, the Python venv of reference/
 #
-# Pins: Bend 2.0.36 (checked by SHA256) and Lean v4.34.0 (the kernel behind `bend --verdict`). The same steps as
+# Pins: Bend 2.0.37 (checked by SHA256) and Lean v4.34.0 (the kernel behind `bend --verdict`). The same steps as
 # bend-ml's scripts/setup.sh (MIT). The model is downloaded afterwards by `make prep`.
 set -euo pipefail
 
-BEND_VERSION=2.0.36
+BEND_VERSION=2.0.37
 LEAN_VERSION=4.34.0
 
 cd "$(dirname "$0")/.."
@@ -24,8 +24,8 @@ if have_bend; then
   echo "already installed"
 else
   case "$(uname -s)-$(uname -m)" in
-    Linux-x86_64)  OS=linux; ARCH=x64;   SHA=02089dc0eed0fd5fd6d73c74cc9cffcb2c6638dd3b02ae83f7b8cc57fbe381ba ;;
-    Linux-aarch64) OS=linux; ARCH=arm64; SHA=a14a311e39bad45f9669d4eab39d156b578c945f13a2b7bae20d9c23567a4664 ;;
+    Linux-x86_64)  OS=linux; ARCH=x64;   SHA=84c32465a39bc9ac315eade23f470cb8db03153dc860f89564fcfec153c3e445 ;;
+    Linux-aarch64) OS=linux; ARCH=arm64; SHA=b65d452e5c68a4c486e353220d4298ba5d76f535db47109a7d76ffdf72efafb1 ;;
     *) echo "unsupported platform $(uname -s)-$(uname -m): Bend runs on Linux (use WSL on Windows)"; exit 1 ;;
   esac
   HOME_BEND=${BEND_HOME:-$HOME/.bend}
