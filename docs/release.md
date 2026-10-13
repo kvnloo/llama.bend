@@ -1,6 +1,9 @@
 # Release checklist: Bend 2.0.37 and the first public version
 
-Status on 2026-10-13: steps 1 to 4b and 5.1 are done (NOTES, "2026-10-13"); what is left is Renan's (5.2, 5.3, 6, 7.1).
+Status on 2026-10-13: steps 1 to 4b, 5.1 and 7.2 are done (NOTES, "2026-10-13"; the measurement ran before the README,
+so its numbers are the new ones). What is left is Renan's: 6, then 5.2 and 5.3 (with `llama.bend.mp4`, rendered by
+`scripts/make_media.sh --video`, attached to the v1.0.0 release), bend-ml's release PR and tag (v1.2.4), and 7.1. The
+release notes and the posts are drafted in his private notes.
 Order: publish to BendHub (6) before the repository goes public (5.2), since both READMEs already import
 `bend-ml-llama@0.1.0.0`.
 
