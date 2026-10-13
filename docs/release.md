@@ -39,6 +39,20 @@ The same bump in bend-ml, with its own checklist (bend-ml `NOTES.md`, "Checklist
 carries #1377"): `make check-full`, the C join check of `bmv`, the workaround comment retired. Its packages are
 republished only if their source changes.
 
+## 4b. The README and the launch video
+
+In the identity of bend-ml's (its `docs/media/`: `shoot.mjs` for terminal screenshots of real runs, `charts.mjs` for
+the banner and the diagram from measured numbers, `deck.mjs` with a `readme.mjs` for the result frames,
+`render_video.mjs` for the video: a scene rendered frame by frame in headless Brave at 60 fps, blended to 30 with
+motion blur, encoded with ffmpeg, plus a poster and a webp teaser), a `docs/media/` here and a `make media`:
+
+1. The README rewritten around the results, like bend-ml's latest: a banner, badges, numbered sections, a terminal
+   shot of a real generation, the laws in a few lines, the frames for the benchmark (from `BENCHMARK.md`) and the flat
+   per-token cost, reproduce, limits.
+2. A launch video for v1.0 (attached to the release, not committed): what llama.bend is, a model generating in the
+   terminal, the types that reject a wrong weight, the laws, the numbers with their losses.
+3. Every number in both comes from `BENCHMARK.md` or a captured run; nothing typed by hand.
+
 ## 5. Public (Renan)
 
 1. Read the README, the package README, `BENCHMARK.md` and `docs/` once more as a stranger would. Tracked files
