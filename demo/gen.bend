@@ -51,24 +51,25 @@ def left_after(+id: Nat, +left: Nat) -> Nat:
   K.sel(Nat.is_eq(id, 0n), 0n, left)
 
 # tok runs at position t; queue: the prompt ids still to feed; left: tokens still to generate; gen: the generated
-# ids, newest first. Returns the generated ids in order.
-def loop(fuel: Nat, +c: M.Cfg, +t0: Nat, +t: Nat, +tok: Nat, queue: List<&2, Nat>, left: Nat, gen: List<&2, Nat>, m: M.Model<c>, cs: List<&1, M.KV<t>>) -> IO(List<&2, Nat>):
+# ids, newest first. Returns the generated ids in order. The caches have room for cap positions, and fuel counts
+# the steps left with t + fuel = cap (inv), which gives each step its proof that t < cap.
+def loop(fuel: Nat, +c: M.Cfg, +t0: Nat, -cap: Nat, +t: Nat, -inv: {Nat.add(t, fuel) == cap : Nat}, +tok: Nat, queue: List<&2, Nat>, left: Nat, gen: List<&2, Nat>, m: M.Model<c>, cs: List<&1, M.KV<cap, t>>) -> IO(List<&2, Nat>):
   match fuel queue left:
     case 0n _ _:
       IO.pure(List<&2, Nat>, List.reverse(&2, Nat, gen))
     case 1n+p _ 0n:
       IO.pure(List<&2, Nat>, List.reverse(&2, Nat, gen))
-    case 1n+p Con{+q, qt} 1n+lp:
-      M.Out.then(IO(List<&2, Nat>), c, t, M.forward(c, t, m, cs, tok), lg => nf => acts => cs2 => m2 =>
-        loop(p, c, t0, 1n+t, q, qt, 1n+lp, gen, m2, cs2))
-    case 1n+p Nil{} 1n+lp:
-      M.Out.then(IO(List<&2, Nat>), c, t, M.forward(c, t, m, cs, tok), lg => nf => acts => cs2 => m2 =>
+    case 1n++p Con{+q, qt} 1n+lp:
+      M.Out.then(IO(List<&2, Nat>), c, cap, t, M.forward(c, cap, t, m, cs, M.step_room(t, p, cap, inv), tok), lg => nf => acts => cs2 => m2 =>
+        loop(p, c, t0, cap, 1n+t, M.step_inv(t, p, cap, inv), q, qt, 1n+lp, gen, m2, cs2))
+    case 1n++p Nil{} 1n+lp:
+      M.Out.then(IO(List<&2, Nat>), c, cap, t, M.forward(c, cap, t, m, cs, M.step_room(t, p, cap, inv), tok), lg => nf => acts => cs2 => m2 =>
         +am = M.argmax(lg)
         +id = M.AM.i(am)
         do IO<List<&2, Nat>>:
           t1 : Nat <- IO.now()
           IO.print("  id " ++ Nat.show(id) ++ "  logit " ++ U32.show(bits(M.AM.v(am))) ++ " " ++ F32.show(M.AM.v(am)) ++ "  t=" ++ tsec(t1, t0))
-          loop(p, c, t0, 1n+t, id, Nil{}, left_after(id, lp), id <> gen, m2, cs2))
+          loop(p, c, t0, cap, 1n+t, M.step_inv(t, p, cap, inv), id, Nil{}, left_after(id, lp), id <> gen, m2, cs2))
 
 # ---- main program ----
 
@@ -87,7 +88,7 @@ def start2(+c: M.Cfg, model: M.Model<c>, +table: List<&2, BPE.Rule>, +perm: List
       do IO<Unit>:
         t0ms : Nat <- IO.now()
         IO.print("prompt ids: " ++ show_nats(ids))
-        gen : List<&2, Nat> <- loop(Nat.add(List.length(&2, Nat, ids), n), c, t0ms, 0n, t0, qt, n, Nil{}, model, M.caches(c, M.Cfg.layers(c), Nat.add(List.length(&2, Nat, ids), n)))
+        gen : List<&2, Nat> <- loop(Nat.add(List.length(&2, Nat, ids), n), c, t0ms, Nat.add(List.length(&2, Nat, ids), n), 0n, {==}, t0, qt, n, Nil{}, model, M.caches(c, M.Cfg.layers(c), Nat.add(List.length(&2, Nat, ids), n)))
         IO.print("text: " ++ K.decode_text(table, perm, List.append(&2, Nat, ids, gen)))
 
 def generate(+c: M.Cfg, model: M.Model<c>, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt: String, n: Nat) -> IO(Unit):

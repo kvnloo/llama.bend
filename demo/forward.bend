@@ -35,18 +35,19 @@ def show_acts(acts: List<&2, M.Act>, +l: Nat, +t: Nat) -> IO(Unit):
         line("h" ++ Nat.show(l), t, y)
         show_acts(r, 1n+l, t)
 
-# ids[0] runs at position t with the caches of positions 0..t-1; then the rest
-def go(ids: List<&2, Nat>, +c: M.Cfg, +t: Nat, m: M.Model<c>, cs: List<&1, M.KV<t>>) -> IO(Unit):
+# ids[0] runs at position t with the caches of positions 0..t-1; then the rest. The caches have room for cap
+# positions with t + length(ids) = cap (inv), which gives each position its proof that t < cap.
+def go(ids: List<&2, Nat>, +c: M.Cfg, -cap: Nat, +t: Nat, -inv: {Nat.add(t, List.length(&2, Nat, ids)) == cap : Nat}, m: M.Model<c>, cs: List<&1, M.KV<cap, t>>) -> IO(Unit):
   match ids:
     case Nil{}:
       IO.pure(Unit, Unit{})
-    case Con{+tok, rest}:
-      M.Out.then(IO(Unit), c, t, M.forward(c, t, m, cs, tok), lg => nf => acts => cs2 => m2 =>
+    case Con{+tok, +rest}:
+      M.Out.then(IO(Unit), c, cap, t, M.forward(c, cap, t, m, cs, M.step_room(t, List.length(&2, Nat, rest), cap, inv), tok), lg => nf => acts => cs2 => m2 =>
         do IO<Unit>:
           show_acts(acts, 0n, t)
           line("nf", t, nf)
           line("logits", t, lg)
-          go(rest, c, 1n+t, m2, cs2))
+          go(rest, c, cap, 1n+t, M.step_inv(t, List.length(&2, Nat, rest), cap, inv), m2, cs2))
 
 # ---- arguments ----
 
@@ -68,7 +69,7 @@ def run_ids(+dir: String, +ids: List<&2, Nat>) -> IO(Unit):
   do IO<Unit>:
     +c : M.Cfg <- M.read_cfg(dir)
     m : M.Model<c> <- M.load_model(c, dir)
-    go(ids, c, 0n, m, M.caches(c, M.Cfg.layers(c), List.length(&2, Nat, ids)))
+    go(ids, c, List.length(&2, Nat, ids), 0n, {==}, m, M.caches(c, M.Cfg.layers(c), List.length(&2, Nat, ids)))
 
 def dispatch(args: List<String>) -> IO(Unit):
   match args:

@@ -46,16 +46,17 @@ def show_act(+t: Nat, act: M.Act) -> IO(Unit):
         line("m", t, m)
         line("y", t, y)
 
-# xs[0] runs at position t with the cache of positions 0..t-1; then the rest
-def go(xs: List<&2, List<&2, F32>>, +c: M.Cfg, +d: Nat, +t: Nat, lw: M.LW<c>, kv: M.KV<t>) -> IO(Unit):
+# xs[0] runs at position t with the cache of positions 0..t-1; then the rest. The cache has room for cap positions
+# with t + length(xs) = cap (inv), which gives each position its proof that t < cap.
+def go(xs: List<&2, List<&2, F32>>, +c: M.Cfg, +d: Nat, -cap: Nat, +t: Nat, -inv: {Nat.add(t, List.length(&2, List<&2, F32>, xs)) == cap : Nat}, lw: M.LW<c>, kv: M.KV<cap, t>) -> IO(Unit):
   match xs:
     case Nil{}:
       IO.pure(Unit, Unit{})
-    case Con{+x, rest}:
-      M.BR.then(IO(Unit), c, t, M.block(c, d, lw, t, kv, M.rot_at(c, t), x), y => kv2 => lw2 => act =>
+    case Con{+x, +rest}:
+      M.BR.then(IO(Unit), c, cap, t, M.block(c, d, lw, cap, t, kv, M.step_room(t, List.length(&2, List<&2, F32>, rest), cap, inv), M.rot_at(c, t), x), y => kv2 => lw2 => act =>
         do IO<Unit>:
           show_act(t, act)
-          go(rest, c, d, 1n+t, lw2, kv2))
+          go(rest, c, d, cap, 1n+t, M.step_inv(t, List.length(&2, List<&2, F32>, rest), cap, inv), lw2, kv2))
 
 def run(+dir: String, +layer: Nat, path: String, +n: Nat) -> IO(Unit):
   do IO<Unit>:
@@ -65,7 +66,8 @@ def run(+dir: String, +layer: Nat, path: String, +n: Nat) -> IO(Unit):
     lw : M.LW<c> <- M.load_lw(c, dir, layer, d)
     IO.print("inv_freq" ++ show_bits(M.inv_freq(c)))
     xs : List<&2, F32> <- M.read_floats(path, Nat.mul(n, M.Cfg.dim(c)))
-    go(rows(n, M.Cfg.dim(c), xs), c, d, 0n, lw, M.KV.empty(c, n))
+    +rs : List<&2, List<&2, F32>> = rows(n, M.Cfg.dim(c), xs)
+    go(rs, c, d, List.length(&2, List<&2, F32>, rs), 0n, {==}, lw, M.KV.empty(c, List.length(&2, List<&2, F32>, rs)))
 
 def run2(+dir: String, +layer: Maybe<&2, Nat>, path: String, +n: Maybe<&2, Nat>) -> IO(Unit):
   match layer n:
