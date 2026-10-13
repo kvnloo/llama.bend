@@ -2,8 +2,7 @@
 
 Status on 2026-10-13: steps 1 to 4b, 5.1 and 7.2 are done (NOTES, "2026-10-13"; the measurement ran before the README,
 so its numbers are the new ones). What is left is Renan's: 6, then 5.2 and 5.3 (with `llama.bend.mp4`, rendered by
-`scripts/make_media.sh --video`, attached to the v1.0.0 release), bend-ml's release PR and tag (v1.2.4), and 7.1. The
-release notes and the posts are drafted in his private notes.
+`scripts/make_media.sh --video`, attached to the v1.0.0 release), bend-ml's release PR and tag (v1.2.4), and 7.1.
 Order: publish to BendHub (6) before the repository goes public (5.2), since both READMEs already import
 `bend-ml-llama@0.1.0.0`.
 
@@ -28,7 +27,7 @@ public, publish to BendHub, tag a release or post.
    compiled and scheduled, not the order of any sum, so the bits should not move; if one does, find out why before
    anything else, and only then `bits.py save`.
 4. The same bits check with `--threads 1` (wrappers that pass it), which runs attention's sequential order.
-5. `MODEL=smollm2-360m` and `MODEL=smollm2-1.7b`: `reference/test_gen.py` on the twelve prompts, 0 failures. The
+5. `MODEL=smollm2-360m` and `MODEL=smollm2-1.7b`: `reference/test_gen.py` on the twelve prompts, 0 failures. 
    1.7B takes about half an hour; run it alone.
 6. The emitted C (`bend demo/gen.bend -o gen.c`) still has `par_att`'s two joins.
 
