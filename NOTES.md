@@ -394,7 +394,7 @@ check` passed with the new sum, so `make bits` now guards this version.
 ## 2026-10-11: first real benchmark, and the next step: an Array key/value cache
 
 The evidence run of my measurement harness (private for now) measured
-llama.bend at commit `80483ac` on an idle machine, against transformers 5.19, llama.cpp (F32) and candle (F32), all
+llama.bend at commit `a60877a` on an idle machine, against transformers 5.19, llama.cpp (F32) and candle (F32), all
 producing the same tokens. Cost per generated token (loading and the prompt excluded), ms:
 
 | | 135M, 1 / 16 threads | 360M, 1 / 16 threads | 1.7B over 128 tokens, 1 / 16 threads |
@@ -488,7 +488,7 @@ that the later slots are absent from the value (they exist and hold zeros).
 1.04e-5 (unchanged, at position 0), argmax the same everywhere, layer test 0 failures. The order of the sums in
 attention changed, so 23 outputs had new bits; saved again (`bits.py save`), `make bits` passes.
 
-First timing, old (`f1dc8d4`) against new on the same build setup, "Once upon a time" + 128 generated tokens, ms per
+First timing, old (`b212ccd`) against new on the same build setup, "Once upon a time" + 128 generated tokens, ms per
 token from the program's own timestamps (one run each; the machine was not idle, so the old 135M is slower than in the
 evidence run; the ratios and the slopes are the point, the absolute numbers wait for the harness):
 
@@ -526,8 +526,8 @@ reused with `1n++e`; the last parameter is a runtime one and the list cut is a t
 
 ## 2026-10-12: milestone 9 closed (the evidence run)
 
-Three builds on Bend 2.0.36 with tensor-array 0.1.7.0, on mains power in the `performance` profile, idle: `f1dc8d4` (list
-cache), `6fa7e7f` (Array cache, key/value heads in sequence), `6a2e6f8` (Array cache, heads in parallel), against
+Three builds on Bend 2.0.36 with tensor-array 0.1.7.0, on mains power in the `performance` profile, idle: `b212ccd` (list
+cache), `aa60b5f` (Array cache, key/value heads in sequence), `bd912a7` (Array cache, heads in parallel), against
 transformers, llama.cpp and candle; the 1.7B over 128 tokens (2 rounds), the three models over 32 (5 rounds) and, new,
 over 512 tokens against llama.cpp (2 rounds).
 

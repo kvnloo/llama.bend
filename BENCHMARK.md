@@ -21,9 +21,9 @@ sequence with two threads or fewer and in parallel otherwise; it has not been me
 
 | system | 1 thread | 16 threads |
 |---|---|---|
-| llama.bend, cache in lists (`f1dc8d4`) | 141 | 100 |
-| llama.bend, cache in arrays, heads in sequence (`6fa7e7f`) | 122 | 67.4 |
-| llama.bend, cache in arrays, heads in parallel (`6a2e6f8`) | 121 | 74.3 |
+| llama.bend, cache in lists (`b212ccd`) | 141 | 100 |
+| llama.bend, cache in arrays, heads in sequence (`aa60b5f`) | 122 | 67.4 |
+| llama.bend, cache in arrays, heads in parallel (`bd912a7`) | 121 | 74.3 |
 | transformers 5.19 (PyTorch 2.14.1) | 26.4 | 14.4 |
 | llama.cpp `23b0202` (F32 GGUF) | 23.7 | 13.9 |
 | candle `c68b249` (F32) | 26.5 | 27.8 |
@@ -32,9 +32,9 @@ sequence with two threads or fewer and in parallel otherwise; it has not been me
 
 | system | 1 thread | 16 threads |
 |---|---|---|
-| llama.bend, cache in lists (`f1dc8d4`) | 334 | 212 |
-| llama.bend, cache in arrays, heads in sequence (`6fa7e7f`) | 286 | 145 |
-| llama.bend, cache in arrays, heads in parallel (`6a2e6f8`) | 308 | 136 |
+| llama.bend, cache in lists (`b212ccd`) | 334 | 212 |
+| llama.bend, cache in arrays, heads in sequence (`aa60b5f`) | 286 | 145 |
+| llama.bend, cache in arrays, heads in parallel (`bd912a7`) | 308 | 136 |
 | transformers 5.19 (PyTorch 2.14.1) | 59.6 | 33.8 |
 | llama.cpp `23b0202` (F32 GGUF) | 63.5 | 28.1 |
 | candle `c68b249` (F32) | 72.3 | 81.0 |
@@ -43,9 +43,9 @@ sequence with two threads or fewer and in parallel otherwise; it has not been me
 
 | system | 1 thread | 16 threads |
 |---|---|---|
-| llama.bend, cache in lists (`f1dc8d4`) | 1985 | 1692 |
-| llama.bend, cache in arrays, heads in sequence (`6fa7e7f`) | 1230 | 427 |
-| llama.bend, cache in arrays, heads in parallel (`6a2e6f8`) | 1288 | 385 |
+| llama.bend, cache in lists (`b212ccd`) | 1985 | 1692 |
+| llama.bend, cache in arrays, heads in sequence (`aa60b5f`) | 1230 | 427 |
+| llama.bend, cache in arrays, heads in parallel (`bd912a7`) | 1288 | 385 |
 | transformers 5.19 (PyTorch 2.14.1) | 228 | 134 |
 | llama.cpp `23b0202` (F32 GGUF) | 319 | 98.5 |
 | candle `c68b249` (F32) | 288 | 302 |
@@ -80,9 +80,9 @@ Wall time of a run that loads the model and generates one token, and peak reside
 
 | system | 135M | 360M | 1.7B |
 |---|---|---|---|
-| llama.bend, cache in lists (`f1dc8d4`) | 4.3 s, 777 MB | 11.6 s, 2,329 MB | 68.6 s, 7,065 MB |
-| llama.bend, cache in arrays, heads in sequence (`6fa7e7f`) | 4.5 s, 782 MB | 11.7 s, 2,331 MB | 76.1 s, 6,900 MB |
-| llama.bend, cache in arrays, heads in parallel (`6a2e6f8`) | 4.4 s, 784 MB | 11.7 s, 2,329 MB | 72.1 s, 6,907 MB |
+| llama.bend, cache in lists (`b212ccd`) | 4.3 s, 777 MB | 11.6 s, 2,329 MB | 68.6 s, 7,065 MB |
+| llama.bend, cache in arrays, heads in sequence (`aa60b5f`) | 4.5 s, 782 MB | 11.7 s, 2,331 MB | 76.1 s, 6,900 MB |
+| llama.bend, cache in arrays, heads in parallel (`bd912a7`) | 4.4 s, 784 MB | 11.7 s, 2,329 MB | 72.1 s, 6,907 MB |
 | transformers 5.19 (PyTorch 2.14.1) | 2.7 s, 1,136 MB | 2.9 s, 2,436 MB | 4.5 s, 10,128 MB |
 | llama.cpp `23b0202` (F32 GGUF) | 0.2 s, 743 MB | 0.2 s, 1,752 MB | 0.9 s, 8,120 MB |
 | candle `c68b249` (F32) | 0.2 s, 789 MB | 0.4 s, 2,107 MB | 2.1 s, 9,844 MB |
