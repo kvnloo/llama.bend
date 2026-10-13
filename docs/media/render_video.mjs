@@ -1,5 +1,5 @@
 // Renders video/scene.html frame by frame with Brave and encodes it with ffmpeg.
-//   node render_video.mjs                  full video -> bend-ml.mp4 (not committed; attached to the release)
+//   node render_video.mjs                  full video -> llama.bend.mp4 (not committed; attached to the release)
 //   node render_video.mjs --stills 1,3,12  PNG stills of those seconds -> frames/still-<t>.png (for review)
 //   node render_video.mjs --poster         poster.png (the hook, after the error)
 import puppeteer from "puppeteer-core";
@@ -46,7 +46,7 @@ try {
     fs.writeFileSync(path.join(here, "poster.png"), await frame(6.0, { type: "png" }));
     console.log("poster.png");
   } else {
-    const out = path.join(here, "bend-ml.mp4");
+    const out = path.join(here, "llama.bend.mp4");
     const ff = spawn("ffmpeg", ["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "mjpeg", "-i", "-",
       "-vf", `tmix=frames=2,fps=${OUT_FPS},scale=in_range=full:out_range=tv,format=yuv420p`, "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-color_range", "tv", "-movflags", "+faststart", out], { stdio: ["pipe", "inherit", "inherit"] });
     const done = new Promise((r) => ff.on("close", r));
