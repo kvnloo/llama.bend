@@ -132,7 +132,7 @@ function drawCell(cl, t) {
 
 // ================= SHOT 1: the hook (0 - 7 s), world centre (0, 0) =================
 // LW<SmolLM2-135M>: q is 576 x 576 (three bands of three cells here), k is 192 x 576 (one band). Swap them.
-const S1 = { step: 76, sz: 64, A: { x: -780, y: -220 }, B: { x: -340, y: -220 } };
+const S1 = { step: 76, sz: 64, A: { x: -560, y: -220 }, B: { x: -120, y: -220 } };
 const qPos = (i, o = S1.A) => [o.x + (i % 3) * S1.step + S1.sz / 2, o.y + Math.floor(i / 3) * S1.step + S1.sz / 2];
 const kPos = (j, o = S1.B) => [o.x + j * S1.step + S1.sz / 2, o.y + S1.sz / 2];
 const qSlots = Array.from({ length: 9 }, (_, i) => { const [x, y] = qPos(i); return el("div", "slot", { width: S1.sz + "px", height: S1.sz + "px", opacity: 0, transform: `translate(${x - S1.sz / 2}px, ${y - S1.sz / 2}px)` }); });
@@ -151,7 +151,7 @@ for (let i = 0; i < 26; i++) {
     key(i, 2.3 + j * 0.04, 0.7, { x: sx, y: sy }, "out");                           // k moves into q's place
   } else key(i, -1, 0, { x: 0, y: 0, w: 0, h: 0, r: 12, c: P.g2, o: 0, hz: 0 });
 }
-const hdr = text(-820, -400, `LW&lt;SmolLM2-135M&gt;`, 46, P.b02, "l", 700);
+const hdr = text(S1.A.x, -400, `LW&lt;SmolLM2-135M&gt;`, 46, P.b02, "l", 700);
 const qLbl = text(S1.A.x, S1.A.y - 56, `q · <span id="qd">576</span> × 576`, 28, P.b00);
 const kLbl = text(S1.B.x, S1.B.y - 56, `k · <span id="kd">192</span> × 576`, 28, P.b00);
 const qd = document.getElementById("qd"), kd = document.getElementById("kd");
@@ -318,18 +318,18 @@ function shot5(t) {
   const e5 = clamp(t - 35.6, 0, toks[shown - 1].t - toks[0].t);
   gClock.innerHTML = `${e5.toFixed(1)} s <span style="color:var(--b1);font-weight:400">real time</span>`;
   show(gClock, seg(t, 35.2, 35.5));
-  const nB = Math.floor(clamp((t - 40.6) / 0.08, 0, 12)), nP = Math.floor(clamp((t - 41.4) / 0.08, 0, 12));
+  const nB = Math.floor(clamp((t - 42.1) / 0.05, 0, 12)), nP = Math.floor(clamp((t - 42.5) / 0.05, 0, 12));
   gRowB.textContent = pad("bend", 14) + toks.slice(0, nB).map((k) => pad(k.id, 7)).join("");
   gRowP.innerHTML = esc(pad("transformers", 14)) + toks.slice(0, nP).map((k) => `<span style="color:var(--grn)">${esc(pad(k.id, 7))}</span>`).join("");
-  show(gRowB, seg(t, 40.5, 40.7)); show(gRowP, seg(t, 41.3, 41.5));
-  drawKinetic(gSame, t, 42.2, 0.1);
+  show(gRowB, seg(t, 42.0, 42.2)); show(gRowP, seg(t, 42.4, 42.6));
+  drawKinetic(gSame, t, 42.9, 0.05);
 }
 
 // ================= SHOT 6: the benchmark (44 - 54 s), (4800, 3900) =================
 const BZ = { x: 4800, y: 3900 }, base = BZ.y + 190, plotH = 380;
 const PT = N.per_token["smollm2-1.7b"];
 const SYS = [["llama.cpp", "F32", "llama.cpp", "other"], ["transformers", "PyTorch", "transformers", "other"],
-  ["Bend 2.0.36", "llama.bend", "llama.bend (Bend 2.0.36)", "other"], ["Bend 2.0.37", "llama.bend", "llama.bend (Bend 2.0.37)", "bend"]];
+  ["candle", "F32", "candle", "other"], ["llama.bend", "Bend 2.0.37", "llama.bend (Bend 2.0.37)", "bend"]];
 const ms = (v) => `${Math.round(v)} ms`;
 const charts = [
   { x0: BZ.x - 820, w: 700, max: Math.max(...SYS.map((s) => PT["1"][s[2]])) * 1.05, title: "1.7B · ms per token · 1 thread", th: "1" },
@@ -345,7 +345,7 @@ charts.forEach((ch, k) => {
     const v = ch.th === "1" ? PT["1"][keyName] : PT["16"][keyName];
     const x = ch.x0 + i * (bw + gap) + bw / 2, h = Math.max(3, (v / ch.max) * plotH);
     const idx = ci++, at = 45.8 + k * 0.5 + i * 0.22;
-    key(idx, 44.1 + idx * 0.04, 1.6, { x, y: base - 1.5, w: bw, h: 3, r: 2, c: kind === "bend" ? P.vio : keyName.includes("2.0.36") ? P.chip : P.g2, o: 1, hz: 0 });
+    key(idx, 44.1 + idx * 0.04, 1.6, { x, y: base - 1.5, w: bw, h: 3, r: 2, c: kind === "bend" ? P.vio : P.g2, o: 1, hz: 0 });
     key(idx, at, 1.0, { y: base - h / 2, h });
     const col = kind === "bend" ? P.vio : P.b01;
     benchText.push([text(x, base - h - 46, ms(v), 26, col, "c", kind === "bend" ? 700 : 400), at + 0.5]);
@@ -356,7 +356,8 @@ charts.forEach((ch, k) => {
 for (let i = ci; i < 26; i++) key(i, 44.0, 0.5, { w: 0, h: 0, o: 0 }, "smooth");
 const r16 = PT["16"]["llama.bend (Bend 2.0.37)"] / PT["16"]["llama.cpp"], r1 = PT["1"]["llama.bend (Bend 2.0.37)"] / PT["1"]["llama.cpp"];
 const bNote = kinetic(BZ.x, BZ.y + 310, [[`llama.cpp is still ${r1.toFixed(1)}× faster on one thread, ${r16.toFixed(1)}× on 16.`, P.ora]], 36);
-const bWhy = text(BZ.x, BZ.y + 370, "Bend 2 emits scalar code: no BLAS, no SIMD. Loading the 1.7B takes over a minute.", 24, P.b00, "c");
+const own16 = Math.round(N.own_clock["smollm2-1.7b"]["16"]["llama.bend (Bend 2.0.37)"]);
+const bWhy = text(BZ.x, BZ.y + 370, `Bend 2 emits scalar code: no BLAS, no SIMD. By its own clock, llama.bend takes ${own16} ms on 16 threads.`, 24, P.b00, "c");
 function shot6(t) {
   for (const [d, a] of benchText) show(d, seg(t, a, a + 0.4), 10);
   drawKinetic(bNote, t, 48.8, 0.08);
