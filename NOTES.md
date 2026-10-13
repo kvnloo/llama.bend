@@ -603,3 +603,19 @@ changed (`make bits`: every output identical).
 What stays open: `cap` is not in `KV`'s type, so nothing stops a caller from pushing at `t >= cap`. Putting it there
 (`KV<cap, t>`, with `KV.push` asking for `t < cap`) changes the signatures of `block`, `forward` and the demos' loops,
 which would then have to prove `t < cap` at each step; left for the package's API review before publishing.
+
+## 2026-10-12: the capacity in the cache's type (branch `api/kv-cap`, not merged)
+
+A trial of the API change `kv_room` left open, on its own branch so the decision stays Renan's. `KV<cap, t>` carries
+the capacity; `KV.push`, `block`, `forward` (and `run`, `layers`, `forward.go`) take an erased proof
+`room: {True{} == TA.leb(1n+t, cap)}`, so writing at `cap` or beyond does not compile. `step_room` and `step_inv` give
+the proof to a loop that keeps `t + steps left = cap`; the three demos do (fuel in `gen.bend`, the list of ids or rows
+in `forward.bend` and `layer_test.bend`), and the match on the counter refines the equation by itself.
+
+- **Same program.** The C that Bend emits for `demo/gen.bend` and `demo/forward.bend` is byte for byte the C of
+  `devel`: the indexes and the proofs are erased. `demo/layer_test.bend` differs only because its capacity is now the
+  length of its rows (the same number, computed once).
+- **Checks.** Both kernels; `make check` (0 failures); `make bits` with all threads and with `--threads 1`, every
+  output identical; the twelve generations of the 360M and the 1.7B against transformers, 0 failures.
+- **Cost for callers.** The signatures of `block` and `forward` grow by `cap` and `room`; a caller that walks the
+  positions threads one erased equation. The README example compiles.
