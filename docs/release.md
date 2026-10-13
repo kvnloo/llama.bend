@@ -49,8 +49,8 @@ republished only if their source changes.
 
 ## 6. BendHub (Renan)
 
-1. Decide on the API first: `cap` is not in `KV`'s type (NOTES, "the cache's capacity, proved"). Publishing is
-   permanent; changing the signature later is a new version that breaks callers.
+1. The API: `cap` is in `KV`'s type since 2026-10-12 (NOTES, "the capacity in the cache's type"), so the first
+   version publishes it. Publishing is permanent; a later signature change is a new version that breaks callers.
 2. `bend login` (GitHub), then from `llama/`: `bend main.bend --publish bend-ml-llama@0.1.0.0`. The name has 12+
    characters, the version four numbers, `LICENSE` sits next to `main.bend`, and the imports are BendHub packages at
    pinned versions.

@@ -604,9 +604,10 @@ What stays open: `cap` is not in `KV`'s type, so nothing stops a caller from pus
 (`KV<cap, t>`, with `KV.push` asking for `t < cap`) changes the signatures of `block`, `forward` and the demos' loops,
 which would then have to prove `t < cap` at each step; left for the package's API review before publishing.
 
-## 2026-10-12: the capacity in the cache's type (branch `api/kv-cap`, not merged)
+## 2026-10-12: the capacity in the cache's type (branch `api/kv-cap`, merged the same night)
 
-A trial of the API change `kv_room` left open, on its own branch so the decision stays Renan's. `KV<cap, t>` carries
+A trial of the API change `kv_room` left open, on its own branch so the decision stayed Renan's; he chose to merge
+it before the first publication. `KV<cap, t>` carries
 the capacity; `KV.push`, `block`, `forward` (and `run`, `layers`, `forward.go`) take an erased proof
 `room: {True{} == TA.leb(1n+t, cap)}`, so writing at `cap` or beyond does not compile. `step_room` and `step_inv` give
 the proof to a loop that keeps `t + steps left = cap`; the three demos do (fuel in `gen.bend`, the list of ids or rows
