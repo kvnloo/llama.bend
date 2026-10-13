@@ -21,6 +21,14 @@ sed -n '/^law gqa_head:/,/^$/p' llama/main.bend | sed '/^$/d' > "$O/law_gqa.txt"
 # a generation of the 1.7B: weights loaded, prompt ids, then each token with its logit and a timestamp
 bend demo/gen.bend -o .scratch/gen
 .scratch/gen data/smollm2-1.7b "The capital of France is" 32 > "$O/gen_17b.txt"
+# what each generated id decodes to, by SmolLM2's own tokenizer (the video lays the tokens out one by one)
+reference/.venv/bin/python - "$O/gen_17b.txt" data/smollm2-1.7b/hf/tokenizer.json > "$O/gen_17b_pieces.json" <<'PY'
+import json, re, sys
+from tokenizers import Tokenizer
+tok = Tokenizer.from_file(sys.argv[2])
+ids = [int(m) for m in re.findall(r"^\s*id (\d+)", open(sys.argv[1]).read(), re.M)]
+print(json.dumps([tok.decode([i]) for i in ids], ensure_ascii=False))
+PY
 bend version > "$O/bend_version.txt"
 if [ "${1:-}" = --full ]; then
   MODEL=smollm2-1.7b reference/.venv/bin/python reference/test_gen.py .scratch/gen > "$O/test_gen_17b.txt"
