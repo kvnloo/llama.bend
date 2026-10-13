@@ -42,8 +42,11 @@ republished only if their source changes.
 ## 5. Public (Renan)
 
 1. Read the README, the package README, `BENCHMARK.md` and `docs/` once more as a stranger would. Tracked files
-   name no private repository and describe no measurement method; the git history does in a few commits (names
-   only, no content): keep it, or publish with a squashed history (a decision, not a step).
+   name no private repository and describe no measurement method, and since 2026-10-12 neither does the history
+   (rewritten with git filter-repo; every tree on `devel` unchanged; the old -> new commit map is kept privately).
+   GitHub still keeps the pull requests #1 and #2 (the v0.0.1 and v0.0.2 releases) pointing at the old commits, so
+   a public repository would show them there. To avoid it: rename this repository (it stays private), create a new
+   `nuxyel/llama.bend`, push `devel`, `main` and the tags, and recreate the two releases (a decision for Renan).
 2. Make the repository public; bend-ml's README links it.
 3. A pull request `devel` → `main`, then the tag `v0.1.0` on `main` (bend-ml's `docs/VERSIONING.md`).
 
