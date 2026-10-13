@@ -1,5 +1,9 @@
 # Release checklist: Bend 2.0.37 and the first public version
 
+Status on 2026-10-13: steps 1 to 4b and 5.1 are done (NOTES, "2026-10-13"); what is left is Renan's (5.2, 5.3, 6, 7.1).
+Order: publish to BendHub (6) before the repository goes public (5.2), since both READMEs already import
+`bend-ml-llama@0.1.0.0`.
+
 The steps from a new Bend release to llama.bend public and `bend-ml-llama` on BendHub, in order. A step that fails
 stops the list. Steps marked **Renan** are his decision or his action: the agent does not make the repository
 public, publish to BendHub, tag a release or post.
@@ -55,7 +59,9 @@ motion blur, encoded with ffmpeg, plus a poster and a webp teaser), a `docs/medi
 
 ## 5. Public (Renan)
 
-1. Read the README, the package README, `BENCHMARK.md` and `docs/` once more as a stranger would. Tracked files
+1. Done on 2026-10-13: `nuxyel/legacy-llama.bend` (the old one, private), a new private `nuxyel/llama.bend` with `main`,
+   `devel`, the tags and the v0.0.1 and v0.0.2 releases, the local clone's `origin` pointing at it (`legacy` at the old
+   one). Read the README, the package README, `BENCHMARK.md` and `docs/` once more as a stranger would. Tracked files
    name no private repository and describe no measurement method, and since 2026-10-12 neither does the history
    (rewritten with git filter-repo; every tree on `devel` unchanged; the old -> new commit map is kept privately).
    GitHub still keeps the pull requests #1 and #2 (the v0.0.1 and v0.0.2 releases) pointing at the old commits, so
