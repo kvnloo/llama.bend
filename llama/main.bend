@@ -398,10 +398,10 @@ def swiglu(g: List<&2, F32>, u: List<&2, F32>) -> List<&2, F32>:
 # =====================================================================================================
 
 # One pair of arrays per key/value head: the keys (after RoPE) and the values of positions 0..t-1, position p at
-# [p·head, p·head + head). The type index t is the number of positions written; the arrays are allocated for the
-# whole generation (KV.empty's cap), and writing past it would wrap around, so callers size cap to the number of
-# positions they will run (NOTES, milestone 9).
-type KV<-t: Nat> is Type:
+# [p·head, p·head + head). The type indexes are the capacity cap (the positions the arrays have room for, set by
+# KV.empty) and t, the number of positions written. KV.push asks for a proof that t < cap, so a cache is never
+# written past its room (kv_room says why that is enough).
+type KV<-cap: Nat, -t: Nat> is Type:
   KV{ks: List<&1, Array<F32>>, vs: List<&1, Array<F32>>}
 
 # n arrays of 2^d slots
@@ -413,7 +413,7 @@ def arrays(n: Nat, +d: Nat) -> List<&1, Array<F32>>:
       Array.new(F32, d, 0.0) <> arrays(p, d)
 
 # a cache with no position yet, with room for cap positions per key/value head
-def KV.empty(+c: Cfg, +cap: Nat) -> KV<0n>:
+def KV.empty(+c: Cfg, +cap: Nat) -> KV<cap, 0n>:
   KV{arrays(Cfg.kv(c), TA.cap_depth(Nat.mul(cap, Cfg.head(c)))), arrays(Cfg.kv(c), TA.cap_depth(Nat.mul(cap, Cfg.head(c))))}
 
 # writes row j of rs into array j, at off
@@ -424,14 +424,14 @@ def write_rows(arrs: List<&1, Array<F32>>, rs: List<&2, List<&2, F32>>, +off: U3
     case _ _:
       arrs
 
-# position t: the keys and values of every key/value head written at t·head
-def KV.push(+c: Cfg, +t: Nat, kv: KV<t>, +ks: List<&2, List<&2, F32>>, +vs: List<&2, List<&2, F32>>) -> KV<1n+t>:
+# position t: the keys and values of every key/value head written at t·head; room is the proof that t < cap
+def KV.push(+c: Cfg, -cap: Nat, +t: Nat, kv: KV<cap, t>, -room: {True{} == TA.leb(1n+t, cap) : Bool}, +ks: List<&2, List<&2, F32>>, +vs: List<&2, List<&2, F32>>) -> KV<cap, 1n+t>:
   match kv:
     case KV{ka, va}:
       KV{write_rows(ka, ks, U32.from_nat(Nat.mul(t, Cfg.head(c)))), write_rows(va, vs, U32.from_nat(Nat.mul(t, Cfg.head(c))))}
 
 # the number of key/value heads a cache holds
-def kv_count(-t: Nat, kv: KV<t>) -> Nat:
+def kv_count(-cap: Nat, -t: Nat, kv: KV<cap, t>) -> Nat:
   match kv:
     case KV{ka, va}:
       List.length(&1, Array<F32>, ka)
@@ -456,7 +456,7 @@ def arrays_len(n, d):
 law kv_heads:
   for +c: Cfg
   for +cap: Nat
-  {kv_count(0n, KV.empty(c, cap)) == Cfg.kv(c) : Nat}
+  {kv_count(cap, 0n, KV.empty(c, cap)) == Cfg.kv(c) : Nat}
 
 def kv_heads(c, cap):
   arrays_len(Cfg.kv(c), TA.cap_depth(Nat.mul(cap, Cfg.head(c))))
@@ -497,6 +497,17 @@ law kv_room:
   for +t: Nat
   for e: {True{} == TA.leb(1n+t, cap) : Bool}
   {True{} == TA.leb(Nat.mul(1n+t, h), TA.pow2(TA.cap_depth(Nat.mul(cap, h)))) : Bool}
+
+# For callers that walk the positions with a counter of steps left (fuel), keeping t + fuel = cap: with 1 + p steps
+# left, position t is below the capacity (step_room), and after the step t + 1 + p = cap still holds (step_inv).
+def step_room(+t: Nat, +p: Nat, -cap: Nat, e: {Nat.add(t, 1n+p) == cap : Nat}) -> {True{} == TA.leb(1n+t, cap) : Bool}:
+  %e : {True{} == TA.leb(1n+t, _) : Bool}
+  %add_succ(t, p) : {True{} == TA.leb(1n+t, _) : Bool}
+  TA.leb_up(t, t, p, TA.leb_refl(t))
+
+def step_inv(+t: Nat, -p: Nat, -cap: Nat, e: {Nat.add(t, 1n+p) == cap : Nat}) -> {Nat.add(1n+t, p) == cap : Nat}:
+  %e : {1n+Nat.add(t, p) == _ : Nat}
+  add_succ(t, p)
 
 # PROOF: (1 + t)·head <= cap·head by leb_mul, and cap·head <= 2^cap_depth(cap·head) by tensor-array's cap_ok; then
 # leb_trans.
@@ -780,15 +791,15 @@ def par_att(d: Nat, gs: GS, +n: Nat, +hd: Nat, +t: Nat, +scale: F32) -> AT:
       at_join(p, q)
 
 # the attention output and the cache handed back
-type KA<-t: Nat> is Type:
-  KA{kv: KV<t>, o: List<&2, F32>}
+type KA<-cap: Nat, -t: Nat> is Type:
+  KA{kv: KV<cap, t>, o: List<&2, F32>}
 
-def ka_of(-t: Nat, at: AT) -> KA<t>:
+def ka_of(-cap: Nat, -t: Nat, at: AT) -> KA<cap, t>:
   match at:
     case AT{ks, vs, o}:
       KA{KV{ks, vs}, o}
 
-def KA.then(-R: Type, -t: Nat, ka: KA<t>, then: KV<t> -> List<&2, F32> -> R) -> R:
+def KA.then(-R: Type, -cap: Nat, -t: Nat, ka: KA<cap, t>, then: KV<cap, t> -> List<&2, F32> -> R) -> R:
   match ka:
     case KA{kv, o}:
       then(kv, o)
@@ -797,12 +808,12 @@ def KA.then(-R: Type, -t: Nat, ka: KA<t>, then: KV<t> -> List<&2, F32> -> R) -> 
 # d is the model's parallel depth (depth_for): with d = 0 (two threads or fewer) the key/value heads run one after
 # another, since a fork tree on one thread is only overhead (+5% on the 1.7B, NOTES 2026-10-12); otherwise they run
 # in parallel, one group per leaf. Both orders compute every head the same way, so the bits are the same.
-def attention(+c: Cfg, +d: Nat, +t: Nat, qs: List<&2, Head>, kv: KV<1n+t>) -> KA<1n+t>:
+def attention(+c: Cfg, +d: Nat, -cap: Nat, +t: Nat, qs: List<&2, Head>, kv: KV<cap, 1n+t>) -> KA<cap, 1n+t>:
   match d kv:
     case 0n KV{ks, vs}:
-      ka_of(1n+t, seq_att(gws(groups(Cfg.kv(c), Cfg.g(c), qs), ks, vs), Cfg.head(c), t, (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32), Nil{}, Nil{}, Nil{}))
+      ka_of(cap, 1n+t, seq_att(gws(groups(Cfg.kv(c), Cfg.g(c), qs), ks, vs), Cfg.head(c), t, (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32), Nil{}, Nil{}, Nil{}))
     case 1n+e KV{ks, vs}:
-      ka_of(1n+t, par_att(Nat.sub(halvings(Cfg.kv(c), Cfg.kv(c)), 1n), cut(TA.half(Cfg.kv(c)), gws(groups(Cfg.kv(c), Cfg.g(c), qs), ks, vs), Nil{}), Cfg.kv(c), Cfg.head(c), t, (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32)))
+      ka_of(cap, 1n+t, par_att(Nat.sub(halvings(Cfg.kv(c), Cfg.kv(c)), 1n), cut(TA.half(Cfg.kv(c)), gws(groups(Cfg.kv(c), Cfg.g(c), qs), ks, vs), Nil{}), Cfg.kv(c), Cfg.head(c), t, (1.0 / F32.sqrt(F32.from_nat(Cfg.head(c))) : F32)))
 
 # =====================================================================================================
 # A layer
@@ -819,12 +830,12 @@ type Act is Data:
 
 # the layer's output at position t, its cache grown to t + 1 positions, its weights handed back, and the
 # activations
-type BR<-c: Cfg, -t: Nat> is Type:
-  BR{y: List<&2, F32>, kv: KV<1n+t>, lw: LW<c>, act: Act}
+type BR<-c: Cfg, -cap: Nat, -t: Nat> is Type:
+  BR{y: List<&2, F32>, kv: KV<cap, 1n+t>, lw: LW<c>, act: Act}
 
 # continues with the fields of a layer's result (a computed value cannot be matched; a loop over positions
 # recurses inside k)
-def BR.then(-R: Type, -c: Cfg, -t: Nat, b: BR<c, t>, k: List<&2, F32> -> KV<1n+t> -> LW<c> -> Act -> R) -> R:
+def BR.then(-R: Type, -c: Cfg, -cap: Nat, -t: Nat, b: BR<c, cap, t>, k: List<&2, F32> -> KV<cap, 1n+t> -> LW<c> -> Act -> R) -> R:
   match b:
     case BR{y, kv, lw, act}:
       k(y, kv, lw, act)
@@ -840,22 +851,22 @@ def mv(-B: Type, +r: Nat, +k: Nat, w: TA.Bands<r, k>, +x: List<&2, F32>, then: T
 
 # the layer at position t (0-based) on input x, with the cache of positions 0..t-1 and the rotation of t; d is the
 # parallel depth of attention (see attention)
-def block(+c: Cfg, +d: Nat, lw: LW<c>, +t: Nat, kv: KV<t>, +rt: Rot, +x: List<&2, F32>) -> BR<c, t>:
+def block(+c: Cfg, +d: Nat, lw: LW<c>, -cap: Nat, +t: Nat, kv: KV<cap, t>, -room: {True{} == TA.leb(1n+t, cap) : Bool}, +rt: Rot, +x: List<&2, F32>) -> BR<c, cap, t>:
   match lw:
     case LW{+ln1, wq, wk, wv, wo, +ln2, wg, wu, wd}:
       +n1 = rmsnorm(c, x, ln1)
-      mv(BR<c, t>, Cfg.dim(c), Cfg.dim(c), wq, n1, wq => +q =>
-        mv(BR<c, t>, Cfg.kvw(c), Cfg.dim(c), wk, n1, wk => +k =>
-          mv(BR<c, t>, Cfg.kvw(c), Cfg.dim(c), wv, n1, wv => +v =>
+      mv(BR<c, cap, t>, Cfg.dim(c), Cfg.dim(c), wq, n1, wq => +q =>
+        mv(BR<c, cap, t>, Cfg.kvw(c), Cfg.dim(c), wk, n1, wk => +k =>
+          mv(BR<c, cap, t>, Cfg.kvw(c), Cfg.dim(c), wv, n1, wv => +v =>
             +qs = ropes(rt, heads(Cfg.heads(c), Cfg.half(c), q))
             +ks = ropes(rt, heads(Cfg.kv(c), Cfg.half(c), k))
-            KA.then(BR<c, t>, 1n+t, attention(c, d, t, qs, KV.push(c, t, kv, joins(ks), chunks(Cfg.kv(c), Cfg.head(c), v))), kv2 => +at =>
-            mv(BR<c, t>, Cfg.dim(c), Cfg.dim(c), wo, at, wo => +a =>
+            KA.then(BR<c, cap, t>, cap, 1n+t, attention(c, d, cap, t, qs, KV.push(c, cap, t, kv, room, joins(ks), chunks(Cfg.kv(c), Cfg.head(c), v))), kv2 => +at =>
+            mv(BR<c, cap, t>, Cfg.dim(c), Cfg.dim(c), wo, at, wo => +a =>
               +x1 = T.zip_with.add(x, a)
               +n2 = rmsnorm(c, x1, ln2)
-              mv(BR<c, t>, Cfg.ffn(c), Cfg.dim(c), wg, n2, wg => +g =>
-                mv(BR<c, t>, Cfg.ffn(c), Cfg.dim(c), wu, n2, wu => +u =>
-                  mv(BR<c, t>, Cfg.dim(c), Cfg.ffn(c), wd, swiglu(g, u), wd => +m =>
+              mv(BR<c, cap, t>, Cfg.ffn(c), Cfg.dim(c), wg, n2, wg => +g =>
+                mv(BR<c, cap, t>, Cfg.ffn(c), Cfg.dim(c), wu, n2, wu => +u =>
+                  mv(BR<c, cap, t>, Cfg.dim(c), Cfg.ffn(c), wd, swiglu(g, u), wd => +m =>
                     +y = T.zip_with.add(x1, m)
                     BR{y, kv2, LW{ln1, wq, wk, wv, wo, ln2, wg, wu, wd}, Act{n1, q, k, v, flat(qs), flat(ks), at, a, n2, m, y}}))))))))
 
@@ -868,55 +879,56 @@ type Model<-c: Cfg> is Type:
   Model{d: Nat, emb: TA.Bands<Cfg.vocab(c), Cfg.dim(c)>, layers: List<&1, LW<c>>, lnf: List<&2, F32>}
 
 # the last layer's output, the layers and caches handed back, and every layer's activations
-type Run<-c: Cfg, -t: Nat> is Type:
-  Run{x: List<&2, F32>, layers: List<&1, LW<c>>, cs: List<&1, KV<1n+t>>, acts: List<&2, Act>}
+type Run<-c: Cfg, -cap: Nat, -t: Nat> is Type:
+  Run{x: List<&2, F32>, layers: List<&1, LW<c>>, cs: List<&1, KV<cap, 1n+t>>, acts: List<&2, Act>}
 
 # pend is the previous layer's result: its output is the next layer's input
-def run(+c: Cfg, +d: Nat, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<t>>, al: List<&1, LW<c>>, ac: List<&1, KV<1n+t>>, aa: List<&2, Act>, pend: BR<c, t>) -> Run<c, t>:
+def run(+c: Cfg, +d: Nat, -cap: Nat, +t: Nat, -room: {True{} == TA.leb(1n+t, cap) : Bool}, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<cap, t>>, al: List<&1, LW<c>>, ac: List<&1, KV<cap, 1n+t>>, aa: List<&2, Act>, pend: BR<c, cap, t>) -> Run<c, cap, t>:
   match ls cs pend:
     case Con{l, lt} Con{k, kt} BR{+y, kv, l0, act}:
-      run(c, d, t, rt, lt, kt, l0 <> al, kv <> ac, act <> aa, block(c, d, l, t, k, rt, y))
+      run(c, d, cap, t, room, rt, lt, kt, l0 <> al, kv <> ac, act <> aa, block(c, d, l, cap, t, k, room, rt, y))
     case _ _ BR{+y, kv, l0, act}:
-      Run{y, List.reverse(&1, LW<c>, l0 <> al), List.reverse(&1, KV<1n+t>, kv <> ac), List.reverse(&2, Act, act <> aa)}
+      Run{y, List.reverse(&1, LW<c>, l0 <> al), List.reverse(&1, KV<cap, 1n+t>, kv <> ac), List.reverse(&2, Act, act <> aa)}
 
-def layers(+c: Cfg, +d: Nat, +t: Nat, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<t>>, +x: List<&2, F32>) -> Run<c, t>:
+def layers(+c: Cfg, +d: Nat, -cap: Nat, +t: Nat, -room: {True{} == TA.leb(1n+t, cap) : Bool}, +rt: Rot, ls: List<&1, LW<c>>, cs: List<&1, KV<cap, t>>, +x: List<&2, F32>) -> Run<c, cap, t>:
   match ls cs:
     case Con{l, lt} Con{k, kt}:
-      run(c, d, t, rt, lt, kt, Nil{}, Nil{}, Nil{}, block(c, d, l, t, k, rt, x))
+      run(c, d, cap, t, room, rt, lt, kt, Nil{}, Nil{}, Nil{}, block(c, d, l, cap, t, k, room, rt, x))
     case _ _:
       Run{x, Nil{}, Nil{}, Nil{}}
 
 # what one position produces: the logits, the final norm, every layer's activations, the caches grown to t + 1
 # positions and the model handed back
-type Out<-c: Cfg, -t: Nat> is Type:
-  Out{lg: List<&2, F32>, nf: List<&2, F32>, acts: List<&2, Act>, cs: List<&1, KV<1n+t>>, m: Model<c>}
+type Out<-c: Cfg, -cap: Nat, -t: Nat> is Type:
+  Out{lg: List<&2, F32>, nf: List<&2, F32>, acts: List<&2, Act>, cs: List<&1, KV<cap, 1n+t>>, m: Model<c>}
 
 # continues with the fields of a position's result: logits, final norm, activations, caches, model
-def Out.then(-R: Type, -c: Cfg, -t: Nat, o: Out<c, t>, k: List<&2, F32> -> List<&2, F32> -> List<&2, Act> -> List<&1, KV<1n+t>> -> Model<c> -> R) -> R:
+def Out.then(-R: Type, -c: Cfg, -cap: Nat, -t: Nat, o: Out<c, cap, t>, k: List<&2, F32> -> List<&2, F32> -> List<&2, Act> -> List<&1, KV<cap, 1n+t>> -> Model<c> -> R) -> R:
   match o:
     case Out{lg, nf, acts, cs, m}:
       k(lg, nf, acts, cs, m)
 
 # the final norm, then logits = emb · nf (the LM head is the embedding matrix)
-def head_of(+c: Cfg, -t: Nat, +d: Nat, emb: TA.Bands<Cfg.vocab(c), Cfg.dim(c)>, +lnf: List<&2, F32>, r: Run<c, t>) -> Out<c, t>:
+def head_of(+c: Cfg, -cap: Nat, -t: Nat, +d: Nat, emb: TA.Bands<Cfg.vocab(c), Cfg.dim(c)>, +lnf: List<&2, F32>, r: Run<c, cap, t>) -> Out<c, cap, t>:
   match r:
     case Run{+x, ls, cs, acts}:
       +nf = rmsnorm(c, x, lnf)
-      mv(Out<c, t>, Cfg.vocab(c), Cfg.dim(c), emb, nf, emb => +lg => Out{lg, nf, acts, cs, Model{d, emb, ls, lnf}})
+      mv(Out<c, cap, t>, Cfg.vocab(c), Cfg.dim(c), emb, nf, emb => +lg => Out{lg, nf, acts, cs, Model{d, emb, ls, lnf}})
 
-def forward.go(+c: Cfg, +t: Nat, +d: Nat, ls: List<&1, LW<c>>, +lnf: List<&2, F32>, cs: List<&1, KV<t>>, r: TA.BRow<Cfg.vocab(c), Cfg.dim(c)>) -> Out<c, t>:
+def forward.go(+c: Cfg, -cap: Nat, +t: Nat, -room: {True{} == TA.leb(1n+t, cap) : Bool}, +d: Nat, ls: List<&1, LW<c>>, +lnf: List<&2, F32>, cs: List<&1, KV<cap, t>>, r: TA.BRow<Cfg.vocab(c), Cfg.dim(c)>) -> Out<c, cap, t>:
   match r:
     case TA.BRow{emb, row}:
-      head_of(c, t, d, emb, lnf, layers(c, d, t, rot_at(c, t), ls, cs, row))
+      head_of(c, cap, t, d, emb, lnf, layers(c, d, cap, t, room, rot_at(c, t), ls, cs, row))
 
-# token tok at position t (0-based), with the caches of positions 0..t-1 (one per layer)
-def forward(+c: Cfg, +t: Nat, m: Model<c>, cs: List<&1, KV<t>>, +tok: Nat) -> Out<c, t>:
+# token tok at position t (0-based), with the caches of positions 0..t-1 (one per layer) and room for cap positions;
+# room is the proof that t < cap
+def forward(+c: Cfg, -cap: Nat, +t: Nat, m: Model<c>, cs: List<&1, KV<cap, t>>, -room: {True{} == TA.leb(1n+t, cap) : Bool}, +tok: Nat) -> Out<c, cap, t>:
   match m:
     case Model{+d, emb, ls, +lnf}:
-      forward.go(c, t, d, ls, lnf, cs, TA.Bands.read_row(Cfg.vocab(c), Cfg.dim(c), emb, tok))
+      forward.go(c, cap, t, room, d, ls, lnf, cs, TA.Bands.read_row(Cfg.vocab(c), Cfg.dim(c), emb, tok))
 
 # n empty caches, one per layer, each with room for cap positions
-def caches(+c: Cfg, n: Nat, +cap: Nat) -> List<&1, KV<0n>>:
+def caches(+c: Cfg, n: Nat, +cap: Nat) -> List<&1, KV<cap, 0n>>:
   match n:
     case 0n:
       Nil{}
