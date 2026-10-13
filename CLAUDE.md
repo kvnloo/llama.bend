@@ -10,7 +10,7 @@ typed layers will become the BendHub package `bend-ml-llama`. **Private for now.
 
 - `docs/plan.md`: the milestones, each with its pass criterion, and the laws to prove.
 - `NOTES.md`: every finding, measurement and decision, by date. Read it before changing anything.
-- `llama/main.bend`: the typed package (future `bend-ml-llama`): `Cfg`, `LW<c>`, `Model<c>`, `KV<t>`, `block`,
+- `llama/main.bend`: the typed package (future `bend-ml-llama`): `Cfg`, `LW<c>`, `Model<c>`, `KV<cap, t>`, `block`,
   `forward`, the loader and every law; `llama/README.md` explains the laws. `make laws` runs bend and `--verdict`.
 - `demo/`: programs on the package (`forward.bend`, `gen.bend`, `layer_test.bend`, which take the model
   directory as their first argument) and the SmolLM2 tokenizer (`tok.bend`, `unicode.bend`).
