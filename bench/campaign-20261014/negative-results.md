@@ -27,14 +27,32 @@ Extended prompt checks do not change this performance decision.
 
 The source change removes repeated zero-band allocation. Fresh A/B medians are
 favorable on some loader/process measures, but variation prevents the required
-primary-metric acceptance. There is no default change. Further attribution
-runs use an instrumented C diagnostic and microprobes; they will not be presented
-as production inference latency.
+primary-metric acceptance. There is no default change. Later attribution used
+an instrumented C diagnostic and microprobes. Measured instrumented loads were
+5.711–5.837 s; summed `File.read_at` call regions were 43.13–44.34 ms and shared
+byte-list packing regions were 2.290–2.327 s. These are process-wide elapsed
+regions, not CPU time or exclusive model-load stages. The list packer also serves
+ordinary reads, so its 984 calls differ from the 981 `read_at` calls. The raw
+scope erratum is retained. Discard/destruction probes were slower than consuming
+walks, which makes naive phase subtraction misleading. No further read-size
+experiment is justified by these observations alone.
 
 ## Shape/layout claims
 
 B's shape sweep uses synthetic kernel fixtures with the real model dimensions.
 It does not run the 360M or 1.7B models. C's packed-eight prototype is also kernel
 research. Neither may be called a whole-model speedup without isolated integration
-and real-model numerical and latency confirmation. Large-head work is deferred
-for calibrated resources, not declared impossible.
+and real-model numerical and latency confirmation. The 1.7B large-head work is
+deferred for calibrated resources, not declared impossible; the eligible 135M
+and 360M head screens are complete.
+
+The eligible 364-configuration sweep is complete. Its three measured rounds per
+configuration are exploratory; selecting the smallest observed median would
+overstate certainty. Fast head probes have only 40–100 ms of net work on a
+millisecond clock. The 28 largest-head configurations remain deferred.
+
+Packed-eight fresh Q/O confirmation retained one eight-thread saving of -33.08%.
+Later gate/up and down synthetic batches had favorable five-pair ranges, but the
+fixture generator has only 13 operand classes. Synthetic construction savings
+are not checkpoint loading savings. Real packed loading, complete word parity,
+full model numerical checks and fresh total-wall trials remain separate gates.

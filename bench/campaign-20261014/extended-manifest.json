@@ -1,0 +1,445 @@
+{
+  "adaptive_kernel_sweep": {
+    "batches": [
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-1.7b-down/attempt-001/complete.json",
+          "sha256": "8878a4f96658d94b0f45c0bb643de186717cd0effd01705bfd370ee6207635c4"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 2048,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-1.7b-down-independent-audit.json",
+          "sha256": "8176fa3c37c2cb4cb89157cd21c41ab22153cf698939db578b8fc5cccf188df4"
+        },
+        "max_sampled_rss_kib": 379272,
+        "numpy_max_relative_recomputed": 6.735784836564562e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "a307c7eb824f8952a274bccb728020b5444e00a3d22977d316d918336d10cf3e",
+        "references": 1,
+        "samples_sha256": "d7aac87e2cf36817e65754905f1756f57515b9c916e943f1dbeaab4d97343ca1",
+        "shape": "smollm2-1.7b-down",
+        "spec_sha256": "204e481361ffc725b88dd1d1af132473484d1b9f6ed6a82b3fd5fb24e87b5497",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-1.7b-gate_up/attempt-001/complete.json",
+          "sha256": "91e7b63d4773404d202f9d5125ec084afd4293626b79a76f280ecf84ede17eb5"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 8192,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-1.7b-gate_up-independent-audit.json",
+          "sha256": "8be971cffa2228be7aa50763c77b68f73658246a9618b5c67677781e7eed10aa"
+        },
+        "max_sampled_rss_kib": 379120,
+        "numpy_max_relative_recomputed": 1.920138146260797e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "b310e6c1414a9a6074fdf326a87118c0c75c3e6f58d41a954b3d8752a38b054f",
+        "references": 1,
+        "samples_sha256": "143f37bcfbe9a33cc1ab5343615eae0f925d9e9f9b22bc26ede80f031b572925",
+        "shape": "smollm2-1.7b-gate_up",
+        "spec_sha256": "cff1628b76ce8025f07c27d633253097eefc4792f1a940fcc80456ad9b136676",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-1.7b-q_o/attempt-001/complete.json",
+          "sha256": "ed07bc96fa7edbd9f6cb9068a500cea1b022125cb214a5fc1868f95ec858c58a"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 2048,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-1.7b-q_o-independent-audit.json",
+          "sha256": "baecfa8a19dacc2b3c558283fed20ea27929cdb247653b0d49291b69a6af04ec"
+        },
+        "max_sampled_rss_kib": 133324,
+        "numpy_max_relative_recomputed": 1.920138146260797e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "282402c0bbc5258bf4b589e401ee3a736c80fa2ff2dfb0b463e8b5394af82037",
+        "references": 1,
+        "samples_sha256": "37faaa4d5dd766b60031201f5122c028d41ffd28469727e92fd5412ee71b4259",
+        "shape": "smollm2-1.7b-q_o",
+        "spec_sha256": "aa0ee0fa5ebc2646661ed44d84040761fa8fff92eeec73be3976ac02a86b6433",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-135m-down/attempt-001/complete.json",
+          "sha256": "b44b3f30aeb7aa283c436c093c80d85542d9507e8677997eb46f74d810ed8c76"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 576,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-135m-down-independent-audit.json",
+          "sha256": "ba3711e45fc66042567d6b49bd32c9898236ebb05e83556fb1d1e7249ca8d086"
+        },
+        "max_sampled_rss_kib": 69296,
+        "numpy_max_relative_recomputed": 3.0409523787966464e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "d70c7922f5e3841e210f5b0856ff360a062e812849766c6470aa29d4d5b1ddbb",
+        "references": 1,
+        "samples_sha256": "c65fa6ef0a22c493c06f35a693bc6fc4051fe541029ef2da7993afeba2338685",
+        "shape": "smollm2-135m-down",
+        "spec_sha256": "855709f048faa8409ea1d07de2d2f5c8512e11c1839c30d97fba96eb2f3e0348",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-135m-gate_up/attempt-001/complete.json",
+          "sha256": "aa2511aacec42b8057c2c4cc4026f0d313d4fbb173a77ef65fff990b51196413"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 1536,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-135m-gate_up-independent-audit.json",
+          "sha256": "7a194c273a90e16282531e0d0a50bf03bccea940b850e8bd51e54a8a643c3db7"
+        },
+        "max_sampled_rss_kib": 69292,
+        "numpy_max_relative_recomputed": 2.38131491414606e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "91a93aae67d33fb7af61d04b7a73c96cedac2149fe06bd6194266cb970a01e71",
+        "references": 1,
+        "samples_sha256": "42b3eb86e8a58b613812192161e0433c3268e526faeb7470952afdf378f7b071",
+        "shape": "smollm2-135m-gate_up",
+        "spec_sha256": "f659aa623b534206be494e05951fbc117c6afd7dc464cf34461d8298326a6f5c",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-135m-k_v/attempt-001/complete.json",
+          "sha256": "37afc2f8392fd7796cefa0928f5cba480ec9060b919c1c4000d09e3dc09ac00d"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 192,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-135m-k_v-independent-audit.json",
+          "sha256": "20d9cf1b2932cba3e492a41578ba238fbced43c89bb8d69d8b9ddc658f27ddb6"
+        },
+        "max_sampled_rss_kib": 14260,
+        "numpy_max_relative_recomputed": 2.38131491414606e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "8f2f8168e2dd5b061d24275e27fdd591a251ad02ad9679e944bede57b8777e05",
+        "references": 1,
+        "samples_sha256": "2e8a91f4c331ed7ba35e9824471e98359d990fc0a5099902b8c8ddaa87fa9874",
+        "shape": "smollm2-135m-k_v",
+        "spec_sha256": "8c7867395a239cc8a3f30f3af10153201f614e29877d4bab9b7a6528c0a31a46",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-135m-lm_head/attempt-001/complete.json",
+          "sha256": "f472c3b89346a9d03801680879e6625bfd0e5f52f8ec557de75f2c5611a701ad"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 49152,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-135m-lm_head-independent-audit.json",
+          "sha256": "9c34b58172cac9491e860a0f6769c64f556b4d96635e3f20e1f635fef5b91ad3"
+        },
+        "max_sampled_rss_kib": 625064,
+        "numpy_max_relative_recomputed": 2.38131491414606e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "d4692a11f52bf1e7247f7852b23aea02d1fa7a1fe805ed86b7c2a63a70b744ed",
+        "references": 1,
+        "samples_sha256": "b16175f2bde592105bd06e9be62d5d6eb94712d596af194744d71c37e6e5b47b",
+        "shape": "smollm2-135m-lm_head",
+        "spec_sha256": "73093dd23094091832a70539464323eb04922f1b9136a55ee030c586e76a5177",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-135m-q_o/attempt-001/complete.json",
+          "sha256": "d536ce2fc76cb6d135714986b5273a668c2b3d779288dc14e858dad5c18e165f"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 576,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-first-batch-independent-audit.json",
+          "sha256": "2739f754cf85dd408937238e21606b6c417b4424395342777d95da508a015d7f"
+        },
+        "max_sampled_rss_kib": 40548,
+        "numpy_max_relative_recomputed": 2.38131491414606e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "d3bf02daa0c39a2558ecfa1c693933b1b760ab2e4897b745954831e776c10683",
+        "references": 1,
+        "samples_sha256": "d27e4173e39c1b093a44799ac42dbdd20a1cfcb867932471fa291058eac8b0dc",
+        "shape": "smollm2-135m-q_o",
+        "spec_sha256": "848811a6b496d606075d267fc1b621db08da29f451164a3d06d2f3280d3a51ca",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-360m-down/attempt-001/complete.json",
+          "sha256": "2c5f98cf631e1546e210b29fee557ff6e36a5c2e8683a0e9abea862e0bccc2d2"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 960,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-360m-down-independent-audit.json",
+          "sha256": "9f576ceeba0802d4bd78d59b6b6914b30dae2b55c11c244bc7ca1d0da8dea6e2"
+        },
+        "max_sampled_rss_kib": 106208,
+        "numpy_max_relative_recomputed": 3.6536738434733707e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "daf7801727255e5b9efb3816042245257f587fd6ff3e1af4a9c9e6227652c9e2",
+        "references": 1,
+        "samples_sha256": "26bd9444039784deee5ea1a192699b8a5b8c60d22fbaaeee25167a6f53cc5501",
+        "shape": "smollm2-360m-down",
+        "spec_sha256": "83f0f0f40a091e05be420b73a0c3e726c22ca0dfda39444bac3572cbe8b0d408",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-360m-gate_up/attempt-001/complete.json",
+          "sha256": "94a1dc55324253102be2a8db3919275aeb3780517fb349608e5fea6a985d9a14"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 2560,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-360m-gate_up-independent-audit.json",
+          "sha256": "14a2e496294098d020dfd9a6b84fca8bfc9fcb0ca1e326ee4d00d789be931621"
+        },
+        "max_sampled_rss_kib": 106164,
+        "numpy_max_relative_recomputed": 4.775246225108276e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "c411d6f4319807e76f302e7e27276195687aaf5d9aabd6142563645a477486d8",
+        "references": 1,
+        "samples_sha256": "b0817fb12290972da916e6f87024c8c2f9d03158e9956437e5238d07cc2ab927",
+        "shape": "smollm2-360m-gate_up",
+        "spec_sha256": "10934349a6ec6fe354136b510d77d0d779991f76a26fa9b193f7e172a043e47f",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-360m-k_v/attempt-001/complete.json",
+          "sha256": "7daa29c0fdf99db3dbf84ef007dc2f20d7690b5ab18564b91bd953f38dab9c1f"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 320,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-360m-k_v-independent-audit.json",
+          "sha256": "e2d58da9b094e37001ee5eaa11786c62b168373faa5c18016fd252d052ccdbee"
+        },
+        "max_sampled_rss_kib": 37860,
+        "numpy_max_relative_recomputed": 2.883202228076698e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "9e664f15065b27dde791be5c58f42759ad66a9be61347dd3bf06e6590bb53fe7",
+        "references": 1,
+        "samples_sha256": "6bef67be24a5d3a8eea5b5022e5a1985754f6c692b94d1312dbf39355cc416c9",
+        "shape": "smollm2-360m-k_v",
+        "spec_sha256": "94406ccdc62f2828eb75dbf49bf5af2ca1d30a3b27904a9c511711350e172faf",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-360m-lm_head/attempt-001/complete.json",
+          "sha256": "81e18cf23556eff30d01d6963c2eb7b5fb42402f22153a2549a57a4b69856bc4"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 49152,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-360m-lm_head-independent-audit.json",
+          "sha256": "aa198d6c6f1e12987bbccf0d4e839ccadbbbde3c3496c411ac4891631ea8cbd5"
+        },
+        "max_sampled_rss_kib": 1051048,
+        "numpy_max_relative_recomputed": 4.775246225108276e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "5b1ca93a1cee125e0838096494d7eb1dd7e85da2e78cb04f04ca34f0f356e706",
+        "references": 1,
+        "samples_sha256": "6c3fa1186c2914c302295d0848a561dbe9e2eb0b1aa1f5c849faa8d85f59f6a2",
+        "shape": "smollm2-360m-lm_head",
+        "spec_sha256": "8abfb44d94240e52a08f95bd4d973e8b00479a9c58230e8831f0ef3cf1192b88",
+        "unique_configurations": 28,
+        "warmups": 40
+      },
+      {
+        "complete_marker": {
+          "local_path": "lane-b/data/adaptive-matvec/campaign/smollm2-360m-q_o/attempt-001/complete.json",
+          "sha256": "e9878aca7eb36170b627e56ba1d307e62a4ef29c8f953dd0cc24ca4dc8486b90"
+        },
+        "exploratory_measured_calls": 120,
+        "full_bits_per_call": 960,
+        "independent_audit": {
+          "local_path": "results/lane-f/adaptive-360m-q_o-independent-audit.json",
+          "sha256": "3b2626b51878f0a95eff15668a5cab16317768d904a06ebd8bd246e8da91f31a"
+        },
+        "max_sampled_rss_kib": 69860,
+        "numpy_max_relative_recomputed": 3.8201972074602963e-07,
+        "raw_calls": 161,
+        "raw_receipts_sha256": "0487d9884bd9de78e026134347f42bdb31edad14c0239e3dadd568d1c3abb04f",
+        "references": 1,
+        "samples_sha256": "212175c9d040f4f1916dbc60e8bff3a5ebea94442e63fcd4d3e48f240ff8370e",
+        "shape": "smollm2-360m-q_o",
+        "spec_sha256": "edd0f84c1c55ae96794b82033af6f64d9c2a2e6afece7133b752a3d150634958",
+        "unique_configurations": 28,
+        "warmups": 40
+      }
+    ],
+    "completed_unique_configurations": 364,
+    "deferred_large_head_configurations": 28,
+    "descriptive_settings_csv": {
+      "interpretation": "Descriptive min/median/max only; three nonzero-depth samples and twelve repeated depth-zero controls per thread/shape. No winner or confidence interval is inferred.",
+      "path": "adaptive-settings.csv",
+      "rows": 364,
+      "sha256": "12707252175b2a0ff57307536cfddab1dc3e10c3b5e423d256fade79b797b4d3",
+      "source_report_local_path": "results/lane-b/shape-sweep-report.json",
+      "source_report_sha256": "9a0b899a08b41343b3376a7181c8ac6e561b956a3edb3637ec70f87f3f531262"
+    },
+    "eligible_pending": 0,
+    "eligible_unique_configurations": 364,
+    "exploratory_measured_calls": 1560,
+    "failed_shapes": 0,
+    "head_resource_pilot_calls_separate": 30,
+    "raw_calls": 2093,
+    "references": 13,
+    "scope": "Synthetic exact-dyadic F32 operands at actual model shapes; no 360M/1.7B whole-model inference. Three measured rounds; minima are exploratory. Fast head configurations have 40\u2013100 ms net work on a millisecond diagnostic clock.",
+    "shapes": 13,
+    "source_commit": "9790be349ca38cca680dbc0291d3c71317485d76",
+    "warmups": 520
+  },
+  "baseline_long_decode": {
+    "actual_counts_equal_requested": true,
+    "all_20_independently_audited": true,
+    "characterization_samples": 12,
+    "maximum_selected_logit_relative_error": 4.9240584352239565e-06,
+    "not_a_candidate_comparison": true,
+    "processes": 20,
+    "summary": {
+      "local_path": "results/baseline-long-decode-summary.json",
+      "sha256": "5651357048ebee4bac79f0d39eef90167c3073ce19b7126dd6fb9ee46bd3ef0e"
+    },
+    "untimed_smokes": 4,
+    "warmups": 4
+  },
+  "loader_boundary_checks": {
+    "audit": {
+      "local_path": "results/lane-f/gate-loader-independent-audit.json",
+      "sha256": "a22eb98e1cc0d32da7b5646cb4161266028591b25ccd4c7fd1eee8345172abdb"
+    },
+    "builds": 2,
+    "case_variant_calls": 22,
+    "exact_expected_error_controls": 10,
+    "positive_selected_boundary_checks": 12
+  },
+  "loader_diagnostics": {
+    "audit": {
+      "local_path": "results/lane-f/loader-diagnostics-v2-independent-audit.json",
+      "sha256": "06dbde40e2407363ff0eec215ee0a26b6175c954edc1e9882578d37ce8420895"
+    },
+    "counter_scope_erratum": {
+      "local_path": "results/loader-attribution-v2/counter-scope-erratum.txt",
+      "sha256": "9d0c31d3ee919154949b17ef027f04c5a367e9c25937c7c3d35b784961367cdf"
+    },
+    "measured_diagnostic_calls": 21,
+    "model_attribution_calls": 4,
+    "scope": "Instrumented process-wide elapsed call-region sums, unequal read_at/list-packer populations; non-additive stage probes, no production timing or candidate selection.",
+    "stage_probe_calls": 24,
+    "warmups": 7
+  },
+  "next": "Separately preregistered, isolated B two-thread depth and C packed-MLP numerical gates; only then fresh model timing and independent replication.",
+  "original_model_journal_processes": 98,
+  "packed_mlp_fresh_confirmation": {
+    "families": [
+      {
+        "audit": {
+          "local_path": "results/lane-f/packed-confirm-gate135-independent-audit.json",
+          "sha256": "55ea8459f376590a79932f10b6e2730e00012be4c1a5e1208f4938f03ba98972"
+        },
+        "family": "gate135",
+        "fresh_measured_calls": 40,
+        "full_bit_parity_calls": 8,
+        "results": {
+          "1": {
+            "all_five_above_5pct": true,
+            "max_pct": 32.719151260560906,
+            "median_pct": 28.051368825992228,
+            "min_pct": 26.35266808677904,
+            "paired_savings_pct": [
+              26.35266808677904,
+              32.719151260560906,
+              29.639792517395026,
+              26.921441139596915,
+              28.051368825992228
+            ]
+          },
+          "8": {
+            "all_five_above_5pct": true,
+            "max_pct": 36.99028070816556,
+            "median_pct": 12.01097318361687,
+            "min_pct": 9.707799340020973,
+            "paired_savings_pct": [
+              10.475811587391581,
+              36.99028070816556,
+              27.165474981169435,
+              12.01097318361687,
+              9.707799340020973
+            ]
+          }
+        },
+        "timing_jsonl_sha256": "8ebddedd83af4c2836c134c9b5ff9eacef5bd7426644d260564dc0d2f7f6bf5f",
+        "warmups": 8
+      },
+      {
+        "audit": {
+          "local_path": "results/lane-f/packed-confirm-down135-independent-audit.json",
+          "sha256": "2d6c838efe6ed51f9f8d75184509298f581f1341cb45f6b97fc7bf7913809ed8"
+        },
+        "family": "down135",
+        "fresh_measured_calls": 40,
+        "full_bit_parity_calls": 8,
+        "results": {
+          "1": {
+            "all_five_above_5pct": true,
+            "max_pct": 35.10117265885422,
+            "median_pct": 31.55576661587527,
+            "min_pct": 24.811337334669336,
+            "paired_savings_pct": [
+              31.55576661587527,
+              33.006256945529486,
+              25.91721557261273,
+              35.10117265885422,
+              24.811337334669336
+            ]
+          },
+          "8": {
+            "all_five_above_5pct": true,
+            "max_pct": 27.99177551889639,
+            "median_pct": 19.960942997183285,
+            "min_pct": 14.46896177251743,
+            "paired_savings_pct": [
+              20.749442492944347,
+              14.46896177251743,
+              19.960942997183285,
+              27.99177551889639,
+              15.548369227314984
+            ]
+          }
+        },
+        "timing_jsonl_sha256": "45458e58dcfcf2d0573625b510e0fd61d5f9719ef60ed96be343de1b465ab719",
+        "warmups": 8
+      }
+    ],
+    "full_bit_parity_calls": 16,
+    "measured_calls": 80,
+    "scope": "Period-13 synthetic inputs, setup-subtracted dependent matvec time. No real checkpoint loading or inference claim. Earlier Q/O 8-thread negative pair is retained.",
+    "timing_calls": 96,
+    "warmups": 16
+  },
+  "recorded_utc": "2026-10-14T08:54:22.791000+00:00",
+  "runtime_candidates_selected": [],
+  "schema": 1,
+  "scope": "Extended checkpoint after the eligible synthetic shape sweep; local paths refer to retained campaign evidence and are not claims that bulky raw data or model weights are published. Initial seven-journal manifest.json remains unchanged."
+}

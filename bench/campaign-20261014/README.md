@@ -44,13 +44,52 @@ against those files is recorded separately.
   The batches remain separate. D is unselected.
 - E, reuse the zero weight band during loading: lower medians, but the fresh
   uncertainty bound did not clear the gate. E is unselected.
-- B, adaptive depth by matrix shape: 364 eligible unique thread/depth/shape
+- At that initial 98-process snapshot, B, adaptive depth by matrix shape:
+  364 eligible unique thread/depth/shape
   configurations are planned, not yet counted as measured at this checkpoint.
   A further 28 large-head configurations are deferred for resource calibration.
-- C, packed-eight kernel: exploratory Q/O observations only. Exact kernel
+- At that initial snapshot, C, packed-eight kernel: exploratory Q/O observations only. Exact kernel
   checks and fresh family confirmation precede any possible model integration.
 
-## Ongoing bounded work
+## Extended checkpoint: eligible sweep complete
+
+The later `extended-manifest.json` records a separate, independently audited
+checkpoint. It does not add kernel, correctness or diagnostic calls to the
+original 98 model-journal processes.
+
+- B completed all 364 eligible thread/depth/shape configurations across 13
+  synthetic shapes: 2,093 calls, comprising 13 references, 520 warmups and 1,560
+  exploratory measurements. The two head-resource pilots add 30 separate calls.
+  There are no eligible failures or pending shapes. The 28 large 1.7B-head
+  configurations remain deferred, not declared impossible. All full vectors,
+  hashes and numerical references passed independent receipt validation.
+  `adaptive-settings.csv` contains all 364 settings' descriptive minimum,
+  median and maximum clocks/RSS. Nonzero depths have three measured samples;
+  depth zero has twelve repeated controls. The CSV is not a ranking or policy.
+- The unchanged real-135M baseline completed 20 long-decode processes: four
+  untimed smokes, four warmups and twelve characterization samples. Each of the
+  128/512-token, one/eight-thread cells produced its full requested count and
+  passed the independent F32/eager oracle. These cells ran in separate windows;
+  they are not a paired thread comparison. `baseline-long-decode-summary.json`
+  retains the raw-journal hashes, ranges and clocks.
+- C's fresh synthetic gate/up and down confirmations passed all 16 full-vector
+  parity and 96 timing calls (16 warmups, 80 measurements). Setup-subtracted
+  five-pair median savings were 28.05% / 12.01% for gate/up and 31.56% / 19.96%
+  for down at one/eight threads. The operands have only 13 periodic classes.
+  The earlier Q/O eight-thread negative pair remains in the record. These
+  results do not measure real checkpoint loading or model inference.
+- E's two fixture builds and 22 boundary cases passed, including ten exact
+  expected-error controls. Its 28 later diagnostic calls also passed. The
+  process-wide reader and list-packer counters have different call populations;
+  the retained erratum prevents interpreting their difference as a load-stage
+  decomposition. The loader candidate remains unselected.
+
+The next model experiments are isolated opt-ins, with defaults unchanged: a
+bounded two-thread layer-depth-2/head-depth-5 policy preserving attention depth
+zero, and a packed-MLP experiment. Source review, full numerical/frozen-bit gates
+and separately preregistered fresh model trials precede any selection.
+
+## Work after the takeover
 
 1. Extended D correctness is complete: exact 128/512-token prompt parity and
    all 23 local frozen baseline outputs passed. A separate strict raw audit
@@ -60,14 +99,15 @@ against those files is recorded separately.
    23-output checker requires successful child exits, but its child stderr is
    not retained separately; both provenance limits are retained. These are
    correctness calls, not extra selection rounds.
-2. Serialized B shape batches, with immutable run specifications and independently
-   verified receipts. A passing 28-configuration batch requires 161 raw calls:
+2. Serialized B shape batches are complete, with immutable run specifications and
+   independently verified receipts. A passing 28-configuration batch requires 161 raw calls:
    one reference, 40 warmups, 120 measured calls, including repeated controls.
-3. Unchanged-baseline long decode: 128/512 requested tokens at one/eight threads,
+3. Unchanged-baseline long decode is complete: 128/512 requested tokens at one/eight threads,
    an independent local F32/eager oracle, one warmup and three samples per cell.
-   Actual generation count/EOS is retained. Cells are interleaved with B;
-   a cell's timed window is uninterrupted.
-4. C fresh kernel confirmation/family screens, then E attribution diagnostics.
+   Actual generation count/EOS is retained. Cells were interleaved with B;
+   each cell's timed window was uninterrupted.
+4. C's bounded kernel confirmations/family screens and E's attribution diagnostics
+   are complete. Their separate evidence categories are recorded above.
 
 ## Resume contract
 
