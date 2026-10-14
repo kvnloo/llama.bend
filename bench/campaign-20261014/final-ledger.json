@@ -1,0 +1,523 @@
+{
+  "adaptive_kernel": {
+    "deferred_1_7b_head_configurations": 28,
+    "earlier_calibration": {
+      "caveat": "Earlier calibration lacks per-call raw receipts; four references inferred from screen protocol. Not part of accepted sweep.",
+      "inferred_protocol_references": 4,
+      "inferred_total_calls": 56,
+      "saved_samples": 52
+    },
+    "eligible_failed": 0,
+    "eligible_pending": 0,
+    "exploratory_measurements": 1560,
+    "ledger": {
+      "local_path": "results/lane-b/execution-ledger.md",
+      "sha256": "83105e0270479bbb271be1ad5ab00b864d4b75d3d88e2de59ade05d904df67a4"
+    },
+    "preliminary_older_edge_calls": 63,
+    "references": 13,
+    "report": {
+      "local_path": "results/lane-b/shape-sweep-report.json",
+      "sha256": "9a0b899a08b41343b3376a7181c8ac6e561b956a3edb3637ec70f87f3f531262"
+    },
+    "separate_final_edge_correctness_calls": 63,
+    "separate_head_pilot_calls": {
+      "references": 2,
+      "samples": 28,
+      "total": 30
+    },
+    "shapes": 13,
+    "sweep_calls": 2093,
+    "unique_eligible_configurations": 364,
+    "warmups": 520
+  },
+  "as_of_utc": "2026-10-14T10:17:00Z",
+  "blocked_action": {
+    "action": "Final source review before systematic fixture C-emission triage",
+    "blocker": "Independent F review turn stopped on a platform content-risk flag; revised driver has no review clearance",
+    "executed_calls": 0,
+    "reported_source_sha256": "34b565bf784ca5dc2d957d7281c3db9635d9663766db614f631037b5af988c35",
+    "rule": "Do not retry, rephrase or route the blocked review/action through another agent or tool.",
+    "source_commit": "b1253e0",
+    "target": "lane-e/bench/run_packed8_fixture_emission_triage.py",
+    "window_started": false
+  },
+  "loader_fixtures_and_diagnostics": {
+    "evidence": {
+      "local_path": "lane-e/bench/loader_evidence.md",
+      "sha256": "d5365c3e8c33f0fa9746736b009b07ad2c3a4655e44e8ec48d47e3e14c2f7e76"
+    },
+    "expected_error_fixture_calls": 10,
+    "old_loader_fixture_calls": 22,
+    "old_loader_native_builds": 2,
+    "positive_fixture_calls": 12,
+    "v2_model_attribution": {
+      "already_in_model_diagnostics": true,
+      "measured": 3,
+      "total": 4,
+      "warmups": 1
+    },
+    "v2_setup": {
+      "C_emission": 1,
+      "checker": 1,
+      "instrumented_C_generation": 1,
+      "native_C_compiles": 2
+    },
+    "v2_stage_microprobes": {
+      "measured": 18,
+      "total": 24,
+      "warmups": 6
+    }
+  },
+  "model_journals": [
+    {
+      "accepted_processes": 16,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/loader-screen/journal.jsonl",
+        "sha256": "213c213475be8927adf7b17653b78109b13fe875518c91191e415e3fe34b23b9"
+      },
+      "manifest": {
+        "local_path": "results/loader-screen/manifest.json",
+        "sha256": "165b1f1b3031aa5e84f460b795f6e472718a64031390994bf7b828b073221256"
+      },
+      "sample_rows": 12,
+      "warmups": 4
+    },
+    {
+      "accepted_processes": 16,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/prefill-screen/journal.jsonl",
+        "sha256": "4a4c9d85702b89180e0c04dd4d8c0acc8585c304b1b2df2aa2b99c96a0a8eb92"
+      },
+      "manifest": {
+        "local_path": "results/prefill-screen/manifest.json",
+        "sha256": "ebe7fccd9926bee7b7913c9b6ea206b1d318fe19468b6e47ba4005588e435ee1"
+      },
+      "sample_rows": 12,
+      "warmups": 4
+    },
+    {
+      "accepted_processes": 24,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/loader-final/journal.jsonl",
+        "sha256": "6cbfbe0c17f4cfbe28615105828b4796aeb4c9df18d557663cf0efe427ab26e8"
+      },
+      "manifest": {
+        "local_path": "results/loader-final/manifest.json",
+        "sha256": "ab45b16f25c61e47647b084bd6f3711f2fe0e54426f0746de64351eea5d3ada7"
+      },
+      "sample_rows": 20,
+      "warmups": 4
+    },
+    {
+      "accepted_processes": 24,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/prefill-final/journal.jsonl",
+        "sha256": "25b3090e9411a97926e29b1978d2fad49634d7bb26860b76bbbf7bf6877d7e43"
+      },
+      "manifest": {
+        "local_path": "results/prefill-final/manifest.json",
+        "sha256": "0d3ad55de8a6b03b0d6cc2ec877e11c424f0902779497692b74ca5d77e152e9f"
+      },
+      "sample_rows": 20,
+      "warmups": 4
+    },
+    {
+      "accepted_processes": 12,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/prefill-replication-f/journal.jsonl",
+        "sha256": "93e28f0738fe47d646b8beff2f5ef87d3d65c405061b34e6d0c0a464de3f1f44"
+      },
+      "manifest": {
+        "local_path": "results/prefill-replication-f/manifest.json",
+        "sha256": "920c689f3a98e2284402627a6191d53fc873555bec5d600c687fef4f19464367"
+      },
+      "sample_rows": 10,
+      "warmups": 2
+    },
+    {
+      "accepted_processes": 2,
+      "category": "model_untimed_smoke",
+      "journal": {
+        "local_path": "results/baseline-smoke/journal.jsonl",
+        "sha256": "a7dbed7fbedfd6c4124170eb6e8eafb56a560516095e0ca0a13c59bd7b89ab21"
+      },
+      "manifest": {
+        "local_path": "results/baseline-smoke/manifest.json",
+        "sha256": "6c6acfbb3a0ed55d50650af432403f04488e6f64170cfefea5f3ed63ffd45c54"
+      },
+      "sample_rows": 2,
+      "warmups": 0
+    },
+    {
+      "accepted_processes": 4,
+      "category": "model_instrumented_diagnostic",
+      "journal": {
+        "local_path": "results/stage-diagnostic/journal.jsonl",
+        "sha256": "7178ece7c2bbb4ae0a39a1654fbad461b96ac61e1991cb2429f22376d11cbff6"
+      },
+      "manifest": {
+        "local_path": "results/stage-diagnostic/manifest.json",
+        "sha256": "5227c73eb2a636562e78aa377a4c6a9e52574f03806f26e8835cd486d7602ef8"
+      },
+      "sample_rows": 4,
+      "warmups": 0
+    },
+    {
+      "accepted_processes": 4,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/long-decode-baseline-4prompt-128gen-t1/journal.jsonl",
+        "sha256": "9b232432ee25bc7d7bdddddc7328e57df22927bc19cb12ca20512f31e1980932"
+      },
+      "manifest": {
+        "local_path": "results/long-decode-baseline-4prompt-128gen-t1/manifest.json",
+        "sha256": "e4d0f0fa934003b9f95a31eb6282f4beb53b1bc9ab9639f8141c5ef252c53d54"
+      },
+      "sample_rows": 3,
+      "warmups": 1
+    },
+    {
+      "accepted_processes": 1,
+      "category": "model_untimed_smoke",
+      "journal": {
+        "local_path": "results/long-decode-smoke-baseline-4prompt-128gen-t1/journal.jsonl",
+        "sha256": "b7d5e8ffde2f515a97492c8ce0f117dd5a0043ad0661e9d869063e846935e0a7"
+      },
+      "manifest": {
+        "local_path": "results/long-decode-smoke-baseline-4prompt-128gen-t1/manifest.json",
+        "sha256": "e9e92440e35d5ace51b735f5388f9e8668c199d0cb48c58d35322902fc5e67d4"
+      },
+      "sample_rows": 1,
+      "warmups": 0
+    },
+    {
+      "accepted_processes": 4,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/long-decode-baseline-4prompt-128gen-t8/journal.jsonl",
+        "sha256": "d922e27bcd22c8e88cfd71504706cb5c2114e2140e8f51157b84d37c80c09985"
+      },
+      "manifest": {
+        "local_path": "results/long-decode-baseline-4prompt-128gen-t8/manifest.json",
+        "sha256": "11aef35071c47d9d856cc09a96e3eb640a06246413b00fd101ab9c32c86add4b"
+      },
+      "sample_rows": 3,
+      "warmups": 1
+    },
+    {
+      "accepted_processes": 1,
+      "category": "model_untimed_smoke",
+      "journal": {
+        "local_path": "results/long-decode-smoke-baseline-4prompt-128gen-t8/journal.jsonl",
+        "sha256": "68aabafb3bd20f2cf03270f06d7b2f37510d612a9826104643f6431d92cc4bda"
+      },
+      "manifest": {
+        "local_path": "results/long-decode-smoke-baseline-4prompt-128gen-t8/manifest.json",
+        "sha256": "e0afa1d0121e725730f5ad3e7fc9bc89171eb21927a58286c6b40a4d5251e981"
+      },
+      "sample_rows": 1,
+      "warmups": 0
+    },
+    {
+      "accepted_processes": 4,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/long-decode-baseline-4prompt-512gen-t1/journal.jsonl",
+        "sha256": "606efdaf879d33049d1282d1d6b1c5331520b7d74068a7eb24320047b1ea73e0"
+      },
+      "manifest": {
+        "local_path": "results/long-decode-baseline-4prompt-512gen-t1/manifest.json",
+        "sha256": "f134219ac4ffef5a878fca6086323b64feb9db3eb904593fed16b9e7c70442bd"
+      },
+      "sample_rows": 3,
+      "warmups": 1
+    },
+    {
+      "accepted_processes": 1,
+      "category": "model_untimed_smoke",
+      "journal": {
+        "local_path": "results/long-decode-smoke-baseline-4prompt-512gen-t1/journal.jsonl",
+        "sha256": "631aa71ad703bd172b52c902abefa2a25112ae27dca5a67781dc816eeee78662"
+      },
+      "manifest": {
+        "local_path": "results/long-decode-smoke-baseline-4prompt-512gen-t1/manifest.json",
+        "sha256": "58748e01d39f2b20cef93b6ec8a26b0cccb82e9b26fe1b95b6441d2b45c3e495"
+      },
+      "sample_rows": 1,
+      "warmups": 0
+    },
+    {
+      "accepted_processes": 4,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/long-decode-baseline-4prompt-512gen-t8/journal.jsonl",
+        "sha256": "bef2ab98e332d09403393d5159ce2861f450c522c3f0fde840170be6086ed34d"
+      },
+      "manifest": {
+        "local_path": "results/long-decode-baseline-4prompt-512gen-t8/manifest.json",
+        "sha256": "1e9733953dcb31b317b307821c5b0ea4f4187ab3e02855c9b726e472ab729d9d"
+      },
+      "sample_rows": 3,
+      "warmups": 1
+    },
+    {
+      "accepted_processes": 1,
+      "category": "model_untimed_smoke",
+      "journal": {
+        "local_path": "results/long-decode-smoke-baseline-4prompt-512gen-t8/journal.jsonl",
+        "sha256": "d87504131dff0f0cbbd897be2fdf0b2da312c537b1c540a9f4b3d695787f9d76"
+      },
+      "manifest": {
+        "local_path": "results/long-decode-smoke-baseline-4prompt-512gen-t8/manifest.json",
+        "sha256": "9c1655f7d2d18d248b1be65025076af485fec2cf1e2ecc2ab40ef6aa6802da1e"
+      },
+      "sample_rows": 1,
+      "warmups": 0
+    },
+    {
+      "accepted_processes": 12,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/two-thread-bands-initial/journal.jsonl",
+        "sha256": "1f4b09af72398db76c146d1d25a11e9847ef372b57c2805e42f08d7c9de38ed9"
+      },
+      "manifest": {
+        "local_path": "results/two-thread-bands-initial/manifest.json",
+        "sha256": "0f0ce6b0cda32f881d82e5483e0eb3c91300cd7206040977bc83b8e0c75d1656"
+      },
+      "sample_rows": 10,
+      "warmups": 2
+    },
+    {
+      "accepted_processes": 2,
+      "category": "model_untimed_smoke",
+      "journal": {
+        "local_path": "results/two-thread-bands-initial-smoke/journal.jsonl",
+        "sha256": "1e63f1a81eb4fc955ba335eb25bde8d9493e0687ece1303a862abf82d063c28a"
+      },
+      "manifest": {
+        "local_path": "results/two-thread-bands-initial-smoke/manifest.json",
+        "sha256": "35fa5b3c30abeb0caa9439b79a8dffd32a1b95c686a69c744fff2acedcce05bb"
+      },
+      "sample_rows": 2,
+      "warmups": 0
+    },
+    {
+      "accepted_processes": 12,
+      "category": "model_timed",
+      "journal": {
+        "local_path": "results/two-thread-bands-replication-f/journal.jsonl",
+        "sha256": "99ae5770090fa34347f7afbd2e0380593ce12c5af5e6897e41fc3e5ff4f53b46"
+      },
+      "manifest": {
+        "local_path": "results/two-thread-bands-replication-f/manifest.json",
+        "sha256": "05dfa95bb4986e737e645106a4cb4445a1b6e4d85eecea1e8553da5a5b9bc02d"
+      },
+      "sample_rows": 10,
+      "warmups": 2
+    },
+    {
+      "accepted_processes": 2,
+      "category": "model_untimed_smoke",
+      "journal": {
+        "local_path": "results/two-thread-bands-replication-f-smoke/journal.jsonl",
+        "sha256": "80eb5dbcb85409bfc76537abb6a0bfea399a5d668b97ab04b6e442fed5b5f785"
+      },
+      "manifest": {
+        "local_path": "results/two-thread-bands-replication-f-smoke/manifest.json",
+        "sha256": "d9417727e11e7a3ce163d70efa92531cf39fab9b86f1ffd4027b4379be83108f"
+      },
+      "sample_rows": 2,
+      "warmups": 0
+    }
+  ],
+  "native_model_and_layer_processes": {
+    "D_reports": [
+      {
+        "local_path": "results/prefill-corpus-v2/smoke-20261014T064849Z/report.json",
+        "sha256": "388c4988713f6597e02b6c3c85cffd74cca6ea673209c90415a7341ec84582b5"
+      },
+      {
+        "local_path": "results/prefill-corpus-v2/smoke-20261014T072132Z/report.json",
+        "sha256": "c7633906353c74cac95da7a63e32af1418b5509dddcfd6455e0171778cb8e048"
+      },
+      {
+        "local_path": "results/prefill-extended-20261014T072125Z/strict_audit.json",
+        "sha256": "53b1117e9a3794e52f0fb0d7d8e22026c05d60b243d06ce551a3af67972c942d"
+      }
+    ],
+    "accepted_B_gate": {
+      "local_path": "results/lane-f/two-thread-independently-accepted-gates.json",
+      "sha256": "af165cca644350a0b5d8dc091935889b816ed3437ea98f7fa9443019816e9863"
+    },
+    "additional_full_model_forward_generation_correctness": 202,
+    "additional_layer_only_correctness": 12,
+    "correctness_breakdown": {
+      "B_independently_accepted_correctness": {
+        "forward": 44,
+        "generation": 48,
+        "layer": 6,
+        "total": 98
+      },
+      "D_noninstrumented_correctness": {
+        "frozen_outputs": 23,
+        "long_prompt_smokes": 4,
+        "short_smokes": 14,
+        "total": 41
+      },
+      "baseline_guarded_numerics": {
+        "forward": 11,
+        "generation": 12,
+        "layer": 3,
+        "total": 26
+      },
+      "baseline_strict_numerics_and_local_freeze": {
+        "forward": 22,
+        "generation": 24,
+        "layer": 3,
+        "total": 49
+      }
+    },
+    "documented_total_native_model_and_layer_processes": 368,
+    "legacy_logs": [
+      {
+        "local_path": "results/baseline/check-numerics-guarded.log",
+        "sha256": "8d1841797d7eeb905c8386820bcd990007563b1f52d2f7259b5f5a6922479797"
+      },
+      {
+        "local_path": "results/baseline/strict-numerics-and-bits.log",
+        "sha256": "9fb81237282e38154b8bd98610e5a6a8ccf0b8ff7945b6ac59c71fccca566227"
+      }
+    ],
+    "model_diagnostics": {
+      "E_attribution": 4,
+      "earlier_D_stage_smokes": 4,
+      "initial_stage_journal": 4,
+      "total": 12
+    },
+    "provenance_limits": [
+      "Baseline legacy successful logs establish command/case counts but lack per-child raw receipts equivalent to later runner records.",
+      "D smoke return codes were checked but not stored per child; D frozen-bit child stderr was not individually retained.",
+      "B98 correctness calls have independently audited nested command/status/raw hashes.",
+      "A diagnostic measurement is not a primary timing sample. Empty/zero-new-token correctness modes still count as invoked model programs.",
+      "Totals exclude tokenizer-only/unit-test fixture processes, Python oracle producers, builds, read-only receipt audits and preliminary setup failures."
+    ],
+    "separate_untimed_smokes": 10,
+    "timed_measurement_windows": {
+      "measurements": 106,
+      "total": 132,
+      "warmups": 26
+    }
+  },
+  "next_three_proposed_experiments_not_authorized_to_execute_now": [
+    "After the blocked review is legitimately resolved: capped12-call/20-minute fixture reachability isolation, retaining every one of15 cases; obtain a minimal compiler repro or compiling complete split coverage.",
+    "Only after all15 native fixtures, all90 matrices at both validation depths, full numerical/23-bit/128-bit gates: the frozen one-thread packed-MLP128-token total-wall paired trial plus separate independent replication.",
+    "A new preregistered two-thread head-only policy (layer depth0/head5/attention0) to separate tied-head layout benefit from layer scheduling overhead; same numerical gates and independent total-wall confirmation. Do not retune or pool the failed layer2/head5 batches."
+  ],
+  "oracle_and_audit_scope": {
+    "F_reference_reconstruction_producer_processes": 3,
+    "all_python_setup_oracle_unit_test_processes_total": null,
+    "byte_identical_reconstructed_reference_files": 82,
+    "read_only_audits_add_experiment_calls": false,
+    "timing": "Post-execution provenance, explicitly labeled"
+  },
+  "other_build_scope": {
+    "B_build_check_parent_phases": 13,
+    "B_numeric_parent_phases": 14,
+    "exhaustive_all_host_compiler_invocations": null,
+    "parent_phase_counts_not_added_to_nested_model_counts": true,
+    "reason": "Older startup/QO parity builds do not all have enumerated child receipts. Recorded phase counts are kept separate from nested compiler or model processes."
+  },
+  "packed_integration_compiler": {
+    "accepted_native_fixture_binaries": 0,
+    "audits": [
+      {
+        "local_path": "results/lane-f/packed-guard-emission-independent-audit.json",
+        "sha256": "ba120168748c775f477f5c56d085905a9ce665b7db73897cfe524462b62d811d"
+      },
+      {
+        "local_path": "results/lane-f/packed-entry-emissions-independent-audit.json",
+        "sha256": "5943616c036afa3942254a5e2eb79ab5d87e1b40a8bbd0a4d3b38625400acb0e"
+      }
+    ],
+    "diagnosis": "Minimal loader, verifier and32769-row loader entries emit C; full fixture native emission overflows. No unavailable-primitive conclusion is supported.",
+    "diagnostic_C_emissions": {
+      "nonempty_C_successes": 5,
+      "total": 7,
+      "type_errors": 2
+    },
+    "evidence": {
+      "local_path": "lane-e/bench/packed8_compiler_status.md",
+      "sha256": "bb4eeef1a47856df239884fb3e6bfb8e88ab20d3ecb02e89020b12d40f586518"
+    },
+    "executed_native_fixture_cases": 0,
+    "failed_native_build_attempts": 4,
+    "integrated_C_builds": 0,
+    "model_calls": 0,
+    "model_timing_calls": 0,
+    "planned_native_fixture_cases": 15,
+    "real_weight_traversals": 0,
+    "total_guarded_compiler_invocations": 14,
+    "verdicts": {
+      "failed": 1,
+      "passed": 2,
+      "total": 3
+    }
+  },
+  "packed_kernel": {
+    "caveat": "The three earlier stdout artifacts and older parity builds are not converted into an invented exact execution count.",
+    "documented_timing_and_fixture_builds": 37,
+    "documented_timing_processes": 240,
+    "earlier_qo_parity_process_cardinality": null,
+    "earlier_qo_parity_stdout_artifacts": 3,
+    "evidence": {
+      "local_path": "lane-c/bench/packed8_evidence.md",
+      "sha256": "4ac423ea7369fc66a6918ba7e1cc074d096103400e50e7784003a521f9259d9e"
+    },
+    "exploratory_measured_processes": 72,
+    "fresh_confirmation_measured_processes": 120,
+    "fully_receipted_later_parity_calls": 50,
+    "older_qo_parity_build_count": null,
+    "warmups": 48
+  },
+  "publication": {
+    "CI": "No exact-SHA workflow runs, checks or statuses at09:53:52; no CI result",
+    "base_PR2": "3a5f626dd9f2a6b3bcee51292b10c4e203cb74de",
+    "head": "fd8808b36b39b7a7d22c72c14ecb136ed770f318",
+    "local_matching_commit": "300bf0b8ab431df4e0bcd5d4854f421a11fb92df",
+    "remote_audit": {
+      "local_path": "results/lane-f/pr4-two-thread-remote-20261014T095352Z.json",
+      "sha256": "2428d0b8f178feb5cd1533ea104d01ec6ce3470830b8746435c87f535cd5b9a0"
+    },
+    "state": "draft/open/unmerged",
+    "tree": "873c96a454938634ddff824a528ab47a0e243208",
+    "url": "https://github.com/kvnloo/llama.bend/pull/4"
+  },
+  "reproduction": {
+    "cwd": "/workspace/scratch/df37e4e44cce/llama-campaign",
+    "environment": "source control/env.sh",
+    "existing_B_plan_only": "(cd lane-b && ../lane-a/reference/.venv/bin/python bench/adaptive_campaign.py plan)",
+    "existing_model_resume_after_named_window_only": "lane-a/reference/.venv/bin/python lane-a/scripts/campaign_runner.py control/two-thread-bands-initial.json --out results/two-thread-bands-initial",
+    "resume_caveat": "Do not run packed or new trials. Existing runner resume is only for the same frozen local manifest/output; revalidated complete records are skipped. Exact local model/binary/oracle artifacts are required; public compact evidence is not a portable weights/binary bundle.",
+    "safe_independent_summary": "flock control/benchmark.lock lane-a/reference/.venv/bin/python lane-a/scripts/campaign_summary.py results/two-thread-bands-replication-f",
+    "safe_summary": "flock control/benchmark.lock lane-a/reference/.venv/bin/python lane-a/scripts/campaign_summary.py results/two-thread-bands-initial"
+  },
+  "runtime_selection": {
+    "B_two_thread_depth": "unselected: both independent primary wall gates failed",
+    "C_packed_layout": "synthetic kernel evidence only; zero integrated model calls",
+    "D_prefill_skip": "unselected: independent primary gate failed",
+    "E_zero_band_reuse": "unselected: fresh uncertainty gate failed"
+  },
+  "schema": 1,
+  "status": "Campaign closed at completed evidence; dependent packed-model work is blocked",
+  "unexecuted_future_helpers": [
+    "control/prepare_packed_model_trials.py and its new tests are source-only, unaccepted and excluded from runnable commands.",
+    "C future model gate helper and updated prereg schema are source-only/unaccepted; no integrated execution."
+  ]
+}
