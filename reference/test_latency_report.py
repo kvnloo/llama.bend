@@ -42,6 +42,15 @@ text: Once upon a time
         with self.assertRaisesRegex(ValueError, "not monotonic"):
             report("  id 4  logit 1 1.0 t=1.5s\n  id 5  logit 2 2.0 t=1.0s")
 
+    def test_captured_generation_output(self):
+        # Real 1.7B output tracked for the release video (timestamps may be rounded).
+        path = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"
+        r = report(path.read_text(encoding="utf-8"))
+        self.assertGreater(r["tokens"], 16)
+        self.assertIsNotNone(r["load_s"])
+        self.assertGreater(r["decode_p50_ms"], 0)
+        self.assertGreater(r["first_generated_ms_since_generation_start"], 0)
+
     def test_noisy_output(self):
         r = report("Random t=3.7s\n  id 5  logit 2 2.0 t=1.0s\nignored\n  id 6  logit 3 3.0 t=1.1s")
         self.assertEqual(r["tokens"], 2)
