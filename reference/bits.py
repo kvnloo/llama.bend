@@ -18,9 +18,9 @@ OUT = os.path.join(T_DIR, "bits")
 def outputs(fwd, gen):
     for i in range(11):
         ids = open(os.path.join(T_DIR, f"fwd{i}_ids.txt")).read().split()
-        yield f"fwd{i}.txt", subprocess.run([fwd, D] + ids, capture_output=True, cwd=ROOT).stdout
+        yield f"fwd{i}.txt", subprocess.run([fwd, D] + ids, capture_output=True, cwd=ROOT, check=True).stdout
     for i, c in enumerate(json.load(open(os.path.join(T_DIR, "gen.json")))):
-        out = subprocess.run([gen, D, c["prompt"], str(c["n"])], capture_output=True, cwd=ROOT).stdout
+        out = subprocess.run([gen, D, c["prompt"], str(c["n"])], capture_output=True, cwd=ROOT, check=True).stdout
         out = re.sub(rb"  t=[0-9.]+s", b"", out)
         out = re.sub(rb"^weights loaded in .*\n", b"", out, flags=re.M)
         yield f"gen{i}.txt", out
