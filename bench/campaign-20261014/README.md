@@ -7,10 +7,11 @@ The upstream benchmark numbers are not reproduced by this host.
 
 ## Current checkpoint
 
-Execution is active. No performance candidate is selected for integration.
+The campaign is closed at completed evidence. No performance candidate is selected for integration.
 The baseline runtime is unchanged. Prefill, loader and two-thread scheduling
 candidates remain isolated and unselected. Packed-eight has accepted synthetic
-kernel evidence; its real-loader/model correctness gates are still in progress.
+kernel evidence; its real-loader/model correctness gates were incomplete at closeout.
+See `closeout.md` for the final status.
 
 - Runtime: Bend 2.0.37, Lean 4.34.0, Clang 19.1.7, pinned Python dependencies.
 - Full model: real pinned SmolLM2-135M revision
@@ -148,18 +149,26 @@ real-weight or model correctness.
 4. C's bounded kernel confirmations/family screens and E's attribution diagnostics
    are complete. Their separate evidence categories are recorded above.
 
-## Resume contract
+## Historical resume contract
 
-The local control directory holds the frozen manifests and producer scripts;
-the results directory holds append-only journals, raw stdout/stderr, summaries,
+At closeout, the local control directory held the frozen manifests and producer scripts;
+the results directory held append-only journals, raw stdout/stderr, summaries,
 failures and checkpoint inventories. Reuse the same manifest/output directory
 only when all hashes and strict gates revalidate. Never overwrite failed runs,
 refresh hashes to conceal source changes, or relabel an unfinished plan as data.
 
-The committed runner instructions are in `../campaign-runner.md`. A portable
-control/evidence bundle will be recorded here once the current bounded run is
-complete. This checkpoint deliberately does not invent registry IDs, promise a
-portable model download, or claim that raw local paths are published artifacts.
+The committed runner instructions are in `../campaign-runner.md`. No portable
+control/evidence bundle is included in this checkpoint. This checkpoint deliberately
+does not invent registry IDs, promise a portable model download, or claim that raw
+local paths are published artifacts.
+
+During post-closeout verification on 2026-10-14, the original campaign directory
+was absent from the verification workspace. This checkpoint does not include the
+original control/results trees, per-run manifests, raw journals/stdout/stderr, or
+pinned model/binary/oracle artifacts. Their continued availability on the original
+host has not been verified. Exact replay requires those files. The compact
+`final-runnable-replay.json` records the earlier successful local replay; it does
+not provide the missing files or establish a replay on the verification host.
 
 See `negative-results.md` for rejected hypotheses and guard failures.
 

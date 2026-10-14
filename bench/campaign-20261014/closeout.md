@@ -43,7 +43,7 @@ are never added to their nested model-child counts. F's three post-execution
 PyTorch producers recreated 82 reference files byte-identically and are separate
 validation work.
 
-## Decisions and published checkpoint
+## Decisions and historical published checkpoint
 
 B's initial five-pair wall savings have median 2.417%, lower bound −0.266%; its
 independent batch has median 3.772%, lower bound 2.343%. Both fail 5%. All 28 smoke/warmup/
@@ -53,20 +53,21 @@ negative decisions remain unchanged. No batches or metrics were substituted.
 
 Draft PR #4: https://github.com/kvnloo/llama.bend/pull/4
 
-- Current verified remote head: `fd8808b36b39b7a7d22c72c14ecb136ed770f318`
+- Historical two-thread evidence head, verified at 09:53:52 UTC: `fd8808b36b39b7a7d22c72c14ecb136ed770f318`
 - Reviewed local counterpart: `300bf0b8ab431df4e0bcd5d4854f421a11fb92df`
 - Exact matching tree: `873c96a454938634ddff824a528ab47a0e243208`
 - PR #2 base unchanged: `3a5f626dd9f2a6b3bcee51292b10c4e203cb74de`
 - Draft/open/unmerged; exact-head CI has no reported runs/checks/statuses as of
  09:53:52 UTC. This is not a CI pass.
 
-This local final inventory is additive to the published frozen checkpoints.
+This final inventory is additive to the published frozen checkpoints.
 No weights, binaries, bulky traces or unreviewed compiler-triage source are
 proposed for publication.
 
-## Runnable local checkpoint
+## Historical local replay
 
-From `/workspace/scratch/df37e4e44cce/llama-campaign`:
+The closing replay used `/workspace/scratch/df37e4e44cce/llama-campaign` on the
+original campaign host:
 
 ```sh
 source control/env.sh
@@ -80,6 +81,14 @@ flock control/benchmark.lock lane-a/reference/.venv/bin/python \
 Closing read-only replay rehashed 882 distinct frozen model-trial inputs and
 recreated both complete summaries exactly; zero model/compiler children ran.
 Receipt: `final-runnable-replay.json`. Original raw results were not changed.
+
+These are historical commands, not a portable replay bundle. During post-closeout
+verification on 2026-10-14, the original campaign directory was absent from the
+verification workspace. The control/results trees, raw journals/stdout/stderr and
+pinned model/binary/oracle inputs are not included in this public checkpoint;
+their continued availability on the original host has not been verified. The
+receipt records the earlier successful replay, not one performed by this
+verification.
 
 The existing runner can resume only the same frozen manifest/output after a
 named quiet window; complete revalidated trials are skipped. Do not replace
