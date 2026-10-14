@@ -41,23 +41,32 @@ def slope(values: list[float]) -> float | None:
     )
 
 
+def finite_seconds(raw: str, source: str) -> float:
+    value = float(raw)
+    if not math.isfinite(value):
+        raise ValueError(f"nonfinite {source}")
+    return value
+
+
 def report(output: str) -> dict[str, float | int | None]:
     times: list[float] = []
     load_s = None
     for line in output.splitlines():
         if match := LOAD.match(line):
-            load_s = float(match.group(1))
+            load_s = finite_seconds(match.group(1), "load duration")
         if match := TOKEN.match(line):
-            times.append(float(match.group(1)))
+            times.append(finite_seconds(match.group(1), "token timestamp"))
 
     if not times:
         raise ValueError("no generated token timestamps found (expected '  id ... t=...s')")
     intervals_ms = [(b - a) * 1000 for a, b in zip(times, times[1:])]
+    if any(not math.isfinite(value) for value in intervals_ms):
+        raise ValueError("nonfinite decode interval")
     if any(value < 0 for value in intervals_ms):
         raise ValueError("token timestamps are not monotonic")
 
     per_position_slope = slope(intervals_ms)
-    return {
+    metrics = {
         "load_s": load_s,
         "tokens": len(times),
         "first_generated_ms_since_generation_start": round(times[0] * 1000, 3),
@@ -66,6 +75,9 @@ def report(output: str) -> dict[str, float | int | None]:
         "decode_p95_ms": round(percentile(intervals_ms, 0.95), 3) if intervals_ms else None,
         "decode_slope_ms_per_position": round(per_position_slope, 5) if per_position_slope is not None else None,
     }
+    if any(isinstance(value, float) and not math.isfinite(value) for value in metrics.values()):
+        raise ValueError("nonfinite latency metric")
+    return metrics
 
 
 def main() -> int:
@@ -80,7 +92,7 @@ def main() -> int:
         parser.error(str(error))
 
     if args.json:
-        print(json.dumps(result, sort_keys=True))
+        print(json.dumps(result, sort_keys=True, allow_nan=False))
     else:
         print(" ".join(f"{key}={value}" for key, value in result.items()))
     return 0

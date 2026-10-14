@@ -1,5 +1,6 @@
 """Unit tests for the stdout-only latency report (no model downloads needed)."""
 
+import math
 import sys
 import unittest
 from pathlib import Path
@@ -55,6 +56,20 @@ text: Once upon a time
         r = report("Random t=3.7s\n  id 5  logit 2 2.0 t=1.0s\nignored\n  id 6  logit 3 3.0 t=1.1s")
         self.assertEqual(r["tokens"], 2)
         self.assertAlmostEqual(r["decode_mean_ms"], 100.0)
+
+
+    def test_timestamp_decimal_overflow_is_rejected(self):
+        huge = "9" * 400
+        with self.assertRaisesRegex(ValueError, "nonfinite"):
+            report(f"  id 4 logit 1 1.0 t={huge}s")
+        with self.assertRaisesRegex(ValueError, "nonfinite"):
+            report(f"weights loaded in {huge}s\n  id 4 logit 1 1.0 t=0.001s")
+
+    def test_finite_timestamp_millisecond_conversion_overflow_is_rejected(self):
+        huge_finite = "1" + "0" * 308
+        self.assertTrue(math.isfinite(float(huge_finite)))
+        with self.assertRaisesRegex(ValueError, "nonfinite"):
+            report(f"  id 4 logit 1 1.0 t={huge_finite}s")
 
 
 if __name__ == "__main__":
