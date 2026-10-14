@@ -56,3 +56,35 @@ Later gate/up and down synthetic batches had favorable five-pair ranges, but the
 fixture generator has only 13 operand classes. Synthetic construction savings
 are not checkpoint loading savings. Real packed loading, complete word parity,
 full model numerical checks and fresh total-wall trials remain separate gates.
+
+## Two-thread real-model scheduling
+
+The single preregistered 135M policy used layer matvec depth 2, tied-head depth 5
+and unchanged attention depth 0 at two threads. All numerical, local frozen-bit,
+default-regression and emitted-C acceptance gates passed. Every later process
+also preserved the complete 128-token local baseline IDs/U32 bits/text.
+
+The primary was total process wall including load, with exactly five randomized
+pairs in each of two separately seeded batches. Initial paired savings were
+1.117%, 2.417%, 3.527%, -0.266%, 3.614%: median 2.417%, descriptive percentile
+bootstrap lower bound -0.266%. Independent replication gave 3.772%, 11.974%,
+2.404%, 2.343%, 7.099%: median 3.772%, lower bound 2.343%. Each complete batch
+fails its required 5% lower bound. These small-sample bootstrap summaries make
+no population-coverage guarantee. Neither pooling nor additional rounds are
+used to rescue the policy. The repeated roughly 36.22% per-child peak-RSS
+reduction (`wait4` `ru_maxrss`, distinct from sampled group RSS) is a secondary
+observation and does not change the latency decision.
+
+## Packed-loader compiler failures
+
+Real packed loading has not yet produced accepted model evidence. Two native
+fixture build attempts failed on Bend syntax before any of their 15 planned
+children. A smaller loader-only verdict then exposed a linear-ownership error
+in a reused scalar. A separately reviewed correction added sharing annotations
+only to five pure U32/Nat fields and passed a fresh minimal verdict. A third
+native fixture build then failed on fixture-local `U32` versus `Nat` depth
+literals before any child. Four explicit Nat literals passed a separate
+fixture-only verdict. At the 09:49 UTC checkpoint, all four failed receipts
+remain intact; no failed build is counted as a fixture or model execution.
+Native fixtures, complete real-weight verification and model gates remain
+separate prerequisites to performance trials.

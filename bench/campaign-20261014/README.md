@@ -8,8 +8,9 @@ The upstream benchmark numbers are not reproduced by this host.
 ## Current checkpoint
 
 Execution is active. No performance candidate is selected for integration.
-The baseline runtime is unchanged. Prefill and loader source candidates remain
-isolated; packed-eight layout is a kernel-only prototype.
+The baseline runtime is unchanged. Prefill, loader and two-thread scheduling
+candidates remain isolated and unselected. Packed-eight has accepted synthetic
+kernel evidence; its real-loader/model correctness gates are still in progress.
 
 - Runtime: Bend 2.0.37, Lean 4.34.0, Clang 19.1.7, pinned Python dependencies.
 - Full model: real pinned SmolLM2-135M revision
@@ -17,7 +18,8 @@ isolated; packed-eight layout is a kernel-only prototype.
 - Host: AMD EPYC 9V74 virtual CPUs, affinity 0–8, about 9.7 GiB RAM, no swap or
   exposed GPU. CPU quota, physical topology, power and thermal state are unknown.
 - Timed execution: one shared `control/benchmark.lock`; no builds or other lane
-  workloads during the window. One thread uses CPU 0, eight use CPUs 0–7.
+  workloads during the window. One thread uses CPU 0, two use CPUs 0–1,
+  and eight use CPUs 0–7.
   A host lock cannot exclude workloads outside this campaign.
 - Budget: 6 GiB sampled process-group RSS watchdog; at least 12 GiB free disk.
   There is no address-space cap: Bend reserves a large sparse virtual arena.
@@ -84,10 +86,47 @@ original 98 model-journal processes.
   the retained erratum prevents interpreting their difference as a load-stage
   decomposition. The loader candidate remains unselected.
 
-The next model experiments are isolated opt-ins, with defaults unchanged: a
-bounded two-thread layer-depth-2/head-depth-5 policy preserving attention depth
-zero, and a packed-MLP experiment. Source review, full numerical/frozen-bit gates
-and separately preregistered fresh model trials precede any selection.
+## Real-model follow-up: two-thread scheduling rejected
+
+The isolated layer-depth-2/head-depth-5 policy preserves attention depth zero
+and the original default loader. Its 14 guarded correctness phases contained
+98 two-thread model children, covering opt-in and freshly rebuilt default
+layer/forward/generation numerics and both sets of 23 local frozen outputs.
+Independent acceptance additionally reconstructed all 82 reference files from
+pinned unchanged producers, byte-identically, and verified emitted-C routing
+and pure fork/join sections. That reconstruction is explicitly post-execution
+provenance, not an earlier freeze or a universal numerical proof.
+
+Two separately preregistered batches then tested real 135M greedy generation
+for the four-token `Once upon a time` prompt and all 128 requested tokens, on
+two threads pinned to CPUs 0–1. Each batch has two untimed smoke calls, two
+warmups and ten measured calls forming five randomized pairs. All 28 processes
+passed exact token IDs, chosen-logit U32 bits and text. No samples were added.
+
+- Initial total-process-wall paired savings: 1.117%, 2.417%, 3.527%, -0.266%,
+  3.614%; median 2.417%, descriptive bootstrap lower bound -0.266%.
+- Independent replication: 3.772%, 11.974%, 2.404%, 2.343%, 7.099%; median
+  3.772%, descriptive lower bound 2.343%.
+
+Both complete batches fail their separately required 5% lower-bound gate.
+They are not pooled. Per-child peak-RSS reductions of about 36.22% (`wait4`
+`ru_maxrss`) repeat as a secondary observation; this metric differs from the
+sampled aggregate-process-group guard. It does not replace the prespecified
+wall-latency primary.
+The policy remains unselected. `two-thread-model-result.json` indexes both
+summaries, audits, manifests and journals without adding these calls to either
+the original 98-process inventory or the synthetic configuration count.
+
+The packed-MLP follow-up remains in staged correctness work. Two native-build
+attempts failed before any of their 15 fixture calls, followed by one failed
+minimal loader verdict. A bounded five-scalar ownership correction then passed
+one loader-only verdict. A third native fixture build later failed on
+fixture-local `U32` versus `Nat` depth literals, again before any of its 15
+children. Four explicit Nat literals then passed one fixture-only verdict.
+Thus the 09:49 UTC checkpoint has three failed native fixture builds, one
+failed minimal verdict and two successful checker verdicts. All earlier
+failures are retained. Green checker verdicts do not establish native fixture,
+real-weight or model correctness.
 
 ## Work after the takeover
 

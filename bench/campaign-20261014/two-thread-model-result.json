@@ -1,0 +1,260 @@
+{
+  "batches": [
+    {
+      "counts": {
+        "accepted_processes": 14,
+        "measured_calls": 10,
+        "randomized_pairs": 5,
+        "untimed_smokes": 2,
+        "warmups": 2
+      },
+      "independent_audit": {
+        "local_path": "results/lane-f/two-thread-initial-independent-audit.json",
+        "sha256": "2b210580b405467a317929b51e273cd367270fdc9b31c9828dd1a6a6346528ce"
+      },
+      "journal": {
+        "local_path": "results/two-thread-bands-initial/journal.jsonl",
+        "sha256": "1f4b09af72398db76c146d1d25a11e9847ef372b57c2805e42f08d7c9de38ed9"
+      },
+      "manifest_canonical_sha256": "aa40a2e1b536e92f65d10ac3f576f7cdf77b844574ce9c371d68169ade50536a",
+      "manifest_file": {
+        "local_path": "results/two-thread-bands-initial/manifest.json",
+        "sha256": "0f0ce6b0cda32f881d82e5483e0eb3c91300cd7206040977bc83b8e0c75d1656"
+      },
+      "name": "initial",
+      "order_seed": 2026101401,
+      "output_gate": "All 128 requested IDs, chosen-logit U32 bits and text exactly preserved in all 14 processes",
+      "pairs": [
+        {
+          "order": [
+            "smollm2-135m-2t-layer2-head5-attention0",
+            "baseline"
+          ],
+          "round": 0,
+          "wall_saving_pct": 1.1172451005568387
+        },
+        {
+          "order": [
+            "baseline",
+            "smollm2-135m-2t-layer2-head5-attention0"
+          ],
+          "round": 1,
+          "wall_saving_pct": 2.4170382090497142
+        },
+        {
+          "order": [
+            "smollm2-135m-2t-layer2-head5-attention0",
+            "baseline"
+          ],
+          "round": 2,
+          "wall_saving_pct": 3.5274328223886418
+        },
+        {
+          "order": [
+            "smollm2-135m-2t-layer2-head5-attention0",
+            "baseline"
+          ],
+          "round": 3,
+          "wall_saving_pct": -0.2657852928632909
+        },
+        {
+          "order": [
+            "baseline",
+            "smollm2-135m-2t-layer2-head5-attention0"
+          ],
+          "round": 4,
+          "wall_saving_pct": 3.6143425241124008
+        }
+      ],
+      "primary": {
+        "max_saving_pct": 3.6143425241124008,
+        "median_saving_pct": 2.4170382090497142,
+        "meets_primary_5pct_gate": false,
+        "min_saving_pct": -0.2657852928632909,
+        "paired_bootstrap_95pct": [
+          -0.2657852928632909,
+          3.6143425241124008
+        ],
+        "paired_n": 5
+      },
+      "primary_metric": "wall_ms",
+      "secondary_peak_rss": {
+        "max_saving_pct": 36.22973165422253,
+        "median_saving_pct": 36.22259524899537,
+        "meets_primary_5pct_gate": false,
+        "min_saving_pct": 36.22173012164229,
+        "paired_bootstrap_95pct": [
+          36.22173012164229,
+          36.22973165422253
+        ],
+        "paired_n": 5
+      },
+      "secondary_peak_rss_source": "Per-child wait4 ru_maxrss, distinct from sampled aggregate process-group guard RSS",
+      "selected": false,
+      "smoke_journal": {
+        "local_path": "results/two-thread-bands-initial-smoke/journal.jsonl",
+        "sha256": "1e63f1a81eb4fc955ba335eb25bde8d9493e0687ece1303a862abf82d063c28a"
+      },
+      "smoke_manifest_canonical_sha256": "06996abb7301edd494baa1964647cb52c7b96891753a9852b308bed4eca16a63",
+      "smoke_manifest_file": {
+        "local_path": "results/two-thread-bands-initial-smoke/manifest.json",
+        "sha256": "35fa5b3c30abeb0caa9439b79a8dffd32a1b95c686a69c744fff2acedcce05bb"
+      },
+      "summary": {
+        "local_path": "results/two-thread-bands-initial-summary.json",
+        "sha256": "d16c951cc74ccd25993be2fb7f70884660b13dec1e0349afa0864ffdc1d1502b"
+      }
+    },
+    {
+      "counts": {
+        "accepted_processes": 14,
+        "measured_calls": 10,
+        "randomized_pairs": 5,
+        "untimed_smokes": 2,
+        "warmups": 2
+      },
+      "independent_audit": {
+        "local_path": "results/lane-f/two-thread-replication-independent-audit.json",
+        "sha256": "5b38abe0d13101362d779e929be3e2f38977db52f41cdc1aa173aad3439b34fe"
+      },
+      "journal": {
+        "local_path": "results/two-thread-bands-replication-f/journal.jsonl",
+        "sha256": "99ae5770090fa34347f7afbd2e0380593ce12c5af5e6897e41fc3e5ff4f53b46"
+      },
+      "manifest_canonical_sha256": "f9d036b3ce0cb6102f15fc6205da6fe6fbd9a2f1fbc5f7bb72916b860d9fca57",
+      "manifest_file": {
+        "local_path": "results/two-thread-bands-replication-f/manifest.json",
+        "sha256": "05dfa95bb4986e737e645106a4cb4445a1b6e4d85eecea1e8553da5a5b9bc02d"
+      },
+      "name": "replication-f",
+      "order_seed": 2026101402,
+      "output_gate": "All 128 requested IDs, chosen-logit U32 bits and text exactly preserved in all 14 processes",
+      "pairs": [
+        {
+          "order": [
+            "smollm2-135m-2t-layer2-head5-attention0",
+            "baseline"
+          ],
+          "round": 0,
+          "wall_saving_pct": 3.771511711487214
+        },
+        {
+          "order": [
+            "smollm2-135m-2t-layer2-head5-attention0",
+            "baseline"
+          ],
+          "round": 1,
+          "wall_saving_pct": 11.974102302340816
+        },
+        {
+          "order": [
+            "baseline",
+            "smollm2-135m-2t-layer2-head5-attention0"
+          ],
+          "round": 2,
+          "wall_saving_pct": 2.403584816478518
+        },
+        {
+          "order": [
+            "baseline",
+            "smollm2-135m-2t-layer2-head5-attention0"
+          ],
+          "round": 3,
+          "wall_saving_pct": 2.34329249447363
+        },
+        {
+          "order": [
+            "smollm2-135m-2t-layer2-head5-attention0",
+            "baseline"
+          ],
+          "round": 4,
+          "wall_saving_pct": 7.0991167974980804
+        }
+      ],
+      "primary": {
+        "max_saving_pct": 11.974102302340816,
+        "median_saving_pct": 3.771511711487214,
+        "meets_primary_5pct_gate": false,
+        "min_saving_pct": 2.34329249447363,
+        "paired_bootstrap_95pct": [
+          2.34329249447363,
+          11.974102302340816
+        ],
+        "paired_n": 5
+      },
+      "primary_metric": "wall_ms",
+      "secondary_peak_rss": {
+        "max_saving_pct": 36.229392576919686,
+        "median_saving_pct": 36.22492056979516,
+        "meets_primary_5pct_gate": false,
+        "min_saving_pct": 36.21195987601988,
+        "paired_bootstrap_95pct": [
+          36.21195987601988,
+          36.229392576919686
+        ],
+        "paired_n": 5
+      },
+      "secondary_peak_rss_source": "Per-child wait4 ru_maxrss, distinct from sampled aggregate process-group guard RSS",
+      "selected": false,
+      "smoke_journal": {
+        "local_path": "results/two-thread-bands-replication-f-smoke/journal.jsonl",
+        "sha256": "80eb5dbcb85409bfc76537abb6a0bfea399a5d668b97ab04b6e442fed5b5f785"
+      },
+      "smoke_manifest_canonical_sha256": "cfcb5f61f8be4f8a2689c5d5f056e9ed34c72a884840393661a01e7c900a65c0",
+      "smoke_manifest_file": {
+        "local_path": "results/two-thread-bands-replication-f-smoke/manifest.json",
+        "sha256": "d9417727e11e7a3ce163d70efa92531cf39fab9b86f1ffd4027b4379be83108f"
+      },
+      "summary": {
+        "local_path": "results/two-thread-bands-replication-f-summary.json",
+        "sha256": "e08141407f4fd632f1c7ea03c31d4529404e2bbd8a42f92e9e3509407507af24"
+      }
+    }
+  ],
+  "checkpoint": "two-thread-model-confirmation-complete-2026-10-14",
+  "combined_process_accounting_only": {
+    "accepted_processes": 28,
+    "failed_processes": 0,
+    "measured_calls": 20,
+    "untimed_smokes": 4,
+    "warmups": 4
+  },
+  "correctness_counts": {
+    "frozen_outputs_per_opt_in_or_default": 23,
+    "guarded_top_level_phases": 14,
+    "nested_two_thread_model_calls": 98,
+    "reference_files_reconstructed_byte_identically": 82
+  },
+  "correctness_provenance": "Original provisional gate retained; additive independent acceptance binds 838 inputs. Reference reconstruction is explicitly post-execution. Tested-output parity is not a universal per-dot proof.",
+  "decision": "Unselected: both complete, separately required primary wall-latency gates failed",
+  "independently_accepted_correctness_gate": {
+    "local_path": "results/lane-f/two-thread-independently-accepted-gates.json",
+    "sha256": "af165cca644350a0b5d8dc091935889b816ed3437ea98f7fa9443019816e9863"
+  },
+  "limits": [
+    "The two batches are not pooled for inference or selection.",
+    "Five-pair percentile bootstrap intervals are descriptive and do not guarantee population coverage.",
+    "Peak RSS is secondary and cannot replace the wall-latency primary.",
+    "Counts do not alter the earlier 98-process or 364-configuration inventories.",
+    "Warm filesystem cache; fresh processes; shared-host external contention is not controlled.",
+    "Local-path receipts index preserved evidence; weights, binaries and raw traces are not published by this compact file."
+  ],
+  "preregistration": {
+    "local_path": "results/lane-b/two-thread-selection-prereg.json",
+    "sha256": "d2fe54dafdf72e35e59de144d6983ac9006be986fd7b17c8655ebf3d325fb7ee"
+  },
+  "schema": 1,
+  "scope": {
+    "attention_depth": 0,
+    "candidate": "smollm2-135m-2t-layer2-head5-attention0",
+    "cpu_affinity": "0-1",
+    "head_depth": 5,
+    "layer_depth": 2,
+    "model": "SmolLM2-135M",
+    "model_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "prompt": "Once upon a time",
+    "prompt_tokens": 4,
+    "requested_and_observed_generation_tokens": 128,
+    "threads": 2
+  }
+}
