@@ -26,12 +26,16 @@ def summarize(out):
         if e['event']!='finished':continue
         t=planned.get(e['key'])
         if t is None or any(e[k]!=t[k] for k in ('case','variant','phase','round')): raise ValueError('event differs from trial plan')
-        if e['status']!='passed':failures.append({'case':e['case'],'variant':e['variant'],'error':e['error']});continue
+        if e['status']!='passed':
+            if e['status']!='failed': raise ValueError('unknown trial status')
+            if e['key'] in passing_keys: raise ValueError('failed attempt after a passing trial')
+            failures.append({'key':e['key'],'case':e['case'],'variant':e['variant'],'error':e['error']})
+            continue
         if e['key'] in passing_keys: raise ValueError('duplicate passing trial')
         passing_keys.add(e['key'])
         if e['returncode'] or e['stop_reason']:raise ValueError('invalid passing exit')
         if Path(e['stderr']).read_bytes():raise ValueError('unexpected stderr')
-        for metric in ('wall_ms','peak_rss_kib','process_observed_ttft_upper_bound_ms','process_observed_decoded_text_upper_bound_ms'):
+        for metric in ('wall_ms','peak_rss_kib','peak_sampled_process_group_rss_kib','process_observed_ttft_upper_bound_ms','process_observed_decoded_text_upper_bound_ms'):
             value=e.get(metric)
             if value is not None and (not isinstance(value,(int,float)) or not math.isfinite(value) or value<0):raise ValueError('invalid physical metric')
         if any(e.get(k) is not None and e[k]>e['wall_ms'] for k in ('process_observed_ttft_upper_bound_ms','process_observed_decoded_text_upper_bound_ms')):raise ValueError('arrival after process wall interval')
@@ -41,10 +45,19 @@ def summarize(out):
         if rule['kind'] in ('generation','generation_stages'):
             derived=validate_generation(Path(e['stdout']).read_bytes().decode('utf-8'),rule['expected'],stages=rule['kind']=='generation_stages')
             if derived!=e['latency']:raise ValueError('saved latency mismatch')
-        elif e['stdout_sha256']!=rule['sha256']:raise ValueError('kernel output mismatch')
+        elif rule['kind']=='stdout_sha256':
+            if e['stdout_sha256']!=rule['sha256']:raise ValueError('kernel output mismatch')
+            if e['latency']!={}:raise ValueError('kernel trial has unsupported latency metrics')
+        else:raise ValueError('unknown validation kind')
         if e['phase']=='sample':runs[(e['case'],e['variant'],e['round'])]=e
     def metrics(e):
-        return {k:v for k,v in (e['latency']|{k:e[k] for k in ('wall_ms','process_observed_ttft_upper_bound_ms','process_observed_decoded_text_upper_bound_ms','peak_rss_kib')}).items() if isinstance(v,(int,float)) and k!='tokens'}
+        observed = {k:e.get(k) for k in (
+            'wall_ms', 'process_observed_ttft_upper_bound_ms',
+            'process_observed_decoded_text_upper_bound_ms', 'peak_rss_kib',
+            'peak_sampled_process_group_rss_kib',
+        )}
+        return {k:v for k,v in (e['latency']|observed).items()
+                if isinstance(v,(int,float)) and k!='tokens'}
     confirmatory=m.get('purpose')=='confirmatory' and bool(m.get('selection_manifest_sha256')) and bool(m.get('primary_metric'))
     missing_keys=sorted(set(planned)-passing_keys)
     complete=not missing_keys
@@ -63,11 +76,14 @@ def summarize(out):
             stats={}
             for k in sorted(names):
                 if k == 'decode_slope_ms_per_position': continue  # Near-zero signed slopes need absolute units, not ratios.
-                savings=[100*(metrics(a)[k]-metrics(b)[k])/metrics(a)[k] for a,b in pair_rows if metrics(a)[k]>0]
+                # An otherwise completed trial plan does not imply full primary-clock coverage.
+                # Missing values and zero controls cannot silently select a winner.
+                paired_values=((metrics(a).get(k),metrics(b).get(k)) for a,b in pair_rows)
+                savings=[100*(a-b)/a for a,b in paired_values if a is not None and b is not None and a>0]
                 if not savings:continue
                 rng=random.Random(1234);boot=sorted(statistics.median(rng.choices(savings,k=len(savings))) for _ in range(2000))
                 ci=[boot[int(.025*len(boot))],boot[int(.975*len(boot))]]
-                stats[k]={'paired_n':len(savings),'median_saving_pct':statistics.median(savings),'min_saving_pct':min(savings),'max_saving_pct':max(savings),'paired_bootstrap_95pct':ci,'meets_primary_5pct_gate':confirmatory and complete and not failures and k==m['primary_metric'] and len(savings)>=5 and ci[0]>=5}
+                stats[k]={'paired_n':len(savings),'median_saving_pct':statistics.median(savings),'min_saving_pct':min(savings),'max_saving_pct':max(savings),'paired_bootstrap_95pct':ci,'meets_primary_5pct_gate':confirmatory and complete and not failures and k==m['primary_metric'] and len(savings)>=5 and len(savings)==len(pair_rows)==m['rounds'] and ci[0]>=5}
             paired[v['id']]={'control':control,'exploratory':not confirmatory or len(pair_rows)<5,'metrics':stats}
         result['cases'][c['id']]={'variants':variants,'paired':paired}
     return result
