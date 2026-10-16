@@ -740,3 +740,13 @@ every prompt token and drops them (the embedding product, about a fifth of a pos
 ## 2026-10-16: v1.1.0
 
 The binary-read loader, `forward_gen` and `bend-ml-bpe-tokenizer@0.1.3.0`, released through pull request #6 (CI green).
+
+## 2026-10-16: the prompt without its logits
+
+The last untried finding of bend-lint's run (`unused_result` on `gen`'s prompt loop): while it reads the prompt, `gen`
+computed every prompt token's logits, the final norm and the product by the embedding (49,152 x 576 on the 135M), and
+dropped them. `forward_pre` gives the layers and caches without them; `gen` uses it for every prompt token but the last.
+A 77-token prompt and 4 generated tokens, time to the first generated token (the program's own clock), alternated (4
+rounds, 3 for the 1.7B): 135M 9.47 -> 7.93 s on one thread, 4.57 -> 3.83 on 16 (-16%); 360M 22.78 -> 20.23 and 8.21 ->
+7.37 (-10 to -11%); 1.7B 90.44 -> 84.17 and 22.78 -> 21.55 (-5 to -7%). The same output in every run; `make bits`
+identical, `make check` 0 failures. Generation after the prompt is unchanged (the same `forward_gen`).
