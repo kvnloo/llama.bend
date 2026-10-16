@@ -703,4 +703,4 @@ not touch the products.
 
 Start-up (load and one token, wall time, 16 threads, 3 alternated rounds) and peak memory: 135M 4.3 → 1.0 s, 767 →
 718 MB; 360M 11.8 → 2.3 s, 2,314 → 2,270 MB; 1.7B 72.2 → 9.1 s, 6,828 → 6,787 MB. In `BENCHMARK.md`. The README's
-start-up image (`06-startup.webp`) still shows the old 66.4 s; it needs `make media`.
+start-up image (`06-startup.webp`) shows both bars, regenerated with `make media` from `docs/media/numbers.json`.
