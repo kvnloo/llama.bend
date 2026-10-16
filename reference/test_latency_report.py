@@ -52,6 +52,29 @@ text: Once upon a time
         self.assertGreater(r["decode_p50_ms"], 0)
         self.assertGreater(r["first_generated_ms_since_generation_start"], 0)
 
+    def test_malformed_generated_token_rows_are_not_silently_skipped(self):
+        # Skipping one row manufactures a seemingly valid 100ms decode
+        # distribution from a corrupt/incomplete token sequence.
+        for invalid in ("t=nans", "t=infs", "t=-0.002s", "t=wrong", ""):
+            with self.subTest(token=invalid):
+                raw = (
+                    "weights loaded in 1.0s\nprompt ids: 1\n"
+                    "  id 4 logit 1 0.5 t=0.100s\n"
+                    f"  id 5 logit 2 0.5 {invalid}\n"
+                    "  id 6 logit 3 0.5 t=0.200s\n"
+                    "text: done\n"
+                )
+                with self.assertRaisesRegex(ValueError, "malformed generated token row"):
+                    report(raw)
+
+    def test_malformed_rows_after_decoded_text_are_ignored(self):
+        raw = (
+            "  id 4 logit 1 0.5 t=0.100s\n"
+            "text: generated text might quote parser lines\n"
+            "  id 5 logit 2 0.5 t=nans\n"
+        )
+        self.assertEqual(report(raw)["tokens"], 1)
+
     def test_noisy_output(self):
         r = report("Random t=3.7s\n  id 5  logit 2 2.0 t=1.0s\nignored\n  id 6  logit 3 3.0 t=1.1s")
         self.assertEqual(r["tokens"], 2)
