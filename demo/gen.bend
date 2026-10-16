@@ -12,6 +12,7 @@
 import Base
 import ./tok.bend as K
 import ../llama/main.bend as M
+import ../llama/load.bend as L
 import bend-ml-bpe-tokenizer@0.1.2.0/main.bend as BPE
 
 # ---- the prompt as UTF-8 bytes ----
@@ -112,7 +113,7 @@ def run3(ok: Bool, +dir: String, +mb: List<&2, U32>, +pb: List<&2, U32>, prompt:
       do IO<Unit>:
         t0 : Nat <- IO.now()
         +c : M.Cfg <- M.read_cfg(dir)
-        model : M.Model<c> <- M.load_model(c, dir)
+        model : M.Model<c> <- L.load_model(c, dir)
         t1 : Nat <- IO.now()
         IO.print("weights loaded in " ++ tsec(t1, t0))
         generate(c, model, mb, pb, prompt, n)
