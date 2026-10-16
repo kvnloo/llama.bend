@@ -12,6 +12,8 @@ typed layers will become the BendHub package `bend-ml-llama`. **Private for now.
 - `NOTES.md`: every finding, measurement and decision, by date. Read it before changing anything.
 - `llama/main.bend`: the typed package (future `bend-ml-llama`): `Cfg`, `LW<c>`, `Model<c>`, `KV<cap, t>`, `block`,
   `forward`, the loader and every law; `llama/README.md` explains the laws. `make laws` runs bend and `--verdict`.
+- `llama/load.bend`: the loader the demos use, the same model read with `bend-ml-binary-read` (foreign code, C and
+  JS). Never import it, or binary-read, from `main.bend`: `--verdict` would fail (`make laws` checks it).
 - `demo/`: programs on the package (`forward.bend`, `gen.bend`, `layer_test.bend`, which take the model
   directory as their first argument) and the SmolLM2 tokenizer (`tok.bend`, `unicode.bend`).
 - `reference/`: the Python side: `models.py` (the pinned models; `MODEL=` picks one), `prep.py` (download,
