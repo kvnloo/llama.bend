@@ -55,7 +55,12 @@ def report(output: str) -> dict[str, float | int | None]:
         # Decoded text may itself contain timestamp-looking lines.
         if line.startswith("text: "):
             break
-        if match := LOAD.match(line):
+        if re.match(r"^weights loaded in\b", line):
+            match = LOAD.fullmatch(line)
+            if not match:
+                raise ValueError("malformed load duration")
+            if load_s is not None:
+                raise ValueError("duplicate load duration")
             load_s = finite_seconds(match.group(1), "load duration")
         # A malformed generated-token row must invalidate the capture, not
         # silently disappear from the distribution or token count.
