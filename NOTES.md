@@ -734,3 +734,5 @@ or fewer) generation runs as before.
 Other findings of his linter here: `append_in_loop` and `deep_call_in_fork` in attention (he measured no change), the
 tokenizer's `repeated_call` (no change), and one not yet tried: while it reads the prompt, `gen` computes the logits of
 every prompt token and drops them (the embedding product, about a fifth of a position's work).
+- The demos now import `bend-ml-bpe-tokenizer@0.1.3.0` (the erased `done`): tokenizing 19 KB 24.9 -> 12.2 s, the same
+  ids; `make check` 0 failures, `make bits` identical.
