@@ -9,6 +9,9 @@ build/
 
 # Handwritten foreign effect, not a compiler output.
 !/effects/adreno/gemv.c
+!/effects/adreno/autoresearch/bench.c
+!/effects/adreno/autoresearch/models.mjs
+!/effects/adreno/autoresearch/model-server.mjs
 
 # Local
 .scratch/

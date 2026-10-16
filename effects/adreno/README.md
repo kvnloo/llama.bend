@@ -131,3 +131,85 @@ wrong or missing final rows, GPU-only metadata/status requirements, byte-identit
 rejection, genuine subprocess nonzero/launch/timeout transitions, partial output and stale-success replacement.
 It does not fake GPU execution and is not device evidence. Build/test/run results must be reported from an
 actual invocation and its receipts; this source alone makes no claim that a particular driver accepts the kernel.
+
+## Separate bounded kernel autoresearch
+
+`autoresearch/` is the downstream issue #13 experiment, isolated from the capability
+programs above and from production inference. It searches 202 validated parameter
+combinations: scalar/float4 rowwise kernels, row reuse, cooperative reductions,
+workgroup sizes and unrolling. It does not claim to exhaust all possible kernels
+or implement native Bend `!` on Adreno.
+
+`bench.bend` really invokes a foreign-C effect on the physical GPU. The queue must
+support event profiling; every timed dispatch must complete and provide positive
+START/END timestamps. A sample reports the mean of eight kernel-event durations
+by default. Its separate host-wall measurement covers enqueue plus blocking
+readback for that batch; reported wall summaries are amortized per dispatch.
+Program compilation, context/buffer creation, upload, warmups and NaN reset are
+outside these intervals. This is a resident single-projection/hot-cache experiment,
+not generation latency, model throughput, DRAM bandwidth or gigapixel rendering.
+
+The independent `oracle.bend` still calls production `M.get_bands`/`M.mv`. It
+checks all 576 rows for five inputs: the original three, plus
+`x[i]=((i%29)-14)/16` and `x[i]=(((i*73+19)%257)-128)/128`. The existing finite-value
+tolerance is unchanged. Timed outputs must also remain bitwise deterministic
+within each native case. Every pair alternates control/candidate order by input
+and pair index. Promotion needs three pairs, each at least 1.03x faster, aggregate
+geometric-mean gain at least 1.05x, and no input's sample-mean p95 above 1.10x its
+paired control. Later winners also face two fresh incumbent comparisons. These
+are exploratory thresholds, not a statistical confidence interval or proof of
+global optimality. Wall latency is recorded separately, not substituted for GPU time.
+
+```sh
+# Existing installed tools/assets only. ANDROID_CC and BEND are described above.
+python3 -m unittest discover -s reference -p 'test_adreno*.py' -v
+python3 effects/adreno/autoresearch/controller.py build \
+  --lock /root/workspace/.llama-bend-benchmark.lock --bend "$BEND" --cc "$ANDROID_CC"
+
+# Actual compiler-error, nonfinite-last-row and finite-wrong-last-row rejection,
+# followed by a checked cooperative kernel/control comparison.
+python3 effects/adreno/autoresearch/controller.py smoke \
+  --lock /root/workspace/.llama-bend-benchmark.lock \
+  --serial "$ADB_SERIAL" --tensor "$TENSOR" --hours 0.25
+
+# Eight-hour device loop; never run competing device benchmarks alongside it.
+python3 effects/adreno/autoresearch/controller.py run \
+  --lock /root/workspace/.llama-bend-benchmark.lock \
+  --serial "$ADB_SERIAL" --tensor "$TENSOR" --hours 8
+```
+
+The runner exclusively locks the supplied shared benchmark lock, pins its Android
+host process to CPU7 (`taskset 80`), and uses one Bend thread. GPU clocks remain
+OS-managed. The physical serial/model, GPU identity, exact tensor hash, compiler,
+source and binary identities are checked; no root, emulator or CPU fallback.
+Battery >=41.5°C, thermal status >=2, or unplugged charge below25% pauses work,
+including startup. Required instrumentation unavailable means INVALID. Local
+headroom below1GiB or a session reaching1GiB of receipts stops without deleting data.
+Device programs have a 45-second deadline and five-second hard-kill grace.
+An in-process monotonic deadline prevents wall-clock rollback extending the run.
+
+`.scratch/autoresearch/current.json` points to the actual session. Its `state.json`
+contains progress, deadline, retained losses/rejections and any terminal cause;
+`best.json` contains only a confirmed winner and its exact generated kernel source.
+Per-pair receipts retain raw commands, statuses, samples, outputs and comparisons.
+To stop, create `STOP` inside that session or send SIGTERM. To resume, pass
+`--resume <session-directory>` with the same serial/tensor/sampling configuration;
+the original deadline is retained. Preparation attempts never overwrite earlier
+receipts, missing CPU patterns are completed, and cached oracle values require
+their original successful production-command witness.
+
+Optional model suggestions use the real OpenCode server, not direct provider
+requests. Set `OPENCODE_PRIVATE_SETTINGS` to an outside-repository private JSON file
+containing local-server `username` and `password`; do not commit it. Start
+`node effects/adreno/autoresearch/model-server.mjs` with `opencode` on PATH, then
+add `--models` to the device loop. The broker discovers zero input/output/cache
+prices and dispatches one concurrent request per free model, with all tools denied.
+Only validated JSON parameter specs can reach the generator; models cannot edit
+acceptance, source, commands or limits. No paid fallback.
+
+On 2026-10-16 all twelve advertised free models returned nonretryable provider403,
+including DeepSeek Flash; an independent official OpenCode1.19.1 CLI invocation
+also received `FreeTierError`. No model report completed in that attempt. The
+controller records this external blocker and suppresses further requests instead
+of retrying403, spoofing client identity or pretending model-guided research ran.
+The deterministic physical search remains usable without model access.

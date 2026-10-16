@@ -697,3 +697,56 @@ per-case command/device/source/binary/tensor receipts stay under ignored
 binaries are not committed. JavaScript explicitly refused with error 95.
 This remains downstream-only for review and later promotion, with no change to
 `llama/`, its laws or production generation paths.
+
+## 2026-10-16: isolated Adreno kernel autoresearch
+
+Fork issue #13 continues the capability experiment without changing production
+`llama/`, the CPU campaigns or draft #11. Bend remains 2.0.37. A bounded generator
+searches 202 launch/layout/unroll combinations. The benchmark is a real Bend
+foreign-C effect on Adreno830, with required OpenCL event profiling and the same
+real SmolLM2-135M tensor. An extended production `M.mv` oracle supplies five inputs.
+
+The first physical proof compared the original scalar row kernel against four
+cooperating lanes per row, local size32, unroll1. This distribution preserves the
+original four accumulator sequences and pairwise finish. Three alternating
+paired comparisons passed all576 rows on allfive inputs, maximum absolute error0.
+All times below are microseconds: medians of the three per-pair medians.
+
+| Input | Control GPU event | Cooperative GPU event | Control amortized wall | Cooperative amortized wall |
+|---|---:|---:|---:|---:|
+| ones | 279.392 | 44.480 | 371.927 | 125.026 |
+| alternating | 280.480 | 44.000 | 371.367 | 124.225 |
+| basis-last | 279.584 | 44.032 | 368.079 | 118.379 |
+| 29-cycle | 280.096 | 44.544 | 368.203 | 86.621 |
+| permuted 257-cycle | 279.232 | 44.992 | 372.995 | 125.866 |
+
+These are resident single-projection/hot-cache kernel timings, not inference
+speedups or a native Bend GPU evaluator. Each sample averages eight GPU events;
+wall time also includes batch enqueue/readback, amortized per dispatch. Compilation,
+context creation and uploads are excluded. The Android host process uses CPU7 and
+one Bend thread; GPU clocks remain OS-managed. Raw losses, noise, actual commands,
+device/source/binary/tensor identities, outputs and numeric checks remain in private
+ignored receipts. The first-proof source/artifacts were archived and40 regular
+files restored/hash-checked before subsequent controller hardening.
+
+The focused old+new numerical/protocol/optimization/recovery suites passed56 tests.
+Static reviews found controller preparation-evidence, partial-oracle resume,
+startup cooling and terminal-error retention defects; those paths were corrected
+before the unattended run. Rejection checks and overnight progress are separate
+receipts, not an assertion that the full search or an eight-hour run has finished.
+The generation/inference `make check` passed on the unchanged parent capability
+commit; this experiment does not modify production model/demos/laws.
+
+All12 actual free-model attempts through OpenCode, including DeepSeek Flash, were
+refused by the provider with nonretryable403 `FreeTierError`. The official
+OpenCode1.19.1 CLI independently received the same error. No completed model review,
+nonzero model throughput or model-guided improvement is claimed. No access-control
+workaround or paid fallback; the physical deterministic search can continue alone.
+
+The hardened physical smoke subsequently rejected a real OpenCL compile error
+(exit65), a nonfinite final row (exit33), and a finite incorrect final row through
+the independent numeric gate, then completed its paired valid-kernel comparison.
+A deliberately partial copied state actually reran only the two missing production
+oracles and preserved the original preparation receipt. A short real deadline and
+expired resume retained the terminal cause and could not extend the original lease.
+Those recovery checks are not additional performance trials.
