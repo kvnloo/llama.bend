@@ -40,7 +40,7 @@ device=Adreno GPU
 device_version=OpenCL 3.0 Adreno
 driver_version=vendor-driver
 device_type=4 gpu_required=true cpu_fallback=false
-enqueue_ndrange_status=0 global=576 local=driver-selected
+enqueue_ndrange_status=0 global=18432 local=256
 kernel_event_execution_status=0 blocking_readback=success
 """
 
@@ -192,13 +192,17 @@ class ProtocolTests(unittest.TestCase):
     def test_failed_enqueue_event_readback_or_wrong_shape_is_rejected(self):
         for old, new in (("enqueue_ndrange_status=0", "enqueue_ndrange_status=-5"),
                          ("kernel_event_execution_status=0", "kernel_event_execution_status=-1"),
-                         ("blocking_readback=success", "blocking_readback=failed"), ("global=576", "global=575")):
+                         ("blocking_readback=success", "blocking_readback=failed"),
+                         ("global=18432", "global=18431"), ("global=18432", "global=576"),
+                         ("local=256", "local=128"), ("local=256", "local=driver-selected")):
             with self.subTest(change=new), self.assertRaises(ValidationError):
                 parse_metadata(METADATA.replace(old, new))
 
     def test_missing_duplicate_or_empty_identity_is_rejected(self):
         for broken in (METADATA.replace("driver_version=vendor-driver\n", ""),
-                       METADATA + "device=other GPU\n", METADATA.replace("vendor=QUALCOMM", "vendor=")):
+                       METADATA + "device=other GPU\n", METADATA.replace("vendor=QUALCOMM", "vendor="),
+                       METADATA.replace(" local=256", ""), METADATA + "local=256\n",
+                       METADATA.replace("local=256", "local=")):
             with self.assertRaises(ValidationError):
                 parse_metadata(broken)
 

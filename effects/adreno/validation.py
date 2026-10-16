@@ -77,7 +77,7 @@ def parse_metadata(stdout):
     """Read actual OpenCL identities and status fields, rejecting duplicates."""
     required = ("platform", "platform_vendor", "platform_version", "vendor", "device",
                 "device_version", "driver_version", "device_type", "gpu_required",
-                "cpu_fallback", "enqueue_ndrange_status", "global",
+                "cpu_fallback", "enqueue_ndrange_status", "global", "local",
                 "kernel_event_execution_status", "blocking_readback")
     fields = {}
     for line in stdout.splitlines():
@@ -102,7 +102,7 @@ def parse_metadata(stdout):
     if not device_type & 4 or device_type & 2:
         raise ValidationError("OpenCL device is not GPU-only")
     expected = {"gpu_required": "true", "cpu_fallback": "false",
-                "enqueue_ndrange_status": "0", "global": str(ROWS),
+                "enqueue_ndrange_status": "0", "global": "18432", "local": "256",
                 "kernel_event_execution_status": "0", "blocking_readback": "success"}
     for key, value in expected.items():
         if fields[key] != value:

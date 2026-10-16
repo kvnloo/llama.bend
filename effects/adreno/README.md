@@ -21,7 +21,8 @@ bytes. No weights, generated executables or receipts belong in Git.
 - `main.bend <tensor-path> <pattern>` calls `Adreno.gemv(path, pattern)` through the documented Bend 2.0.37
   foreign-effect ABI. Blocking OpenCL work runs on `io_work`, not on the Bend evaluator. The effect loads
   `/vendor/lib64/libOpenCL.so`, requires a GPU and an available source compiler, and has no CPU fallback.
-  One work item computes each output row. OpenCL failures and nonfinite weights/results are real IO failures.
+  Thirty-two cooperative lanes compute each output row, with eight rows per workgroup. OpenCL failures and
+  nonfinite weights/results are real IO failures; unsupported launch capabilities fail before enqueue.
 - `gemv.c` supplies the native effect and kernel; `gemv.js` supplies only explicit refusal.
 
 Both CLIs reject a wrong argument count or unknown mode before loading or dispatching. The only patterns are:
@@ -41,7 +42,7 @@ ADRENO_GEMV_BITS pattern=<0|1|2> values=<576 space-separated decimal U32 words>
 
 The words are the exact F32 bit patterns, not rounded decimal float values. The native effect also reports the
 actual platform name/vendor/version, device name/vendor/version, driver version and device type. Its status
-fields must state `gpu_required=true cpu_fallback=false`, `enqueue_ndrange_status=0 global=576`, and
+fields must state `gpu_required=true cpu_fallback=false`, `enqueue_ndrange_status=0 global=18432 local=256`, and
 `kernel_event_execution_status=0 blocking_readback=success`. A result line or completed GPU event alone is not
 numerical acceptance.
 
@@ -60,6 +61,51 @@ on either side. The receipt contains all failed row indices, maximum absolute er
 relative error and its row. Relative error uses `max(abs(cpu[row]), 1e-30)` only for reporting; it is not a second
 acceptance criterion. This policy must not be widened to conceal a failing run. Both native C compilations use
 `-ffp-contract=off -fno-fast-math`; the OpenCL kernel disables contraction and does not request relaxed math.
+
+## Retained kernel deployment and verification
+
+`gemv.c` embeds the exact trusted `autoresearch/kernels.py` output for
+`{"family":"cooperative","lanes":32,"local_size":256,"unroll":8}`. There is one compiled-in kernel and
+one launch: **global 18432, local 256**, or 72 groups covering exactly 576 rows. No runtime JSON,
+model-generated source, custom kernel file or alternate default is loaded. Its identities are:
+
+- Configuration ID: `31032959cba2d59cdb2d2ad4ec527dd7d58161368619474fb01ce5382cb017a1`.
+- OpenCL source SHA256 (including its final newline):
+  `5ec98c557d421017dffe0e02f06c18d709d0b5a81145dc4bddbde9f5c13fcb0e`.
+- Retained evidence: `.scratch/autoresearch/session-7s93z1vb/best.json`, with the same source and launch.
+  The recorded real `h0.q.bin` SHA256 is
+  `0f585f0779626028bdddf5cc74949849d90c838b759a3652220a1cd37d505162`.
+
+The cooperative reduction changes floating-point addition order relative to the four-accumulator CPU
+oracle; it does not promise bitwise CPU equality. The existing tolerance and every-row comparison remain
+unchanged. Device and compiled-kernel workgroup limits, first-dimension work-item limit, required
+workgroup shape and local-memory capacity are checked before enqueue; unsupported devices fail with
+no CPU fallback. Tensor regular-file/exact-size checks, finite validation, sentinel initialization and
+resource cleanup still apply on every call.
+
+The retained search recorded about **12.595x kernel-event gain** against its scalar control on Adreno 830
+for this fixed projection and five inputs. That is historical resident-kernel evidence, **not** a measured
+gain for this modified standalone consumer. Each `Adreno.gemv` call still opens/validates the tensor,
+creates its OpenCL context/queue/buffers, uploads inputs, compiles the program, reads results, emits
+evidence and destroys its resources. Whole-call time includes those costs; kernel-event time does not.
+This remains neither whole-inference acceleration nor native Bend `!` support.
+
+Verification does not require another eight-hour search: regenerate this single spec with the trusted
+`kernels.generate` function and compare its ID/source SHA256/launch against the identities above and the
+embedded C string. Run the host regressions and normal standalone build below, then the existing
+three-pattern consumer runner. Separately repeat the retained five-input oracle comparison and compare
+whole-call latency with the retained original standalone binary, preserving both binaries and receipts.
+The standalone public API intentionally still accepts only patterns 0..2; the five-input research
+measurement is not a claim that its CLI accepts patterns 3 or 4.
+
+Host verification on 2026-10-16: all 56 focused Adreno regressions passed, and Bend emission plus
+Android cross-compilation succeeded. The embedded kernel SHA256 matches the physically measured
+retained source exactly. These checks establish neither new on-device execution nor whole-call gain.
+
+**Physical validation of this consumer change is currently BLOCKED by unavailable ADB connectivity.**
+Until new physical receipts exist, neither its numerical acceptance on-device nor an end-to-end
+speedup is established by this deployment.
+
 
 ## Build with the installed toolchain
 
@@ -134,8 +180,9 @@ actual invocation and its receipts; this source alone makes no claim that a part
 
 ## Separate bounded kernel autoresearch
 
-`autoresearch/` is the downstream issue #13 experiment, isolated from the capability
-programs above and from production inference. It searches 202 validated parameter
+`autoresearch/` is the downstream issue #13 experiment, with a separate measurement harness
+and no production inference integration. Its retained winner is now embedded in the bounded capability
+above; the search and consumer retain separate receipts. It searches 202 validated parameter
 combinations: scalar/float4 rowwise kernels, row reuse, cooperative reductions,
 workgroup sizes and unrolling. It does not claim to exhaust all possible kernels
 or implement native Bend `!` on Adreno.

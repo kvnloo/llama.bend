@@ -31,7 +31,7 @@ struct adreno_cl_api {
   API(clGetPlatformIDs); API(clGetPlatformInfo); API(clGetDeviceIDs);
   API(clGetDeviceInfo); API(clCreateContext); API(clCreateCommandQueue);
   API(clCreateBuffer); API(clCreateProgramWithSource); API(clBuildProgram);
-  API(clGetProgramBuildInfo); API(clCreateKernel); API(clSetKernelArg);
+  API(clGetProgramBuildInfo); API(clCreateKernel); API(clGetKernelWorkGroupInfo); API(clSetKernelArg);
   API(clEnqueueNDRangeKernel); API(clEnqueueReadBuffer); API(clGetEventInfo);
   API(clFinish); API(clReleaseEvent); API(clReleaseKernel); API(clReleaseProgram);
   API(clReleaseMemObject); API(clReleaseCommandQueue); API(clReleaseContext);
@@ -104,25 +104,57 @@ close_file:
 }
 
 static int adreno_gemv(struct adreno_gemv_work *job) {
-  /* TA.dotr in bend-ml-tensor-array@0.1.7.0 rotates four accumulators.
-   * 576 is divisible by four, so these lanes and this final pairwise addition
-   * have its exact reduction order. Separate multiply/add: no relaxed math/FMA.
-   * One work item owns one complete row, including the last row/column. */
+  /* Exact trusted kernels.generate cooperative(lanes=32, local_size=256, unroll=8).
+   * Source SHA256: 5ec98c557d421017dffe0e02f06c18d709d0b5a81145dc4bddbde9f5c13fcb0e.
+   * 72 groups each cover eight rows: the fixed launch must not be rounded up.
+   * Reduction order differs from TA.dotr; acceptance remains the independent
+   * all-row Bend oracle comparison, not a claim of bitwise CPU equivalence. */
   static const char source[] =
     "#pragma OPENCL FP_CONTRACT OFF\n"
+    "__attribute__((reqd_work_group_size(256, 1, 1)))\n"
     "__kernel void gemv(__global const float *w, __global const float *x,\n"
     "                   __global float *y) {\n"
-    "  uint row = (uint)get_global_id(0);\n"
-    "  if (row >= 576u) return;\n"
+    "  uint lid = (uint)get_local_id(0);\n"
+    "  uint lane = lid % 32u;\n"
+    "  uint row = (uint)get_group_id(0) * 8u + lid / 32u;\n"
     "  uint base = row * 576u;\n"
-    "  float s0 = 0.0f, s1 = 0.0f, s2 = 0.0f, s3 = 0.0f;\n"
-    "  for (uint k = 0u; k < 576u; k += 4u) {\n"
-    "    s0 = s0 + x[k] * w[base+k];\n"
-    "    s1 = s1 + x[k+1u] * w[base+k+1u];\n"
-    "    s2 = s2 + x[k+2u] * w[base+k+2u];\n"
-    "    s3 = s3 + x[k+3u] * w[base+k+3u];\n"
+    "  __local float partial[256];\n"
+    "  float sum = 0.0f;\n"
+    "  for (uint k = lane; k < 512u; k += 256u) {\n"
+    "    sum = sum + x[k + 0u] * w[base + k + 0u];\n"
+    "    sum = sum + x[k + 32u] * w[base + k + 32u];\n"
+    "    sum = sum + x[k + 64u] * w[base + k + 64u];\n"
+    "    sum = sum + x[k + 96u] * w[base + k + 96u];\n"
+    "    sum = sum + x[k + 128u] * w[base + k + 128u];\n"
+    "    sum = sum + x[k + 160u] * w[base + k + 160u];\n"
+    "    sum = sum + x[k + 192u] * w[base + k + 192u];\n"
+    "    sum = sum + x[k + 224u] * w[base + k + 224u];\n"
     "  }\n"
-    "  y[row] = (s0 + s1) + (s2 + s3);\n"
+    "  if (lane + 512u < 576u) {\n"
+    "    sum = sum + x[lane + 512u] * w[base + lane + 512u];\n"
+    "  }\n"
+    "  if (lane + 544u < 576u) {\n"
+    "    sum = sum + x[lane + 544u] * w[base + lane + 544u];\n"
+    "  }\n"
+    "  partial[lid] = sum;\n"
+    "  barrier(CLK_LOCAL_MEM_FENCE);\n"
+    "  if (lane < 16u) {\n"
+    "    partial[lid] = partial[lid] + partial[lid + 16u];\n"
+    "  }\n"
+    "  barrier(CLK_LOCAL_MEM_FENCE);\n"
+    "  if (lane < 8u) {\n"
+    "    partial[lid] = partial[lid] + partial[lid + 8u];\n"
+    "  }\n"
+    "  barrier(CLK_LOCAL_MEM_FENCE);\n"
+    "  if (lane < 4u) {\n"
+    "    partial[lid] = partial[lid] + partial[lid + 4u];\n"
+    "  }\n"
+    "  barrier(CLK_LOCAL_MEM_FENCE);\n"
+    "  if (lane < 2u) {\n"
+    "    partial[lid] = partial[lid] + partial[lid + 2u];\n"
+    "  }\n"
+    "  barrier(CLK_LOCAL_MEM_FENCE);\n"
+    "  if (lane == 0u) y[row] = partial[lid] + partial[lid + 1u];\n"
     "}\n";
   struct adreno_cl_api api = {0};
   cl_platform_id platforms[16], platform = NULL;
@@ -172,7 +204,7 @@ static int adreno_gemv(struct adreno_gemv_work *job) {
   LOAD(clGetPlatformIDs); LOAD(clGetPlatformInfo); LOAD(clGetDeviceIDs);
   LOAD(clGetDeviceInfo); LOAD(clCreateContext); LOAD(clCreateCommandQueue);
   LOAD(clCreateBuffer); LOAD(clCreateProgramWithSource); LOAD(clBuildProgram);
-  LOAD(clGetProgramBuildInfo); LOAD(clCreateKernel); LOAD(clSetKernelArg);
+  LOAD(clGetProgramBuildInfo); LOAD(clCreateKernel); LOAD(clGetKernelWorkGroupInfo); LOAD(clSetKernelArg);
   LOAD(clEnqueueNDRangeKernel); LOAD(clEnqueueReadBuffer); LOAD(clGetEventInfo);
   LOAD(clFinish); LOAD(clReleaseEvent); LOAD(clReleaseKernel); LOAD(clReleaseProgram);
   LOAD(clReleaseMemObject); LOAD(clReleaseCommandQueue); LOAD(clReleaseContext);
@@ -278,9 +310,40 @@ static int adreno_gemv(struct adreno_gemv_work *job) {
   CHECK(api.clSetKernelArg(kernel, 0, sizeof(weight_buffer), &weight_buffer));
   CHECK(api.clSetKernelArg(kernel, 1, sizeof(input_buffer), &input_buffer));
   CHECK(api.clSetKernelArg(kernel, 2, sizeof(output_buffer), &output_buffer));
-  size_t global = ADRENO_ROWS;
-  status = api.clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, NULL, 0, NULL, &event);
-  printf("enqueue_ndrange_status=%d global=%zu local=driver-selected\n", status, global);
+  const size_t global = 18432, local = 256;
+  size_t kernel_limit = 0, device_limit = 0, required[3] = {0};
+  cl_ulong kernel_memory = 0, device_memory = 0;
+  CHECK(api.clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_WORK_GROUP_SIZE,
+                                    sizeof(kernel_limit), &kernel_limit, NULL));
+  CHECK(api.clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_COMPILE_WORK_GROUP_SIZE,
+                                    sizeof(required), required, NULL));
+  CHECK(api.clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_LOCAL_MEM_SIZE,
+                                    sizeof(kernel_memory), &kernel_memory, NULL));
+  CHECK(api.clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                           sizeof(device_limit), &device_limit, NULL));
+  CHECK(api.clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE,
+                           sizeof(device_memory), &device_memory, NULL));
+  /* OpenCL reports one size_t per supported dimension. A bounded stack buffer
+   * covers the normal three dimensions without a per-call heap allocation. */
+  cl_uint dimensions = 0;
+  size_t item_limits[16] = {0};
+  CHECK(api.clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,
+                           sizeof(dimensions), &dimensions, NULL));
+  if (!dimensions || dimensions > sizeof(item_limits) / sizeof(item_limits[0])) {
+    result = adreno_error(job, ENOTSUP, "Adreno.gemv: unsupported work-item dimensions=%u", dimensions);
+    goto cleanup;
+  }
+  CHECK(api.clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES,
+                           dimensions * sizeof(item_limits[0]), item_limits, NULL));
+  if (local > kernel_limit || local > device_limit || local > item_limits[0] ||
+      kernel_memory > device_memory ||
+      required[0] != local || required[1] != 1 || required[2] != 1) {
+    result = adreno_error(job, ENOTSUP,
+      "Adreno.gemv: unsupported local size or kernel local-memory requirement");
+    goto cleanup;
+  }
+  status = api.clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, &event);
+  printf("enqueue_ndrange_status=%d global=%zu local=%zu\n", status, global, local);
   fflush(stdout);
   CHECK(status); REQUIRE(event);
   CHECK(api.clEnqueueReadBuffer(queue, output_buffer, CL_TRUE, 0, sizeof(values),
