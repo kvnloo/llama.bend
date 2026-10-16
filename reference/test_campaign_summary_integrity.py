@@ -104,6 +104,31 @@ class SummaryIntegrityTests(unittest.TestCase):
             self.assertEqual(p["peak_sampled_process_group_rss_kib"]["median_saving_pct"], -100.0)
             self.assertFalse(p["peak_sampled_process_group_rss_kib"]["meets_primary_5pct_gate"])
 
+    def test_boolean_physical_metrics_rejected(self):
+        # Python bool is an int subclass; JSON booleans are not measurements.
+        metrics = (
+            "wall_ms", "peak_rss_kib", "peak_sampled_process_group_rss_kib",
+            "process_observed_ttft_upper_bound_ms",
+            "process_observed_decoded_text_upper_bound_ms",
+        )
+        for key in metrics:
+            for bad in (False, True):
+                with self.subTest(metric=key, value=bad), tempfile.TemporaryDirectory() as td:
+                    rows = fixture(td)
+                    rows[0][key] = bad
+                    save(td, rows)
+                    with self.assertRaisesRegex(ValueError, "invalid physical metric"):
+                        summarize(td)
+
+    def test_boolean_clocks_cannot_fabricate_a_confirmed_ttft_win(self):
+        with tempfile.TemporaryDirectory() as td:
+            rows = fixture(td)
+            for row in rows:
+                row["process_observed_ttft_upper_bound_ms"] = row["variant"] == "control"
+            save(td, rows)
+            with self.assertRaisesRegex(ValueError, "invalid physical metric"):
+                summarize(td)
+
     def test_failed_retry_kept_and_blocks_gate(self):
         with tempfile.TemporaryDirectory() as td:
             rows = fixture(td)
@@ -122,6 +147,23 @@ class SummaryIntegrityTests(unittest.TestCase):
             bad.update(status="failed", error="late failure", returncode=-15)
             save(td, rows + [bad])
             with self.assertRaises(ValueError):
+                summarize(td)
+
+    def test_unverified_exit_cannot_pass_as_zero(self):
+        for malformed in (None, False, "", 0.0, [], {}):
+            with self.subTest(returncode=repr(malformed)), tempfile.TemporaryDirectory() as td:
+                rows = fixture(td)
+                rows[0]["returncode"] = malformed
+                save(td, rows)
+                with self.assertRaisesRegex(ValueError, "invalid passing exit"):
+                    summarize(td)
+
+    def test_empty_stop_reason_is_not_verified_success(self):
+        with tempfile.TemporaryDirectory() as td:
+            rows = fixture(td)
+            rows[0]["stop_reason"] = ""
+            save(td, rows)
+            with self.assertRaisesRegex(ValueError, "invalid passing exit"):
                 summarize(td)
 
     def test_unknown_validation_kind_rejected(self):

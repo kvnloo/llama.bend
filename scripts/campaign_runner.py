@@ -86,7 +86,7 @@ def validate_generation(raw, expected, stages=False):
     if 0 in ids[:-1]: raise ValueError('tokens after EOS')
     if 'requested_tokens' in expected:
         n = expected['requested_tokens']
-        if not isinstance(n, int) or n < 1 or len(ids) > n or (len(ids) < n and ids[-1] != 0):
+        if type(n) is not int or n < 1 or len(ids) > n or (len(ids) < n and ids[-1] != 0):
             raise ValueError('generated count outside requested/EOS bounds')
     if 'logit_bits' in expected:
         if bits != expected['logit_bits']: raise ValueError('logit bits differ')
@@ -94,7 +94,7 @@ def validate_generation(raw, expected, stages=False):
         want = expected['logits']
         if len(want) != len(logits) or not all(math.isfinite(x) for x in want): raise ValueError('invalid logit oracle')
         tolerance = expected['logit_tolerance']
-        if not math.isfinite(tolerance) or tolerance < 0: raise ValueError('invalid numerical tolerance')
+        if type(tolerance) not in (int, float) or not math.isfinite(tolerance) or tolerance < 0: raise ValueError('invalid numerical tolerance')
         errors = [abs(a-b)/abs(b) if b else (0.0 if a == b else math.inf) for a,b in zip(logits,want)]
         if max(errors) > tolerance:
             raise ValueError('logits differ from numerical oracle')
@@ -114,7 +114,7 @@ def validate_generation(raw, expected, stages=False):
 def plan_trials(manifest):
     if manifest.get('schema') != 1: raise ValueError('unsupported schema')
     for name in ('warmups', 'rounds'):
-        if not isinstance(manifest.get(name), int) or manifest[name] < 0: raise ValueError(f'invalid {name}')
+        if type(manifest.get(name)) is not int or manifest[name] < 0: raise ValueError(f'invalid {name}')
     if manifest['rounds'] < 1: raise ValueError('at least one measured round required')
     unique = {}
     for case in manifest['cases']:
@@ -199,12 +199,14 @@ def execute(spec, budget, rawbase):
                 count+=len(chunk)
                 if count <= budget['max_output_mb']*1024*1024:
                     files[key.data].write(chunk)
+                    # Derive observations only from the bytes retained in the
+                    # immutable trial receipt. Discarded output is not evidence.
+                    if key.data=='stdout':
+                        remaining+=chunk
+                        rows=remaining.split(b'\n');remaining=rows.pop()
+                        if first_arrival is None and any(re.match(rb'^\s+id\s+\d+\s+logit\b', x) for x in rows): first_arrival=(time.monotonic_ns()-start)/1e6
+                        if text_arrival is None and any(x.startswith(b'text: ') for x in rows): text_arrival=(time.monotonic_ns()-start)/1e6
                 elif reason is None: reason='output_budget'
-                if key.data=='stdout':
-                    remaining+=chunk
-                    rows=remaining.split(b'\n');remaining=rows.pop()
-                    if first_arrival is None and any(re.match(rb'^\s+id\s+\d+\s+logit\b', x) for x in rows): first_arrival=(time.monotonic_ns()-start)/1e6
-                    if text_arrival is None and any(x.startswith(b'text: ') for x in rows): text_arrival=(time.monotonic_ns()-start)/1e6
             if exit_info is not None and sel.get_map() and elapsed > budget['timeout_s']+3:
                 reason=reason or 'descendant_output_timeout'
                 try:os.killpg(proc.pid,signal.SIGKILL)
@@ -247,11 +249,17 @@ def run_manifest(manifest, out):
             for line in journal.read_text().splitlines():
                 event=json.loads(line)  # Truncated/corrupt journal is fail-closed, never silently skipped.
                 if event.get('manifest_sha256') != digest: raise ValueError('journal manifest mismatch')
+                if event['event']=='finished' and event['status']=='failed' and event.get('key') in done:
+                    raise ValueError('failed attempt after passing trial')
                 if event['event']=='finished' and event['status']=='passed':
+                    if event.get('key') in done:
+                        raise ValueError('duplicate passing trial')
                     for name in ('stdout','stderr'):
                         if file_hash(event[name]) != event[name+'_sha256']: raise ValueError('completed raw evidence changed')
                     trial = next((t for t in plan if t['key'] == event['key']), None)
-                    if trial is None or event.get('returncode') != 0 or event.get('stop_reason'):
+                    if trial is None or any(event.get(k) != trial[k] for k in ('case', 'variant', 'phase', 'round')):
+                        raise ValueError('completed trial identity mismatch')
+                    if type(event.get('returncode')) is not int or event['returncode'] != 0 or event.get('stop_reason') is not None:
                         raise ValueError('completed trial lacks successful exit evidence')
                     if Path(event['stderr']).read_bytes(): raise ValueError('completed trial has unexpected stderr')
                     rule = trial['spec']['validation']
@@ -272,7 +280,8 @@ def run_manifest(manifest, out):
             append_event(journal,common|{'event':'started','argv':trial['spec']['argv']})
             try:
                 result=execute(trial['spec'],manifest['budget'],out/'raw'/attempt)
-                if result['returncode'] != 0 or result['stop_reason']: raise ValueError(f'child failed: {result["returncode"]}, {result["stop_reason"]}')
+                if type(result.get('returncode')) is not int or result['returncode'] != 0 or result.get('stop_reason') is not None:
+                    raise ValueError(f'child failed: {result.get("returncode")}, {result.get("stop_reason")}')
                 if Path(result['stderr']).read_bytes(): raise ValueError('unexpected stderr; inspect preserved raw output')
                 rule=trial['spec']['validation']; raw=Path(result['stdout']).read_bytes().decode('utf-8')
                 if rule['kind'] in ('generation','generation_stages'): latency=validate_generation(raw,rule['expected'],stages=rule['kind']=='generation_stages')

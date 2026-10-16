@@ -33,11 +33,12 @@ def summarize(out):
             continue
         if e['key'] in passing_keys: raise ValueError('duplicate passing trial')
         passing_keys.add(e['key'])
-        if e['returncode'] or e['stop_reason']:raise ValueError('invalid passing exit')
+        if type(e.get('returncode')) is not int or e['returncode'] != 0 or e['stop_reason'] is not None:
+            raise ValueError('invalid passing exit')
         if Path(e['stderr']).read_bytes():raise ValueError('unexpected stderr')
         for metric in ('wall_ms','peak_rss_kib','peak_sampled_process_group_rss_kib','process_observed_ttft_upper_bound_ms','process_observed_decoded_text_upper_bound_ms'):
             value=e.get(metric)
-            if value is not None and (not isinstance(value,(int,float)) or not math.isfinite(value) or value<0):raise ValueError('invalid physical metric')
+            if value is not None and (type(value) not in (int, float) or not math.isfinite(value) or value<0):raise ValueError('invalid physical metric')
         if any(e.get(k) is not None and e[k]>e['wall_ms'] for k in ('process_observed_ttft_upper_bound_ms','process_observed_decoded_text_upper_bound_ms')):raise ValueError('arrival after process wall interval')
         for key in ('stdout','stderr'):
             if file_hash(e[key])!=e[key+'_sha256']:raise ValueError('changed raw evidence')
@@ -57,7 +58,7 @@ def summarize(out):
             'peak_sampled_process_group_rss_kib',
         )}
         return {k:v for k,v in (e['latency']|observed).items()
-                if isinstance(v,(int,float)) and k!='tokens'}
+                if type(v) in (int, float) and k!='tokens'}
     confirmatory=m.get('purpose')=='confirmatory' and bool(m.get('selection_manifest_sha256')) and bool(m.get('primary_metric'))
     missing_keys=sorted(set(planned)-passing_keys)
     complete=not missing_keys

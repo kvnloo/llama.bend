@@ -22,7 +22,7 @@ laws:             ## the package's proofs, checked by bend and again by the kern
 
 check: laws       ## the laws, prep, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against transformers
 	$(PY) -m unittest discover -s reference -p test_latency_report.py
-	$(PY) -m unittest discover -s reference -p test_campaign_runner.py
+	$(PY) -m unittest discover -s reference -p 'test_campaign_runner*.py'
 	$(PY) -m unittest discover -s reference -p 'test_campaign_summary*.py'
 	$(PY) -m unittest discover -s reference -p test_reference_guards.py
 	$(PY) reference/prep.py --check

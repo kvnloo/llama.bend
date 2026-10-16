@@ -52,6 +52,9 @@ def report(output: str) -> dict[str, float | int | None]:
     times: list[float] = []
     load_s = None
     for line in output.splitlines():
+        # Decoded text may itself contain timestamp-looking lines.
+        if line.startswith("text: "):
+            break
         if match := LOAD.match(line):
             load_s = finite_seconds(match.group(1), "load duration")
         if match := TOKEN.match(line):

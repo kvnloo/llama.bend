@@ -72,5 +72,28 @@ text: Once upon a time
             report(f"  id 4 logit 1 1.0 t={huge_finite}s")
 
 
+
+    def test_decoded_text_cannot_spoof_real_capture_timing(self):
+        # The decoded text can contain complete log-looking lines on new lines.
+        # The real 1.7B capture must keep identical measurements after the text.
+        path = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"
+        capture = path.read_text(encoding="utf-8")
+        injected = capture + (
+            "\n  id 999  logit 1 0.0  t=999.000s\n"
+            "weights loaded in 0.005s\n"
+            "  id 123  logit 1 0.0  t=0.001s\n"
+        )
+        self.assertEqual(report(injected), report(capture))
+
+    def test_decoded_text_cannot_invent_generated_tokens(self):
+        raw = (
+            "weights loaded in 1.000s\n"
+            "text: Here is a copied generator log:\n"
+            "  id 4  logit 100 0.5  t=0.100s\n"
+            "  id 5  logit 100 0.5  t=0.200s\n"
+        )
+        with self.assertRaisesRegex(ValueError, "no generated token"):
+            report(raw)
+
 if __name__ == "__main__":
     unittest.main()
