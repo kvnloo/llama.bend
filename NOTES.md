@@ -704,3 +704,33 @@ not touch the products.
 Start-up (load and one token, wall time, 16 threads, 3 alternated rounds) and peak memory: 135M 4.3 → 1.0 s, 767 →
 718 MB; 360M 11.8 → 2.3 s, 2,314 → 2,270 MB; 1.7B 72.2 → 9.1 s, 6,828 → 6,787 MB. In `BENCHMARK.md`. The README's
 start-up image (`06-startup.webp`) shows both bars, regenerated with `make media` from `docs/media/numbers.json`.
+
+## 2026-10-16: generation without the activations it never reads
+
+Found by Mathews Fernando (@MattCozendey) with his linter, [bend-lint](https://github.com/MattCozendey/bend-lint)
+(rule `performance/unused_result`): `block` builds every layer's `Act` (eleven lists, among them copies of the rotated
+heads) at every position, and generation never reads them; only the tests and a future backward pass do. He measured
+19-25% per token by building `Act` empty.
+
+`forward_gen` is `forward` for generation; `block_gen` is a copy of `block`'s body with `Act` left empty, and
+`block_k` picks one of the two before anything is computed. A first version that chose inside `block`, after the
+computation, kept every intermediate alive to the end and was 12-18% slower on one thread. `forward` and `block` are
+unchanged (the package's API), and the tests still read the full activations.
+
+Old (`demo/gen` on `forward`) against new, idle machine, the program's own clock, alternated (6 rounds for the 135M
+and the 360M, 4 for the 1.7B), ms per token:
+
+| model | 1 thread | 16 threads |
+|---|---|---|
+| 135M | 123.9 -> 124.1 | 73.0 -> 58.8 (-19%) |
+| 360M | 296.5 -> 293.9 | 132.0 -> 106.6 (-19%) |
+| 1.7B | 1166.0 -> 1166.6 | 359.5 -> 289.8 (-19%) |
+
+The same tokens in every run; `make bits` identical, `make check` 0 failures. On one thread `forward_gen` keeps the
+activations: without them (his version and `block_gen` alike) one thread measured 4% slower on the 135M and 11% slower
+on the 360M (2% faster on the 1.7B), reproducibly and for no reason found yet, so with one band (`d = 0`, two threads
+or fewer) generation runs as before.
+
+Other findings of his linter here: `append_in_loop` and `deep_call_in_fork` in attention (he measured no change), the
+tokenizer's `repeated_call` (no change), and one not yet tried: while it reads the prompt, `gen` computes the logits of
+every prompt token and drops them (the embedding product, about a fifth of a position's work).
