@@ -7,6 +7,9 @@ data/
 *.bendtt
 build/
 
+# Handwritten foreign effect, not a compiler output.
+!/effects/adreno/gemv.c
+
 # Local
 .scratch/
 .DS_Store

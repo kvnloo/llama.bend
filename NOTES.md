@@ -675,3 +675,25 @@ t >= cap; the callers size cap to the positions they run". That was true before 
 asks for a proof that `t < cap`, so such a push does not compile. The comment shipped in `bend-ml-llama@0.1.0.0`, which
 is permanent; it gets fixed with the next real change to the package (a comment alone is not worth a new version), as
 with bend-ml's `bmv` comment.
+
+## 2026-10-16: downstream Adreno foreign-effect capability
+
+I isolated `effects/adreno/` from the production model and the existing CPU campaign
+(fork issue #10). Bend remains pinned to 2.0.37; this is a host foreign-C IO effect,
+not a new native `!` backend or GPU inference integration.
+
+On the physical S25 Ultra, the effect selected the Adreno 830 through vendor
+OpenCL 3.0, enqueued a 576-work-item GEMV, waited for completion and read back all
+rows. For the pinned SmolLM2-135M `w/h0.q.bin` (576×576 F32; SHA256
+`0f585f0779626028bdddf5cc74949849d90c838b759a3652220a1cd37d505162`), all 576
+rows matched the existing Bend `M.mv` oracle numerically for each of `ones`,
+`alternating` and `basis-last`. Maximum absolute and relative errors were zero
+under the documented finite-value/tolerance policy; signed zeros are numerically
+equivalent. No CPU fallback, throughput measurement or speedup claim.
+
+The new numerical/protocol/runner regressions passed 35 tests. Native build and
+per-case command/device/source/binary/tensor receipts stay under ignored
+`.scratch/adreno/`; model weights, raw receipts, device identifiers and vendor
+binaries are not committed. JavaScript explicitly refused with error 95.
+This remains downstream-only for review and later promotion, with no change to
+`llama/`, its laws or production generation paths.
