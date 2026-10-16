@@ -129,8 +129,8 @@ Contributions are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md) (pull reques
 - **Slower than the references** ([`BENCHMARK.md`](BENCHMARK.md), 2026-10-13). On the 1.7B over 128 tokens at 16
   threads, llama.bend takes 492 ms per generated token (426 by its own clock), `transformers` 132 and llama.cpp 101; on
   one thread, 1.2 s against 0.23 and 0.32. The cost of a token does not grow with the position. What remains is the
-  weight products and loading: 66 s to load the 1.7B and generate one token, against 4.1 s for `transformers` and 0.5 s
-  for llama.cpp, because reading a file in Bend gives one list cell per byte. Peak memory 6.9 GB at 16 threads, 8.4 GB
+  weight products, and still loading: 9.1 s to load the 1.7B and generate one token (66 s before the loader moved to
+  `bend-ml-binary-read`, 2026-10-16), against 4.1 s for `transformers` and 0.5 s for llama.cpp. Peak memory 6.9 GB at 16 threads, 8.4 GB
   on one.
 - CPU only; base models, greedy decoding, no chat template. The vectors between layers are lists whose length is not
   in their type, and the numerics are tested, never proved.
@@ -139,7 +139,7 @@ Contributions are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md) (pull reques
 
 | Path | What |
 |---|---|
-| [`llama/`](llama/) | the package `bend-ml-llama`: config, layers, model, loader and laws |
+| [`llama/`](llama/) | the package `bend-ml-llama`: config, layers, model, loader and laws (`main.bend`); the fast loader the demos use (`load.bend`) |
 | [`demo/`](demo/) | `gen.bend` (generation), `forward.bend` and `layer_test.bend` (what the tests read), the tokenizer |
 | [`tests/`](tests/) | programs that must not compile |
 | [`reference/`](reference/) | download and preparation, the `transformers` and `tokenizers` oracles, the tests |
