@@ -69,6 +69,7 @@ SwiGLU, no biases, plain RoPE and a tied LM head.
 | `block(c, d, lw, cap, t, kv, room, rot, x) -> BR<c, cap, t>` | one layer at position `t` (`d = 0`: attention's key/value heads one after another; otherwise in parallel): the output, the cache grown to `t + 1` positions, the weights handed back, and the activations (`Act`) |
 | `forward(c, cap, t, m, cs, room, tok) -> Out<c, cap, t>` | one position of the whole model: logits, the final norm, every layer's `Act`, the caches, the model |
 | `forward_gen(c, cap, t, m, cs, room, tok)` | `forward` for generation: the same logits, caches and model, with every layer's activations left empty when the weights are in bands (more than two threads), about 20% faster per token there; `block_gen` is `block` without them |
+| `forward_pre(c, cap, t, m, cs, room, tok)` | a prompt position, whose logits nobody reads: the layers and caches as `forward_gen` gives them, without the final norm and the product by the embedding (`lg` and `nf` empty) |
 | `BR.then`, `Out.then` | continue with the fields of a result; a loop over positions recurses inside them |
 | `argmax`, `AM.i`, `AM.v` | the first index of the largest logit, and that logit |
 | `rmsnorm`, `inv_freq`, `rot_at`, `rope`, `swiglu`, `attention` | the pieces of a layer |
