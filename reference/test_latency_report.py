@@ -75,6 +75,24 @@ text: Once upon a time
         )
         self.assertEqual(report(raw)["tokens"], 1)
 
+    def test_malformed_load_clock_is_not_silently_treated_as_missing(self):
+        # A capture can omit the load line (piped generation output), but
+        # an explicitly malformed load receipt must invalidate that metric.
+        for malformed in ("nans", "infs", "-0.100s", "tbd", ""):
+            with self.subTest(malformed=malformed):
+                raw = f"weights loaded in {malformed}\n  id 4 logit 1 1.0 t=0.100s\n"
+                with self.assertRaisesRegex(ValueError, "malformed load duration"):
+                    report(raw)
+
+    def test_duplicate_load_clock_does_not_override_first_measurement(self):
+        raw = (
+            "weights loaded in 9.000s\n"
+            "weights loaded in 0.001s\n"
+            "  id 4 logit 1 1.0 t=0.100s\n"
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate load duration"):
+            report(raw)
+
     def test_noisy_output(self):
         r = report("Random t=3.7s\n  id 5  logit 2 2.0 t=1.0s\nignored\n  id 6  logit 3 3.0 t=1.1s")
         self.assertEqual(r["tokens"], 2)
