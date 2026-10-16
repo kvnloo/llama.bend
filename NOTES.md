@@ -736,3 +736,7 @@ tokenizer's `repeated_call` (no change), and one not yet tried: while it reads t
 every prompt token and drops them (the embedding product, about a fifth of a position's work).
 - The demos now import `bend-ml-bpe-tokenizer@0.1.3.0` (the erased `done`): tokenizing 19 KB 24.9 -> 12.2 s, the same
   ids; `make check` 0 failures, `make bits` identical.
+
+## 2026-10-16: v1.1.0
+
+The binary-read loader, `forward_gen` and `bend-ml-bpe-tokenizer@0.1.3.0`, released through pull request #6 (CI green).
