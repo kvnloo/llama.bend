@@ -1,0 +1,140 @@
+"""Unit tests for the stdout-only latency report (no model downloads needed)."""
+
+import math
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from latency_report import report
+
+
+class LatencyReportTests(unittest.TestCase):
+    def test_load_and_intervals(self):
+        raw = """weights loaded in 4.400s
+prompt ids: 31 23
+  id 42  logit 100 0.5  t=0.200s
+  id 43  logit 100 0.5  t=0.280s
+  id 44  logit 100 0.5  t=0.370s
+  id 45  logit 100 0.5  t=0.470s
+text: Once upon a time
+"""
+        r = report(raw)
+        self.assertEqual(r["tokens"], 4)
+        self.assertEqual(r["load_s"], 4.4)
+        self.assertEqual(r["first_generated_ms_since_generation_start"], 200.0)
+        self.assertEqual(r["decode_mean_ms"], 90.0)
+        self.assertEqual(r["decode_p50_ms"], 90.0)
+        self.assertEqual(r["decode_p95_ms"], 100.0)
+        self.assertEqual(r["decode_slope_ms_per_position"], 10.0)
+
+    def test_single_token(self):
+        r = report("  id 4  logit 1 1.0  t=0.009s")
+        self.assertEqual(r["tokens"], 1)
+        self.assertIsNone(r["decode_mean_ms"])
+        self.assertIsNone(r["decode_slope_ms_per_position"])
+        self.assertIsNone(r["load_s"])
+
+    def test_missing_token_times(self):
+        with self.assertRaisesRegex(ValueError, "no generated token"):
+            report("prompt ids: 2 3\ntext: hello\n")
+
+    def test_nonmonotonic_times(self):
+        with self.assertRaisesRegex(ValueError, "not monotonic"):
+            report("  id 4  logit 1 1.0 t=1.5s\n  id 5  logit 2 2.0 t=1.0s")
+
+    def test_captured_generation_output(self):
+        # Real 1.7B output tracked for the release video (timestamps may be rounded).
+        path = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"
+        r = report(path.read_text(encoding="utf-8"))
+        self.assertGreater(r["tokens"], 16)
+        self.assertIsNotNone(r["load_s"])
+        self.assertGreater(r["decode_p50_ms"], 0)
+        self.assertGreater(r["first_generated_ms_since_generation_start"], 0)
+
+    def test_malformed_generated_token_rows_are_not_silently_skipped(self):
+        # Skipping one row manufactures a seemingly valid 100ms decode
+        # distribution from a corrupt/incomplete token sequence.
+        for invalid in ("t=nans", "t=infs", "t=-0.002s", "t=wrong", ""):
+            with self.subTest(token=invalid):
+                raw = (
+                    "weights loaded in 1.0s\nprompt ids: 1\n"
+                    "  id 4 logit 1 0.5 t=0.100s\n"
+                    f"  id 5 logit 2 0.5 {invalid}\n"
+                    "  id 6 logit 3 0.5 t=0.200s\n"
+                    "text: done\n"
+                )
+                with self.assertRaisesRegex(ValueError, "malformed generated token row"):
+                    report(raw)
+
+    def test_malformed_rows_after_decoded_text_are_ignored(self):
+        raw = (
+            "  id 4 logit 1 0.5 t=0.100s\n"
+            "text: generated text might quote parser lines\n"
+            "  id 5 logit 2 0.5 t=nans\n"
+        )
+        self.assertEqual(report(raw)["tokens"], 1)
+
+    def test_malformed_load_clock_is_not_silently_treated_as_missing(self):
+        # A capture can omit the load line (piped generation output), but
+        # an explicitly malformed load receipt must invalidate that metric.
+        for malformed in ("nans", "infs", "-0.100s", "tbd", ""):
+            with self.subTest(malformed=malformed):
+                raw = f"weights loaded in {malformed}\n  id 4 logit 1 1.0 t=0.100s\n"
+                with self.assertRaisesRegex(ValueError, "malformed load duration"):
+                    report(raw)
+
+    def test_duplicate_load_clock_does_not_override_first_measurement(self):
+        raw = (
+            "weights loaded in 9.000s\n"
+            "weights loaded in 0.001s\n"
+            "  id 4 logit 1 1.0 t=0.100s\n"
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate load duration"):
+            report(raw)
+
+    def test_noisy_output(self):
+        r = report("Random t=3.7s\n  id 5  logit 2 2.0 t=1.0s\nignored\n  id 6  logit 3 3.0 t=1.1s")
+        self.assertEqual(r["tokens"], 2)
+        self.assertAlmostEqual(r["decode_mean_ms"], 100.0)
+
+
+    def test_timestamp_decimal_overflow_is_rejected(self):
+        huge = "9" * 400
+        with self.assertRaisesRegex(ValueError, "nonfinite"):
+            report(f"  id 4 logit 1 1.0 t={huge}s")
+        with self.assertRaisesRegex(ValueError, "nonfinite"):
+            report(f"weights loaded in {huge}s\n  id 4 logit 1 1.0 t=0.001s")
+
+    def test_finite_timestamp_millisecond_conversion_overflow_is_rejected(self):
+        huge_finite = "1" + "0" * 308
+        self.assertTrue(math.isfinite(float(huge_finite)))
+        with self.assertRaisesRegex(ValueError, "nonfinite"):
+            report(f"  id 4 logit 1 1.0 t={huge_finite}s")
+
+
+
+    def test_decoded_text_cannot_spoof_real_capture_timing(self):
+        # The decoded text can contain complete log-looking lines on new lines.
+        # The real 1.7B capture must keep identical measurements after the text.
+        path = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"
+        capture = path.read_text(encoding="utf-8")
+        injected = capture + (
+            "\n  id 999  logit 1 0.0  t=999.000s\n"
+            "weights loaded in 0.005s\n"
+            "  id 123  logit 1 0.0  t=0.001s\n"
+        )
+        self.assertEqual(report(injected), report(capture))
+
+    def test_decoded_text_cannot_invent_generated_tokens(self):
+        raw = (
+            "weights loaded in 1.000s\n"
+            "text: Here is a copied generator log:\n"
+            "  id 4  logit 100 0.5  t=0.100s\n"
+            "  id 5  logit 100 0.5  t=0.200s\n"
+        )
+        with self.assertRaisesRegex(ValueError, "no generated token"):
+            report(raw)
+
+if __name__ == "__main__":
+    unittest.main()
