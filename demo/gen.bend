@@ -13,7 +13,7 @@ import Base
 import ./tok.bend as K
 import ../llama/main.bend as M
 import ../llama/load.bend as L
-import bend-ml-bpe-tokenizer@0.1.2.0/main.bend as BPE
+import bend-ml-bpe-tokenizer@0.1.3.0/main.bend as BPE
 
 # ---- the prompt as UTF-8 bytes ----
 
