@@ -83,10 +83,10 @@ invalid UTF-8.
 
 <p align="center"><img src="docs/media/deck/frames/05-flat-cost.webp" alt="Over 512 tokens a token costs the same: growth per cached position between 0.04 and 0.18 ms" width="90%"></p>
 
-<p align="center"><img src="docs/media/deck/frames/06-startup.webp" alt="SmolLM2-1.7B, load and generate one token: llama.bend 66.4 s, the others 0.5 to 4.1 s; peak memory 6.9 GB, the lowest" width="90%"></p>
+<p align="center"><img src="docs/media/deck/frames/06-startup.webp" alt="SmolLM2-1.7B, load and generate one token: llama.bend 66.4 s before and 9.1 s now with bend-ml-binary-read, the others 0.5 to 4.1 s; peak memory 6.8 GB, the lowest" width="90%"></p>
 
-Every system generates the same tokens. llama.bend is 3.7 to 4.9 times slower than llama.cpp on the 1.7B, and loading
-is its slowest part. The 1.7B's totals carry the noise of loading it in both runs of a sample: by its own clock,
+Every system generates the same tokens. llama.bend is 3.7 to 4.9 times slower than llama.cpp on the 1.7B. Loading was
+its slowest part; since 2026-10-16 it takes 9 s instead of 66. The 1.7B's totals carry the noise of loading it in both runs of a sample: by its own clock,
 llama.bend takes 426 ms per token at 16 threads. The machine, the versions and every number are in
 [`BENCHMARK.md`](BENCHMARK.md).
 
