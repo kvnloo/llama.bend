@@ -57,7 +57,12 @@ def report(output: str) -> dict[str, float | int | None]:
             break
         if match := LOAD.match(line):
             load_s = finite_seconds(match.group(1), "load duration")
-        if match := TOKEN.match(line):
+        # A malformed generated-token row must invalidate the capture, not
+        # silently disappear from the distribution or token count.
+        if re.match(r"^\s*id\b", line):
+            match = TOKEN.fullmatch(line)
+            if not match:
+                raise ValueError("malformed generated token row")
             times.append(finite_seconds(match.group(1), "token timestamp"))
 
     if not times:
