@@ -750,3 +750,13 @@ A 77-token prompt and 4 generated tokens, time to the first generated token (the
 rounds, 3 for the 1.7B): 135M 9.47 -> 7.93 s on one thread, 4.57 -> 3.83 on 16 (-16%); 360M 22.78 -> 20.23 and 8.21 ->
 7.37 (-10 to -11%); 1.7B 90.44 -> 84.17 and 22.78 -> 21.55 (-5 to -7%). The same output in every run; `make bits`
 identical, `make check` 0 failures. Generation after the prompt is unchanged (the same `forward_gen`).
+
+## 2026-10-16: why one thread is slower without `Act` (not found yet)
+
+The 360M on one thread, with `Act` (as `forward_gen` runs it there) against `block_gen` without it, 24 tokens, two runs
+each, rusage of the whole process: user time 9.40-9.46 s against 10.12-10.20 s (+8%), system time 0.40 against 0.39-0.40
+s, minor page faults 1,760 against 1,759-1,763, peak memory 2,939 MB both, no major faults. The difference is all in user
+time: not allocation from the kernel, not memory pressure, but the computation itself, with more instructions or more
+cache misses; one hypothesis is that without `Act` the intermediate lists are freed in the middle of the layer instead of
+after it. Telling those apart needs hardware counters (`perf`, not installed here). Until then `forward_gen` keeps `Act`
+on one band, where it measured faster.
