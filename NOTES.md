@@ -760,3 +760,23 @@ time: not allocation from the kernel, not memory pressure, but the computation i
 cache misses; one hypothesis is that without `Act` the intermediate lists are freed in the middle of the layer instead of
 after it. Telling those apart needs hardware counters (`perf`, not installed here). Until then `forward_gen` keeps `Act`
 on one band, where it measured faster.
+
+## tensor-array 0.1.7.0 → 0.1.12.0: the load 1.7-2.4x faster (2026-10-16)
+
+A profile of generation with one thread (bend2-ml's fork measurements of 2026-10-16) showed `cap_pair` at 39% of the
+cycles of a short run: 0.1.7.0's `cap_depth` walks n steps to find an `Array`'s depth, and the loader asks it for every
+band. tensor-array 0.1.10.0 replaced it by doubling (`cap_dbl`); nothing else that llama.bend uses changed up to 0.1.12.0
+(0.1.11.0 chose the split depth from the work, 0.1.12.0 runs one-row products sequentially; generation runs `Bands` and
+neither path).
+
+Load ("weights loaded in"), 3 runs each, one thread on CPU 3 and 16 threads, 0.1.7.0 → 0.1.12.0:
+
+| model | one thread | 16 threads |
+|---|---|---|
+| SmolLM2-135M | 0.71 → 0.40 s | 0.68 → 0.46 s |
+| SmolLM2-360M | 2.44-2.56 → 1.25-1.31 s | 1.92-1.99 → 1.33-1.40 s |
+| SmolLM2-1.7B | 10.9-11.0 → 4.52-4.57 s | 8.07-8.31 → 4.52-4.63 s |
+
+Per token, unchanged (360M, 20 tokens, 3 rounds on 0.1.11.0: 269-271 against 273-278 ms on one thread, 98-105 on 16).
+`make laws` (`--verdict` ALL PROOFS CHECK, both bad files rejected), `make check` 0 failures (the tokenizer, one layer,
+the forward and 12 prompts of generation against `transformers`), `make bits` 0 failures at 135M.
