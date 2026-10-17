@@ -112,7 +112,8 @@ def validate_generation(raw, expected, stages=False):
     return result
 
 def plan_trials(manifest):
-    if manifest.get('schema') != 1: raise ValueError('unsupported schema')
+    if type(manifest.get('schema')) is not int or manifest['schema'] != 1: raise ValueError('unsupported schema')
+    if type(manifest.get('seed')) is not int: raise ValueError('invalid seed')
     for name in ('warmups', 'rounds'):
         if type(manifest.get(name)) is not int or manifest[name] < 0: raise ValueError(f'invalid {name}')
     if manifest['rounds'] < 1: raise ValueError('at least one measured round required')
@@ -123,6 +124,7 @@ def plan_trials(manifest):
             cfg = {'case': case['id'], 'variant': variant['id'], 'spec': variant}
             if key in unique and unique[key] != cfg: raise ValueError('conflicting duplicate configuration')
             unique[key] = cfg
+    if not unique: raise ValueError('no configurations to execute')
     if len(unique) > manifest.get('max_configurations', 420): raise ValueError('configuration budget exceeded')
     rng = random.Random(manifest['seed']); result = []
     # Group each case's variants in every round, yielding paired randomized A/B.
