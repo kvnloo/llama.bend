@@ -20,7 +20,7 @@
 
 import Base
 import bend-ml-tensor@0.1.2.0/main.bend as T
-import bend-ml-tensor-array@0.1.7.0/main.bend as TA
+import bend-ml-tensor-array@0.1.12.0/main.bend as TA
 
 # =====================================================================================================
 # Arithmetic lemmas (used by the laws below)
