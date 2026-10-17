@@ -51,16 +51,21 @@ def finite_seconds(raw: str, source: str) -> float:
 def report(output: str) -> dict[str, float | int | None]:
     times: list[float] = []
     load_s = None
+    seen_prompt = False
     for line in output.splitlines():
         # Decoded text may itself contain timestamp-looking lines.
         if line.startswith("text: "):
             break
+        if line.startswith("prompt ids:"):
+            seen_prompt = True
         if re.match(r"^weights loaded in\b", line):
             match = LOAD.fullmatch(line)
             if not match:
                 raise ValueError("malformed load duration")
             if load_s is not None:
                 raise ValueError("duplicate load duration")
+            if seen_prompt or times:
+                raise ValueError("load duration appears after prompt or token output")
             load_s = finite_seconds(match.group(1), "load duration")
         # A malformed generated-token row must invalidate the capture, not
         # silently disappear from the distribution or token count.

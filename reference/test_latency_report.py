@@ -84,6 +84,28 @@ text: Once upon a time
                 with self.assertRaisesRegex(ValueError, "malformed load duration"):
                     report(raw)
 
+    def test_load_duration_after_prompt_is_rejected(self):
+        # Native generation loads weights before prompt tokenization. A later
+        # load line is a mislabeled or spliced timing receipt, not a valid load.
+        raw = (
+            "prompt ids: 1 2\n"
+            "weights loaded in 71.2s\n"
+            "  id 4 logit 1 0.5 t=0.100s\n"
+            "text: done\n"
+        )
+        with self.assertRaisesRegex(ValueError, "load duration appears after prompt or token output"):
+            report(raw)
+
+    def test_load_duration_after_generated_token_is_rejected(self):
+        raw = (
+            "  id 4 logit 1 0.5 t=0.100s\n"
+            "weights loaded in 71.2s\n"
+            "  id 5 logit 2 0.5 t=0.200s\n"
+            "text: done\n"
+        )
+        with self.assertRaisesRegex(ValueError, "load duration appears after prompt or token output"):
+            report(raw)
+
     def test_duplicate_load_clock_does_not_override_first_measurement(self):
         raw = (
             "weights loaded in 9.000s\n"
