@@ -803,3 +803,12 @@ READMEs import 0.1.1.0.
 
 tensor-array 0.1.12.0 (loading 1.7-2.4x faster), `forward_pre` and `bend-ml-llama@0.1.1.0` on BendHub, released through
 pull request #8 (CI green).
+
+## 2026-10-17: bend-lint on every change since its last pass
+
+bend-lint is a dev dependency now (`package.json`, `bend-lint.json` with the 12 performance rules, `make lint`), run
+before each release, a finding measured before it is taken. Its last pass was on `54e4a06` (2026-10-13). On the 5 Bend
+files changed since, 11 findings, none taken: `unused_result` on `lg`, `nf` and `acts` in `gen`'s loop (`forward_pre`
+returns them empty; `nf` is one 576-number list per token), `eager_branch` on `ids_ok` and `repeated_call` on `lcl` in
+the tokenizer, `append_in_loop` on `group_att`/`seq_att` and `deep_call_in_fork` on `seq_att` (the four he applied and
+measured as no change on 2026-10-16).
