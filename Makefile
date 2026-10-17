@@ -6,7 +6,7 @@ DIR := data/$(MODEL)
 export PATH := $(HOME)/.bend/bin:$(HOME)/.elan/bin:$(PATH)
 PY := reference/.venv/bin/python
 
-.PHONY: setup prep laws check bits bench media
+.PHONY: setup prep laws check bits bench media lint
 
 setup:            ## install the pinned Bend and Lean if missing, create the Python venv
 	scripts/setup.sh
@@ -48,3 +48,6 @@ bench:            ## one line: ms per token by the program's own clock, failing 
 
 media:            ## regenerate the README images from docs/media/outputs/ and numbers.json (needs node, ffmpeg, Brave)
 	scripts/make_media.sh
+
+lint:             ## bend-lint's performance rules over the Bend code: a report, not a gate; measure a finding before taking it
+	bunx bend-lint --jobs max
