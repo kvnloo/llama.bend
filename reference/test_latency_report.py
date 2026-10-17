@@ -67,6 +67,26 @@ text: Once upon a time
                 with self.assertRaisesRegex(ValueError, "malformed generated token row"):
                     report(raw)
 
+    def test_truncated_logit_rows_cannot_invent_decode_samples(self):
+        # All generated rows have logit bits and an F32 rendering before t=.
+        for malformed in (
+            "  id 4 logit t=0.100s",
+            "  id 4 logit nonsense t=0.100s",
+            "  id 4 logit 1099424380 t=0.100s",
+            "  id 4 logit 1099424380 16.9 trailing t=0.100s",
+            "  id 4 logit 1099424380 nonsense t=0.100s",
+            "  id 4 logit 1099424380 nan t=0.100s",
+            "  id 4 logit 1099424380 inf t=0.100s",
+        ):
+            with self.subTest(row=malformed):
+                with self.assertRaisesRegex(ValueError, "malformed generated token row"):
+                    report(malformed + "\n  id 5 logit 1 0.5 t=0.200s")
+
+    def test_scientific_logit_rendering_does_not_change_timing(self):
+        r = report("  id 4 logit 1 -1.4e-05 t=0.100s\n  id 5 logit 1 2.3e+02 t=0.200s")
+        self.assertEqual(r["tokens"], 2)
+        self.assertAlmostEqual(r["decode_p50_ms"], 100.0)
+
     def test_malformed_rows_after_decoded_text_are_ignored(self):
         raw = (
             "  id 4 logit 1 0.5 t=0.100s\n"
