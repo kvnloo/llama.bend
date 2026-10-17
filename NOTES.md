@@ -780,3 +780,13 @@ Load ("weights loaded in"), 3 runs each, one thread on CPU 3 and 16 threads, 0.1
 Per token, unchanged (360M, 20 tokens, 3 rounds on 0.1.11.0: 269-271 against 273-278 ms on one thread, 98-105 on 16).
 `make laws` (`--verdict` ALL PROOFS CHECK, both bad files rejected), `make check` 0 failures (the tokenizer, one layer,
 the forward and 12 prompts of generation against `transformers`), `make bits` 0 failures at 135M.
+
+## The one-thread regression without `Act`: code placement, not work (2026-10-16)
+
+With `perf` installed, SmolLM2-360M on one thread (CPU 3), 5 rounds: without `Act` 313.0 ms per token against 284.8,
+with 1.2% fewer instructions, cache and TLB misses within 3% (mostly fewer), and 6.6% more cycles. The hot loop (the dot
+product, 75-82% of the cycles) is the same 322 instructions in both binaries, 16 bytes apart. Rebuilt from the same C
+with `-falign-loops=64`, the gap falls from 4-6% to 2.1%, inside the rounds' spread. So the regression is where clang
+places the hot loop, not something the program does; the hypothesis above (lists freed mid-layer) is out. `forward_gen`
+keeps `Act` on one band, which costs nothing and happens to land the loop well with today's compiler. I reported the
+underlying effect upstream as bendlang/bend#1648.
