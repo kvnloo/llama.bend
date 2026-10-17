@@ -798,3 +798,8 @@ Published `bend-ml-llama@0.1.1.0`, hash `0x8ff6f11df9bf3e5a1f5eaa324b7fef8f`, wi
 `bend-ml-tensor-array@0.1.12.0` (`make laws` with `--verdict` first). From a clean folder, `demo/gen.bend` and
 `llama/load.bend` importing the published package generate the same 12 tokens as the local copy (135M, 16 threads). The
 READMEs import 0.1.1.0.
+
+## 2026-10-17: v1.2.0
+
+tensor-array 0.1.12.0 (loading 1.7-2.4x faster), `forward_pre` and `bend-ml-llama@0.1.1.0` on BendHub, released through
+pull request #8 (CI green).
