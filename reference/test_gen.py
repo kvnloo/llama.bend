@@ -6,7 +6,7 @@ MODEL (models.py).
 For every prompt: the prompt ids (Bend's tokenizer), the generated ids and the decoded text must be identical; the
 logit of each chosen id within TOL relative to it.
 """
-import json, os, re, subprocess, sys, time
+import json, math, os, re, subprocess, sys, time
 
 from models import ROOT, D, T_DIR
 
@@ -19,7 +19,7 @@ def main():
     failures = 0
     for c in cases:
         t0 = time.time()
-        r = subprocess.run([EXE, D, c["prompt"], str(c["n"])], capture_output=True, cwd=ROOT)
+        r = subprocess.run([EXE, D, c["prompt"], str(c["n"])], capture_output=True, cwd=ROOT, check=True)
         dt = time.time() - t0
         out = r.stdout.decode("utf-8")
         m_ids = re.search(r"^prompt ids: (.*)$", out, re.M)
@@ -29,8 +29,11 @@ def main():
         m_txt = re.search(r"^text: (.*)\n\Z", out, re.M | re.S)
         text = m_txt.group(1) if m_txt else None
         ids_ok = p_ids == c["ids"] and gen == c["gen"]
-        lg_err = max((abs(a - b) / abs(b) for a, b in zip(lgs, c["logits"])), default=float("inf"))
-        lg_ok = len(lgs) == len(c["logits"]) and lg_err <= TOL
+        errors = [abs(a - b) / abs(b) if b != 0 else (0.0 if a == b else float("inf"))
+                  for a, b in zip(lgs, c["logits"])]
+        lg_err = max(errors, default=float("inf"))
+        lg_ok = (len(lgs) == len(c["logits"]) and all(math.isfinite(x) for x in lgs + c["logits"])
+                 and lg_err <= TOL)
         txt_ok = text == c["text"]
         ok = ids_ok and lg_ok and txt_ok
         failures += not ok

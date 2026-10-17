@@ -1,0 +1,21 @@
+{
+  "observed_utc": "2026-10-14T06:27:05Z",
+  "cpu_model_reported": "AMD EPYC 9V74 80-Core Processor",
+  "virtualized": true,
+  "visible_logical_cpus": 9,
+  "allowed_affinity": "0-8",
+  "quota": null,
+  "quota_note": "cpu.max and cpuset.cpus.effective are not exposed; nproc is not quota evidence",
+  "physical_core_topology": null,
+  "p_core_claim": false,
+  "ram_total_kib": 10206508,
+  "swap_total_kib": 0,
+  "gpu_exposed": false,
+  "governor_power_profile_temperature": null,
+  "experiment_threads": [1, 2, 4, 8],
+  "full_model_scope": "pinned SmolLM2-135M only; 1.7B full model excluded initially",
+  "timed_affinity": {"1": "0", "8": "0-7"},
+  "resource_guard": {"process_group_rss_mb": 6144, "poll_ms": 20, "minimum_free_disk_mb": 12288},
+  "guard_limitation": "sampled watchdog, not a hard kernel RSS limit; no address-space cap because Bend reserves a sparse virtual arena",
+  "baseline_failures": ["Lean and Bend virtual reservation failed under initial6GiB RLIMIT_AS; logs preserved; replaced with RSS watchdog before accepted numerical/timed evidence"]
+}

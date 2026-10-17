@@ -30,7 +30,7 @@ def ref(case, name):
 def run(case, layer):
     t_in = ref(case, "in").shape[0]
     t0 = time.time()
-    r = subprocess.run([EXE, D, str(layer), os.path.join(T_DIR, f"{case}_in.bin"), str(t_in)], capture_output=True, text=True)
+    r = subprocess.run([EXE, D, str(layer), os.path.join(T_DIR, f"{case}_in.bin"), str(t_in)], capture_output=True, text=True, check=True)
     dt = time.time() - t0
     rows, inv = {}, None
     for line in r.stdout.splitlines():
@@ -38,9 +38,15 @@ def run(case, layer):
         if not p:
             continue
         if p[0] == "inv_freq":
+            if inv is not None:
+                raise ValueError("duplicate inv_freq output")
             inv = np.array([int(x) for x in p[1:]], dtype=np.uint32).view("<f4")
         elif p[0] in ORDER:
-            rows.setdefault(p[0], {})[int(p[1])] = np.array([int(x) for x in p[2:]], dtype=np.uint32).view("<f4")
+            positions = rows.setdefault(p[0], {})
+            position = int(p[1])
+            if position in positions:
+                raise ValueError(f"duplicate {p[0]} output at position {position}")
+            positions[position] = np.array([int(x) for x in p[2:]], dtype=np.uint32).view("<f4")
     if r.returncode != 0 or not rows:
         print(r.stdout[-2000:], r.stderr[-2000:])
     return rows, inv, dt, t_in
@@ -52,22 +58,34 @@ def main():
     for case, layer in CASES:
         rows, inv, dt, t_in = run(case, layer)
         print(f"== {case} (layer {layer}, {t_in} positions, {dt:.1f} s, tolerance {TOL:.2e})")
-        if inv is not None:
+        if inv is None:
+            failures += 1
+            print("  ERROR missing inv_freq")
+        else:
             same = np.array_equal(inv.view(np.uint32), want_inv.view(np.uint32))
-            diff = int((inv.view(np.uint32) != want_inv.view(np.uint32)).sum())
-            print(f"  {'ok  ' if same else 'DIFF'} inv_freq bit for bit ({diff} of 32 differ)")
+            failures += not same
+            print(f"  {'ok  ' if same else 'ERROR'} inv_freq bit for bit ({inv.size} values, expected {want_inv.size})")
         if not rows:
             failures += 1
             print("  ERROR no output")
             continue
         for name in ORDER:
             if name not in rows:
+                failures += 1
+                print(f"  ERROR missing {name}")
+                continue
+            if set(rows[name]) != set(range(t_in)):
+                failures += 1
+                print(f"  ERROR {name}: unexpected or missing positions")
                 continue
             want = ref(case, name)
             worst, where = 0.0, -1
             for t in range(t_in):
                 got = rows[name].get(t)
                 if got is None or got.shape != want[t].shape:
+                    worst, where = float("inf"), t
+                    break
+                if not np.isfinite(got).all() or not np.isfinite(want[t]).all():
                     worst, where = float("inf"), t
                     break
                 rel = float(np.abs(got - want[t]).max() / max(np.abs(want[t]).max(), 1e-30))
