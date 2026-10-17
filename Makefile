@@ -6,7 +6,7 @@ DIR := data/$(MODEL)
 export PATH := $(HOME)/.bend/bin:$(HOME)/.elan/bin:$(PATH)
 PY := reference/.venv/bin/python
 
-.PHONY: setup prep laws check bits bench media
+.PHONY: setup prep laws check bits bench media lint
 
 setup:            ## install the pinned Bend and Lean if missing, create the Python venv
 	scripts/setup.sh
@@ -22,6 +22,7 @@ laws:             ## the package's proofs, checked by bend and again by the kern
 	for f in tests/bad_*.bend; do bend $$f 2>&1 | grep -q "^- expected" && echo "rejected as it must be: $$f" || { echo "COMPILED, but must not: $$f"; exit 1; }; done
 
 check: laws       ## the laws, prep, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against transformers
+	$(PY) -m unittest discover -s reference -p test_latency_report.py
 	$(PY) reference/prep.py --check
 	mkdir -p .scratch
 	bend demo/tok.bend -o .scratch/tok
@@ -48,3 +49,6 @@ bench:            ## one line: ms per token by the program's own clock, failing 
 
 media:            ## regenerate the README images from docs/media/outputs/ and numbers.json (needs node, ffmpeg, Brave)
 	scripts/make_media.sh
+
+lint:             ## bend-lint's performance rules over the Bend code: a report, not a gate; measure a finding before taking it
+	bunx bend-lint --jobs max

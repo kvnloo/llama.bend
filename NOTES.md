@@ -760,3 +760,63 @@ time: not allocation from the kernel, not memory pressure, but the computation i
 cache misses; one hypothesis is that without `Act` the intermediate lists are freed in the middle of the layer instead of
 after it. Telling those apart needs hardware counters (`perf`, not installed here). Until then `forward_gen` keeps `Act`
 on one band, where it measured faster.
+
+## tensor-array 0.1.7.0 → 0.1.12.0: the load 1.7-2.4x faster (2026-10-16)
+
+A profile of generation with one thread (bend2-ml's fork measurements of 2026-10-16) showed `cap_pair` at 39% of the
+cycles of a short run: 0.1.7.0's `cap_depth` walks n steps to find an `Array`'s depth, and the loader asks it for every
+band. tensor-array 0.1.10.0 replaced it by doubling (`cap_dbl`); nothing else that llama.bend uses changed up to 0.1.12.0
+(0.1.11.0 chose the split depth from the work, 0.1.12.0 runs one-row products sequentially; generation runs `Bands` and
+neither path).
+
+Load ("weights loaded in"), 3 runs each, one thread on CPU 3 and 16 threads, 0.1.7.0 → 0.1.12.0:
+
+| model | one thread | 16 threads |
+|---|---|---|
+| SmolLM2-135M | 0.71 → 0.40 s | 0.68 → 0.46 s |
+| SmolLM2-360M | 2.44-2.56 → 1.25-1.31 s | 1.92-1.99 → 1.33-1.40 s |
+| SmolLM2-1.7B | 10.9-11.0 → 4.52-4.57 s | 8.07-8.31 → 4.52-4.63 s |
+
+Per token, unchanged (360M, 20 tokens, 3 rounds on 0.1.11.0: 269-271 against 273-278 ms on one thread, 98-105 on 16).
+`make laws` (`--verdict` ALL PROOFS CHECK, both bad files rejected), `make check` 0 failures (the tokenizer, one layer,
+the forward and 12 prompts of generation against `transformers`), `make bits` 0 failures at 135M.
+
+## The one-thread regression without `Act`: code placement, not work (2026-10-16)
+
+With `perf` installed, SmolLM2-360M on one thread (CPU 3), 5 rounds: without `Act` 313.0 ms per token against 284.8,
+with 1.2% fewer instructions, cache and TLB misses within 3% (mostly fewer), and 6.6% more cycles. The hot loop (the dot
+product, 75-82% of the cycles) is the same 322 instructions in both binaries, 16 bytes apart. Rebuilt from the same C
+with `-falign-loops=64`, the gap falls from 4-6% to 2.1%, inside the rounds' spread. So the regression is where clang
+places the hot loop, not something the program does; the hypothesis above (lists freed mid-layer) is out. `forward_gen`
+keeps `Act` on one band, which costs nothing and happens to land the loop well with today's compiler. I reported the
+underlying effect upstream as bendlang/bend#1648.
+
+## 2026-10-17: bend-ml-llama 0.1.1.0
+
+The package on BendHub was still 0.1.0.0 (2026-10-13): v1.1.0 released `forward_gen` on GitHub without publishing it.
+Published `bend-ml-llama@0.1.1.0`, hash `0x8ff6f11df9bf3e5a1f5eaa324b7fef8f`, with `forward_gen`, `forward_pre` and
+`bend-ml-tensor-array@0.1.12.0` (`make laws` with `--verdict` first). From a clean folder, `demo/gen.bend` and
+`llama/load.bend` importing the published package generate the same 12 tokens as the local copy (135M, 16 threads). The
+READMEs import 0.1.1.0.
+
+## 2026-10-17: v1.2.0
+
+tensor-array 0.1.12.0 (loading 1.7-2.4x faster), `forward_pre` and `bend-ml-llama@0.1.1.0` on BendHub, released through
+pull request #8 (CI green).
+
+## 2026-10-17: bend-lint on every change since its last pass
+
+bend-lint is a dev dependency now (`package.json`, `bend-lint.json` with the 12 performance rules, `make lint`), run
+before each release, a finding measured before it is taken. Its last pass was on `54e4a06` (2026-10-13). On the 5 Bend
+files changed since, 11 findings, none taken: `unused_result` on `lg`, `nf` and `acts` in `gen`'s loop (`forward_pre`
+returns them empty; `nf` is one 576-number list per token), `eager_branch` on `ids_ok` and `repeated_call` on `lcl` in
+the tokenizer, `append_in_loop` on `group_att`/`seq_att` and `deep_call_in_fork` on `seq_att` (the four he applied and
+measured as no change on 2026-10-16).
+
+## 2026-10-17: bend-lint's attention findings measured at a long context
+
+`append_in_loop` in `group_att`/`seq_att` with the fix (outputs reversed onto an accumulator, one reverse at the end),
+SmolLM2-135M, a 1,190-token prompt, 8 tokens, 16 threads, 3 rounds alternated: first token 79.7-79.9 s against 79.8-80.6
+s, 93-99 ms per token in both, the same tokens. The appends run over a layer's query heads, not over the context. Not
+taken; the findings carry a `bend-lint: disable-next` directive with the reason, so `make lint` is clean (0 findings, 4
+suppressed).
