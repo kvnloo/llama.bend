@@ -68,6 +68,21 @@ def primary(result):
 
 
 class SummaryIntegrityTests(unittest.TestCase):
+    def test_confirmatory_selection_hash_must_be_a_real_digest_shape(self):
+        # The previous bool(...) gate counted placeholders as preregistration.
+        for invalid in (None, "", "TODO", "0" * 63, "g" * 64, True, 123):
+            with self.subTest(selection=repr(invalid)), tempfile.TemporaryDirectory() as td:
+                rows = fixture(td)
+                root = Path(td)
+                m = json.loads((root / "manifest.json").read_text())
+                m["selection_manifest_sha256"] = invalid
+                (root / "manifest.json").write_text(json.dumps(m))
+                for row in rows:
+                    row["manifest_sha256"] = canonical_hash(m)
+                save(td, rows)
+                with self.assertRaisesRegex(ValueError, "invalid selection manifest SHA-256"):
+                    summarize(td)
+
     def test_six_complete_pairs_can_pass(self):
         with tempfile.TemporaryDirectory() as td:
             fixture(td)

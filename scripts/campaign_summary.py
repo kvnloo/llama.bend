@@ -10,6 +10,7 @@ import json
 import math
 from pathlib import Path
 import random
+import re
 import statistics
 
 from campaign_runner import canonical_hash, file_hash, validate_generation, plan_trials
@@ -17,6 +18,11 @@ from campaign_runner import canonical_hash, file_hash, validate_generation, plan
 
 def summarize(out):
     out=Path(out);m=json.loads((out/'manifest.json').read_text());digest=canonical_hash(m)
+    # A misspelled or placeholder selection hash cannot qualify a campaign.
+    if m.get('purpose') == 'confirmatory':
+        selection = m.get('selection_manifest_sha256')
+        if type(selection) is not str or re.fullmatch(r'[0-9a-f]{64}', selection) is None:
+            raise ValueError('invalid selection manifest SHA-256')
     specs={(c['id'],v['id']):v for c in m['cases'] for v in c['variants']}
     planned={t['key']:t for t in plan_trials(m)}
     passing_keys=set();runs={};failures=[]

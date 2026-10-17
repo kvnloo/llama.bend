@@ -76,7 +76,9 @@ metrics before reporting medians, ranges and within-round paired percentage
 savings. The displayed 95% interval is a seeded bootstrap of the paired median;
 five pairs still give limited precision. A screening result remains exploratory
 regardless of sample count. A confirmatory manifest must explicitly identify its
-purpose, frozen selection-manifest hash and prespecified primary metric. Only
+purpose, a full lowercase 64-hex SHA-256 of the frozen selection manifest and a
+prespecified primary metric. The hash format check is not independent proof
+that the selection manifest existed or was reviewed. Only
 that metric can satisfy the 5% gate after five or more fresh pairs and completion
 of every prespecified trial, including warmups. Incomplete journals retain their
 missing-trial counts and cannot select a winner. Favorable
