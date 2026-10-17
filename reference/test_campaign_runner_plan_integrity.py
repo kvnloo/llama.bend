@@ -26,6 +26,20 @@ class PlanManifestCompletenessTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'unsupported schema'):
             plan_trials(VALID | {'schema': True})
 
+    def test_environment_must_be_a_valid_string_mapping(self):
+        invalid = (None, [], {'N': 1}, {1: 'v'}, {'N': True},
+                   {'N': None}, {'': 'v'}, {'BAD=KEY': 'v'}, {'N': 'bad\0value'},
+                   {'BAD\0KEY': 'value'})
+        for env in invalid:
+            with self.subTest(env=env):
+                cases = [{'id': 'c', 'variants': [
+                    {'id': 'control', 'argv': ['synthetic'], 'env': env}]}]
+                with self.assertRaisesRegex(ValueError, 'invalid env'):
+                    plan_trials(VALID | {'cases': cases})
+        cases = [{'id': 'c', 'variants': [
+            {'id': 'control', 'argv': ['synthetic'], 'env': {'OMP_NUM_THREADS': '2'}}]}]
+        self.assertEqual(len(plan_trials(VALID | {'cases': cases})), 2)
+
     def test_valid_plan_preserves_stable_trial_keys(self):
         first = plan_trials(VALID)
         self.assertEqual(len(first), 2)

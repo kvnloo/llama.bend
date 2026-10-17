@@ -120,6 +120,11 @@ def plan_trials(manifest):
     unique = {}
     for case in manifest['cases']:
         for variant in case['variants']:
+            env = variant.get('env', {})
+            if (not isinstance(env, dict) or
+                any(not isinstance(k, str) or not isinstance(v, str) or not k or
+                    '=' in k or '\0' in k or '\0' in v for k, v in env.items())):
+                raise ValueError('invalid env: expected environment string mapping')
             key = (case['id'], variant['id'])
             cfg = {'case': case['id'], 'variant': variant['id'], 'spec': variant}
             if key in unique and unique[key] != cfg: raise ValueError('conflicting duplicate configuration')
