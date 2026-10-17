@@ -790,3 +790,11 @@ with `-falign-loops=64`, the gap falls from 4-6% to 2.1%, inside the rounds' spr
 places the hot loop, not something the program does; the hypothesis above (lists freed mid-layer) is out. `forward_gen`
 keeps `Act` on one band, which costs nothing and happens to land the loop well with today's compiler. I reported the
 underlying effect upstream as bendlang/bend#1648.
+
+## 2026-10-17: bend-ml-llama 0.1.1.0
+
+The package on BendHub was still 0.1.0.0 (2026-10-13): v1.1.0 released `forward_gen` on GitHub without publishing it.
+Published `bend-ml-llama@0.1.1.0`, hash `0x8ff6f11df9bf3e5a1f5eaa324b7fef8f`, with `forward_gen`, `forward_pre` and
+`bend-ml-tensor-array@0.1.12.0` (`make laws` with `--verdict` first). From a clean folder, `demo/gen.bend` and
+`llama/load.bend` importing the published package generate the same 12 tokens as the local copy (135M, 16 threads). The
+READMEs import 0.1.1.0.
