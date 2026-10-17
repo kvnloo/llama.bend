@@ -19,7 +19,9 @@ import sys
 from pathlib import Path
 
 
-TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\b.*\bt=(\d+(?:\.\d+)?)s\s*$")
+# gen.bend emits both a numeric logit bit pattern and a rendered F32 value.
+# Requiring both prevents truncated rows from being counted as valid samples.
+TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\s+\d+\s+[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s+t=(\d+(?:\.\d+)?)s\s*$")
 LOAD = re.compile(r"^weights loaded in\s+(\d+(?:\.\d+)?)s\s*$")
 
 
