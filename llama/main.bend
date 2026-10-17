@@ -719,6 +719,7 @@ def group_att(hs: List<&2, Head>, +hd: Nat, +t: Nat, +scale: F32, k: Array<F32>,
       HO{k, v, acc}
     case Con{h, rest}:
       HO.then(HO, head_att(hd, t, scale, k, v, join(h)), k2 => v2 => +o =>
+        # bend-lint: disable-next bend-lint-rules/performance/append_in_loop -- the loop runs over one group of query heads (at most 15 of 64 numbers) not-expected-because: measured 2026-10-17 with a 1,190-token prompt: no change (NOTES)
         group_att(rest, hd, t, scale, k2, v2, List.append(&2, F32, acc, o)))
 
 # every group, in order: the outputs of query heads 0, 1, ..., and the caches handed back
@@ -748,6 +749,7 @@ def seq_att(ws: List<&1, GW>, +hd: Nat, +t: Nat, +scale: F32, aks: List<&1, Arra
       match w:
         case GW{g, k, v}:
           HO.then(AT, group_att(g, hd, t, scale, k, v, Nil{}), k2 => v2 => +o =>
+            # bend-lint: disable-next bend-lint-rules/performance/append_in_loop -- the loop runs over the key/value heads of a layer, not the context not-expected-because: measured 2026-10-17 with a 1,190-token prompt: no change (NOTES)
             seq_att(wt, hd, t, scale, k2 <> aks, v2 <> avs, List.append(&2, F32, acc, o)))
     case Nil{}:
       AT{List.reverse(&1, Array<F32>, aks), List.reverse(&1, Array<F32>, avs), acc}
@@ -784,6 +786,7 @@ def halvings(fuel: Nat, +n: Nat) -> Nat:
 def par_att(d: Nat, gs: GS, +n: Nat, +hd: Nat, +t: Nat, +scale: F32) -> AT:
   match d gs:
     case 0n GS{l, r}:
+      # bend-lint: disable-next bend-lint-rules/performance/deep_call_in_fork -- seq_att runs a handful of groups per leaf not-expected-because: its tail-loop rewrite measured as no change (2026-10-16, NOTES)
       p q = seq_att(l, hd, t, scale, Nil{}, Nil{}, Nil{}) seq_att(r, hd, t, scale, Nil{}, Nil{}, Nil{})
       at_join(p, q)
     case 1n++e GS{l, r}:
