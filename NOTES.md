@@ -812,3 +812,11 @@ files changed since, 11 findings, none taken: `unused_result` on `lg`, `nf` and 
 returns them empty; `nf` is one 576-number list per token), `eager_branch` on `ids_ok` and `repeated_call` on `lcl` in
 the tokenizer, `append_in_loop` on `group_att`/`seq_att` and `deep_call_in_fork` on `seq_att` (the four he applied and
 measured as no change on 2026-10-16).
+
+## 2026-10-17: bend-lint's attention findings measured at a long context
+
+`append_in_loop` in `group_att`/`seq_att` with the fix (outputs reversed onto an accumulator, one reverse at the end),
+SmolLM2-135M, a 1,190-token prompt, 8 tokens, 16 threads, 3 rounds alternated: first token 79.7-79.9 s against 79.8-80.6
+s, 93-99 ms per token in both, the same tokens. The appends run over a layer's query heads, not over the context. Not
+taken; the findings carry a `bend-lint: disable-next` directive with the reason, so `make lint` is clean (0 findings, 4
+suppressed).
