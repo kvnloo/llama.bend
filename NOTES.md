@@ -867,3 +867,11 @@ memory: run again with a bigger span, as in --gpu 8GB"); with `--gpu 12GB` it ru
 path's ids and logit bits, 1.58 s a token (the CPU path: 0.25 s), 7.5 GB peak host memory. Tried once, not pursued.
 
 bend-ml-tensor-gpu 0.1.0.0 is on BendHub (2026-10-18): `llama/gpu.bend` imports it from there and `vendor/` is gone.
+
+## bend-ml-tensor-array 0.1.14.0 and bend-ml-tensor-gpu 0.1.2.1 (2026-10-18)
+
+- The imports moved from tensor-array 0.1.12.0 and tensor-gpu 0.1.0.0 to the current versions (0.1.13.0's `cap_depth`
+  compares natively; 0.1.14.0 adds an opt-in precise product that llama.bend does not use; tensor-gpu 0.1.1.x adds bangs
+  over any leaf code and 0.1.2.x the precise product). `make check` and `make bits` pass with the same bits; generation
+  with the products on the GPU (`GPU=1 scripts/bench.sh`, busy machine): 195.7 ms a token, the tokens transformers'. The
+  published `bend-ml-llama` keeps the old pins until its next release.
