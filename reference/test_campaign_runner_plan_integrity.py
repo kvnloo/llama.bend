@@ -46,6 +46,23 @@ class PlanManifestCompletenessTests(unittest.TestCase):
             {'id': 'control', 'argv': ['synthetic'], 'env': {'OMP_NUM_THREADS': '2'}}]}]
         self.assertEqual(len(plan_trials(VALID | {'cases': cases})), 2)
 
+    def test_invalid_plan_does_not_create_result_or_lock_files(self):
+        # Invalid trial plans must have no filesystem side effects.
+        mutations = ({'cases': []},
+                     {'cases': [{'id': 'c', 'variants': []}]},
+                     {'seed': True}, {'warmups': -1})
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                lock = root / 'runner.lock'
+                out = root / 'results'
+                manifest = VALID | {'lock': str(lock),
+                                    'budget': {'min_free_mb': 0}} | mutation
+                with self.assertRaises(ValueError):
+                    run_manifest(manifest, out)
+                self.assertFalse(out.exists())
+                self.assertFalse(lock.exists())
+
     def test_valid_plan_preserves_stable_trial_keys(self):
         first = plan_trials(VALID)
         self.assertEqual(len(first), 2)

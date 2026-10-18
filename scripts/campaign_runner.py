@@ -271,8 +271,9 @@ def validate_disk_floor(manifest):
 
 def run_manifest(manifest, out):
     validate_disk_floor(manifest)
-    out=Path(out).resolve();out.mkdir(parents=True,exist_ok=True);(out/'raw').mkdir(exist_ok=True)
+    # Reject an invalid plan before creating result directories or a lock.
     digest=canonical_hash(manifest); plan=plan_trials(manifest)
+    out=Path(out).resolve();out.mkdir(parents=True,exist_ok=True);(out/'raw').mkdir(exist_ok=True)
     lock=Path(manifest['lock']);lock.parent.mkdir(parents=True,exist_ok=True)
     with lock.open('a') as lockfile:
         fcntl.flock(lockfile,fcntl.LOCK_EX)
