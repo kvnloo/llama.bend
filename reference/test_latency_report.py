@@ -1,6 +1,8 @@
 """Unit tests for the stdout-only latency report (no model downloads needed)."""
 
+import json
 import math
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -191,6 +193,41 @@ text: Once upon a time
         )
         with self.assertRaisesRegex(ValueError, "no generated token"):
             report(raw)
+
+class LatencyCLIIntegrationTests(unittest.TestCase):
+    """Exercise the published CLI boundary, not only the report() helper."""
+
+    def cli(self, *args, data=None):
+        script = Path(__file__).resolve().parents[1] / "scripts/latency_report.py"
+        return subprocess.run(
+            [sys.executable, str(script), "--json", *args],
+            input=data, text=True, capture_output=True, check=False,
+        )
+
+    def test_real_capture_file_matches_stdin_json(self):
+        capture = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"
+        file_run = self.cli(str(capture))
+        stdin_run = self.cli(data=capture.read_text(encoding="utf-8"))
+        self.assertEqual(file_run.returncode, 0, file_run.stderr)
+        self.assertEqual(stdin_run.returncode, 0, stdin_run.stderr)
+        self.assertEqual(json.loads(file_run.stdout), json.loads(stdin_run.stdout))
+        self.assertEqual(json.loads(file_run.stdout)["tokens"], 32)
+
+    def test_invalid_u32_logit_bits_fail_at_cli_boundary(self):
+        bad = "  id 4 logit 4294967296 0.5 t=0.100s\n"
+        result = self.cli(data=bad)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("invalid generated token logit bits", result.stderr)
+        self.assertEqual(result.stdout, "")
+
+    def test_decoded_text_spoof_does_not_affect_cli_json(self):
+        capture = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"
+        original = capture.read_text(encoding="utf-8")
+        baseline = self.cli(data=original)
+        injected = self.cli(data=original + "\n  id 999 logit 1 0.5 t=999.000s\n")
+        self.assertEqual(baseline.returncode, 0, baseline.stderr)
+        self.assertEqual(injected.returncode, 0, injected.stderr)
+        self.assertEqual(json.loads(injected.stdout), json.loads(baseline.stdout))
 
 if __name__ == "__main__":
     unittest.main()
