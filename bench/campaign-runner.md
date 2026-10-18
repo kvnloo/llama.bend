@@ -45,6 +45,14 @@ its case, variant, phase, round and attempt. Raw stdout/stderr are never overwri
 ## Resource and clock semantics
 
 `budget` contains `timeout_s`, `memory_mb`, `min_free_mb`, and `max_output_mb`.
+`min_free_mb` is a required nonnegative JSON number (MiB), finite when converted
+to a float; zero disables the free-space floor. Booleans, strings, null, negative,
+nonfinite and excessively large integer values are rejected before execution or
+resume creates output files, including when using `--plan-only`.
+Before each pending trial, free bytes must be at least `min_free_mb * 1024 * 1024`;
+equality is allowed. An unmet floor records a `free_disk_budget` blocked event and
+returns exit status 2 without launching a child. Completed trials resume without
+requiring more free space, after their saved evidence is revalidated.
 Only the runner's child process group is terminated on timeout, output overflow,
 or sampled RSS overflow. RSS is polled every 20 ms. This is a watchdog, not a hard
 kernel memory limit; the same watchdog configuration applies to both arms. Bend

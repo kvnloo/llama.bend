@@ -4,11 +4,12 @@ import unittest
 import tempfile
 import json
 import io
+import hashlib
 from contextlib import redirect_stdout
 from unittest import mock
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from campaign_runner import main, plan_trials, run_manifest, validate_disk_floor
+from campaign_runner import main, plan_trials, run_manifest
 
 VALID = {'schema': 1, 'seed': 7, 'warmups': 0, 'rounds': 2,
          'cases': [{'id': 'c', 'variants': [{'id': 'control', 'argv': ['synthetic']}]}]}
@@ -70,12 +71,39 @@ class DiskFloorBudgetTests(unittest.TestCase):
                     run_manifest(VALID | {'budget': budget}, out)
                 self.assertFalse(out.exists())
 
-    def test_zero_and_positive_disk_floors_remain_valid(self):
-        # Zero is permitted by existing synthetic resume fixtures, while
-        # production manifests should set a nonzero minimum free disk budget.
-        for value in (0, 1, 12288, 1.25):
-            with self.subTest(floor=value):
-                validate_disk_floor(VALID | {'budget': {'min_free_mb': value}})
+    def test_disk_floor_boundaries_and_completed_resume(self):
+        for floor in (0, 1, 12288, 1.25):
+            with self.subTest(floor=floor), tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                out = root / 'results'
+                m = VALID | {
+                    'rounds': 1, 'lock': str(root / 'lock'),
+                    'budget': {'timeout_s': 3, 'memory_mb': 256,
+                               'max_output_mb': 1, 'min_free_mb': floor},
+                    'cases': [{'id': 'fixture', 'variants': [{
+                        'id': 'control', 'argv': [sys.executable, '-c', 'pass'],
+                        'cwd': str(root), 'validation': {
+                            'kind': 'stdout_sha256',
+                            'sha256': hashlib.sha256(b'').hexdigest()}}]}]}
+                with mock.patch('campaign_runner.shutil.disk_usage') as usage:
+                    if floor:
+                        usage.return_value.free = int(floor * 1024 * 1024) - 1
+                        with mock.patch('campaign_runner.execute') as execute:
+                            self.assertEqual(run_manifest(m, out), 2)
+                            execute.assert_not_called()
+                        self.assertEqual(json.loads((out / 'journal.jsonl').read_text())['reason'],
+                                         'free_disk_budget')
+                    # Exact equality is allowed, including zero with zero free bytes.
+                    usage.return_value.free = int(floor * 1024 * 1024)
+                    self.assertEqual(run_manifest(m, out), 0)
+                    journal = (out / 'journal.jsonl').read_bytes()
+                    usage.return_value.free = 0
+                    self.assertEqual(run_manifest(m, out), 0)
+                    self.assertEqual((out / 'journal.jsonl').read_bytes(), journal)
+                    m['budget']['min_free_mb'] = False
+                    with self.assertRaisesRegex(ValueError, 'invalid min_free_mb'):
+                        run_manifest(m, out)
+                    self.assertEqual((out / 'journal.jsonl').read_bytes(), journal)
 
     def test_plan_only_does_not_approve_invalid_disk_floor(self):
         # Plan-only is a dry-run; success must not imply an unsafe budget.
