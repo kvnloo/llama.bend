@@ -239,7 +239,21 @@ def verify_inputs(manifest):
     for item in manifest.get('inputs', []):
         if file_hash(item['path']) != item['sha256']: raise ValueError(f'input hash changed: {item["path"]}')
 
+def validate_disk_floor(manifest):
+    # Reject malformed or negative limits before creating output files or
+    # launching a child. A negative minimum silently disables the disk guard.
+    budget = manifest.get('budget')
+    floor = budget.get('min_free_mb') if isinstance(budget, dict) else None
+    try:
+        valid = type(floor) in (int, float) and floor >= 0 and math.isfinite(floor)
+    except OverflowError:  # Extremely large JSON integers are not valid limits.
+        valid = False
+    if not valid:
+        raise ValueError('invalid min_free_mb disk floor')
+
+
 def run_manifest(manifest, out):
+    validate_disk_floor(manifest)
     out=Path(out).resolve();out.mkdir(parents=True,exist_ok=True);(out/'raw').mkdir(exist_ok=True)
     digest=canonical_hash(manifest); plan=plan_trials(manifest)
     lock=Path(manifest['lock']);lock.parent.mkdir(parents=True,exist_ok=True)
@@ -307,6 +321,7 @@ def run_manifest(manifest, out):
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('manifest',type=Path);p.add_argument('--out',type=Path,required=True);p.add_argument('--plan-only',action='store_true');args=p.parse_args()
     m=json.loads(args.manifest.read_text())
+    validate_disk_floor(m)
     if args.plan_only:
         print(json.dumps({'state':'planned_not_executed','manifest_sha256':canonical_hash(m),'trials':plan_trials(m)},indent=2));return 0
     return run_manifest(m,args.out)

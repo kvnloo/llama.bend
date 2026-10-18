@@ -1,9 +1,14 @@
 """Fail-closed runner plan contracts: synthetic fixtures, not inference evidence."""
 import sys
 import unittest
+import tempfile
+import json
+import io
+from contextlib import redirect_stdout
+from unittest import mock
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from campaign_runner import plan_trials
+from campaign_runner import main, plan_trials, run_manifest, validate_disk_floor
 
 VALID = {'schema': 1, 'seed': 7, 'warmups': 0, 'rounds': 2,
          'cases': [{'id': 'c', 'variants': [{'id': 'control', 'argv': ['synthetic']}]}]}
@@ -44,5 +49,55 @@ class PlanManifestCompletenessTests(unittest.TestCase):
         first = plan_trials(VALID)
         self.assertEqual(len(first), 2)
         self.assertEqual(first, plan_trials(VALID))
+
+class DiskFloorBudgetTests(unittest.TestCase):
+    def test_invalid_disk_floors_fail_before_creating_results(self):
+        invalid = (-1, -0.01, True, False, '0', None, float('nan'),
+                   float('inf'), float('-inf'), 10**400, [], {})
+        for value in invalid:
+            with self.subTest(floor=repr(value)), tempfile.TemporaryDirectory() as td:
+                out = Path(td) / 'results'
+                m = VALID | {'budget': {'min_free_mb': value}}
+                with self.assertRaisesRegex(ValueError, 'invalid min_free_mb'):
+                    run_manifest(m, out)
+                self.assertFalse(out.exists())
+
+    def test_missing_or_nonmapping_budget_rejected(self):
+        for budget in (None, [], 'no-limit', {}):
+            with self.subTest(budget=repr(budget)), tempfile.TemporaryDirectory() as td:
+                out = Path(td) / 'results'
+                with self.assertRaisesRegex(ValueError, 'invalid min_free_mb'):
+                    run_manifest(VALID | {'budget': budget}, out)
+                self.assertFalse(out.exists())
+
+    def test_zero_and_positive_disk_floors_remain_valid(self):
+        # Zero is permitted by existing synthetic resume fixtures, while
+        # production manifests should set a nonzero minimum free disk budget.
+        for value in (0, 1, 12288, 1.25):
+            with self.subTest(floor=value):
+                validate_disk_floor(VALID | {'budget': {'min_free_mb': value}})
+
+    def test_plan_only_does_not_approve_invalid_disk_floor(self):
+        # Plan-only is a dry-run; success must not imply an unsafe budget.
+        for floor in (-1, False, '0', None, float('nan')):
+            with self.subTest(floor=repr(floor)), tempfile.TemporaryDirectory() as td:
+                path = Path(td) / 'manifest.json'
+                out = Path(td) / 'out'
+                path.write_text(json.dumps(VALID | {'budget': {'min_free_mb': floor}}))
+                with mock.patch.object(sys, 'argv', ['campaign_runner.py', str(path), '--out', str(out), '--plan-only']):
+                    with self.assertRaisesRegex(ValueError, 'invalid min_free_mb'):
+                        main()
+                self.assertFalse(out.exists())
+
+    def test_plan_only_valid_disk_floor_has_no_output_side_effect(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / 'manifest.json'
+            out = Path(td) / 'out'
+            path.write_text(json.dumps(VALID | {'budget': {'min_free_mb': 1}}))
+            with mock.patch.object(sys, 'argv', ['campaign_runner.py', str(path), '--out', str(out), '--plan-only']):
+                with redirect_stdout(io.StringIO()) as stdout:
+                    self.assertEqual(main(), 0)
+            self.assertEqual(json.loads(stdout.getvalue())['state'], 'planned_not_executed')
+            self.assertFalse(out.exists())
 
 if __name__ == '__main__': unittest.main()
