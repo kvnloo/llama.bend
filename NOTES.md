@@ -676,6 +676,91 @@ asks for a proof that `t < cap`, so such a push does not compile. The comment sh
 is permanent; it gets fixed with the next real change to the package (a comment alone is not worth a new version), as
 with bend-ml's `bmv` comment.
 
+## 2026-10-16: the weights straight into their arrays
+
+`llama/load.bend` is `load_model` again, with each band of a weight matrix read by `read_f32` from
+`bend-ml-binary-read@0.1.0.0` (bend-ml v1.3.0) into its array in one call, instead of 1 MB blocks that come back as a
+list with one cell per byte. The norms' weights are short and still read as lists. `read_f32` is foreign code, so the
+loader is its own file: `main.bend` keeps its plain-Bend loader and a clean `--verdict`, and `make laws` now fails if
+it imports binary-read. The demos (`forward`, `gen`) use the new loader; `layer_test` reads its inputs as before.
+
+Checks: `make bits` on the 135M identical (23 files), `make check` 0 failures; on the 360M and the 1.7B, which have no
+saved bits, the old and the new `gen` give the same output in every run below.
+
+Idle machine, Bend 2.0.37, medians; old and new alternated (load and ms per token from the program's own clock, 32,
+16 and 8 tokens from "Once upon a time"; one thread pinned to CPU 3):
+
+| model | load, 1 thread | load, 16 threads | ms per token, 1 thread | ms per token, 16 threads |
+|---|---|---|---|---|
+| 135M (5 rounds) | 6.10 → 0.67 s | 4.14 → 0.68 s | 121.2 → 121.1 | 70.3 → 70.9 |
+| 360M (5 rounds) | 16.0 → 2.29 s | 11.1 → 1.90 s | 276.6 → 275.2 (*) | 121.6 → 118.3 |
+| 1.7B (3 rounds) | 60.7 → 10.3 s | 69.4 → 8.1 s | 1131 → 1141 (*) | 338.1 → 327.3 |
+
+(*) In the first series the new loader always ran second, and one thread looked 3% slower per token on the 360M and
+the 1.7B. Re-run with the order alternated (6 rounds on the 360M, 4 on the 1.7B): 276.6 against 275.2 ms, and 1131
+against 1141 ms with overlapping ranges (1119-1138 against 1131-1148), so no change beyond the spread; the loader does
+not touch the products.
+
+Start-up (load and one token, wall time, 16 threads, 3 alternated rounds) and peak memory: 135M 4.3 → 1.0 s, 767 →
+718 MB; 360M 11.8 → 2.3 s, 2,314 → 2,270 MB; 1.7B 72.2 → 9.1 s, 6,828 → 6,787 MB. In `BENCHMARK.md`. The README's
+start-up image (`06-startup.webp`) shows both bars, regenerated with `make media` from `docs/media/numbers.json`.
+
+## 2026-10-16: generation without the activations it never reads
+
+Found by Mathews Fernando (@MattCozendey) with his linter, [bend-lint](https://github.com/MattCozendey/bend-lint)
+(rule `performance/unused_result`): `block` builds every layer's `Act` (eleven lists, among them copies of the rotated
+heads) at every position, and generation never reads them; only the tests and a future backward pass do. He measured
+19-25% per token by building `Act` empty.
+
+`forward_gen` is `forward` for generation; `block_gen` is a copy of `block`'s body with `Act` left empty, and
+`block_k` picks one of the two before anything is computed. A first version that chose inside `block`, after the
+computation, kept every intermediate alive to the end and was 12-18% slower on one thread. `forward` and `block` are
+unchanged (the package's API), and the tests still read the full activations.
+
+Old (`demo/gen` on `forward`) against new, idle machine, the program's own clock, alternated (6 rounds for the 135M
+and the 360M, 4 for the 1.7B), ms per token:
+
+| model | 1 thread | 16 threads |
+|---|---|---|
+| 135M | 123.9 -> 124.1 | 73.0 -> 58.8 (-19%) |
+| 360M | 296.5 -> 293.9 | 132.0 -> 106.6 (-19%) |
+| 1.7B | 1166.0 -> 1166.6 | 359.5 -> 289.8 (-19%) |
+
+The same tokens in every run; `make bits` identical, `make check` 0 failures. On one thread `forward_gen` keeps the
+activations: without them (his version and `block_gen` alike) one thread measured 4% slower on the 135M and 11% slower
+on the 360M (2% faster on the 1.7B), reproducibly and for no reason found yet, so with one band (`d = 0`, two threads
+or fewer) generation runs as before.
+
+Other findings of his linter here: `append_in_loop` and `deep_call_in_fork` in attention (he measured no change), the
+tokenizer's `repeated_call` (no change), and one not yet tried: while it reads the prompt, `gen` computes the logits of
+every prompt token and drops them (the embedding product, about a fifth of a position's work).
+- The demos now import `bend-ml-bpe-tokenizer@0.1.3.0` (the erased `done`): tokenizing 19 KB 24.9 -> 12.2 s, the same
+  ids; `make check` 0 failures, `make bits` identical.
+
+## 2026-10-16: v1.1.0
+
+The binary-read loader, `forward_gen` and `bend-ml-bpe-tokenizer@0.1.3.0`, released through pull request #6 (CI green).
+
+## 2026-10-16: the prompt without its logits
+
+The last untried finding of bend-lint's run (`unused_result` on `gen`'s prompt loop): while it reads the prompt, `gen`
+computed every prompt token's logits, the final norm and the product by the embedding (49,152 x 576 on the 135M), and
+dropped them. `forward_pre` gives the layers and caches without them; `gen` uses it for every prompt token but the last.
+A 77-token prompt and 4 generated tokens, time to the first generated token (the program's own clock), alternated (4
+rounds, 3 for the 1.7B): 135M 9.47 -> 7.93 s on one thread, 4.57 -> 3.83 on 16 (-16%); 360M 22.78 -> 20.23 and 8.21 ->
+7.37 (-10 to -11%); 1.7B 90.44 -> 84.17 and 22.78 -> 21.55 (-5 to -7%). The same output in every run; `make bits`
+identical, `make check` 0 failures. Generation after the prompt is unchanged (the same `forward_gen`).
+
+## 2026-10-16: why one thread is slower without `Act` (not found yet)
+
+The 360M on one thread, with `Act` (as `forward_gen` runs it there) against `block_gen` without it, 24 tokens, two runs
+each, rusage of the whole process: user time 9.40-9.46 s against 10.12-10.20 s (+8%), system time 0.40 against 0.39-0.40
+s, minor page faults 1,760 against 1,759-1,763, peak memory 2,939 MB both, no major faults. The difference is all in user
+time: not allocation from the kernel, not memory pressure, but the computation itself, with more instructions or more
+cache misses; one hypothesis is that without `Act` the intermediate lists are freed in the middle of the layer instead of
+after it. Telling those apart needs hardware counters (`perf`, not installed here). Until then `forward_gen` keeps `Act`
+on one band, where it measured faster.
+
 ## 2026-10-16: downstream Adreno foreign-effect capability
 
 I isolated `effects/adreno/` from the production model and the existing CPU campaign
