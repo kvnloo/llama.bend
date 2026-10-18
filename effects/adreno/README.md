@@ -41,9 +41,11 @@ ADRENO_GEMV_BITS pattern=<0|1|2> values=<576 space-separated decimal U32 words>
 
 The words are the exact F32 bit patterns, not rounded decimal float values. The native effect also reports the
 actual platform name/vendor/version, device name/vendor/version, driver version and device type. Its status
-fields must state `gpu_required=true cpu_fallback=false`, `enqueue_ndrange_status=0 global=576`, and
-`kernel_event_execution_status=0 blocking_readback=success`. A result line or completed GPU event alone is not
-numerical acceptance.
+fields must state `tensor_bytes=1327104 rows=576 cols=576`, the requested `pattern`, successful
+`kernel_build_status=0`, `gpu_required=true cpu_fallback=false`, `enqueue_ndrange_status=0 global=576`,
+and `kernel_event_execution_status=0 blocking_readback=success`. Missing, duplicated or mismatched shape,
+pattern or build status fails acceptance even when 576 result words are present. A result line or completed
+GPU event alone is not numerical acceptance.
 
 ## Numerical acceptance
 
@@ -131,3 +133,28 @@ wrong or missing final rows, GPU-only metadata/status requirements, byte-identit
 rejection, genuine subprocess nonzero/launch/timeout transitions, partial output and stale-success replacement.
 It does not fake GPU execution and is not device evidence. Build/test/run results must be reported from an
 actual invocation and its receipts; this source alone makes no claim that a particular driver accepts the kernel.
+
+## Fork base and evidence status (2026-10-17)
+
+PR #11 keeps the original scalar consumer and targets the existing fork `devel` history at
+`d0ef2281ff3b17012f19650560bfa5235f370030`. Its base reconciliation retains Renan Vinícius's
+implementation, proofs and upstream notes unchanged; the Adreno code remains an isolated downstream addition.
+The rewritten upstream `devel` at `8bf77ecd835ef02a554ca83bc18b55b0f7de990e` has a different history
+and now uses tensor-array 0.1.12.0. Merging that history into this PR would carry unrelated changes;
+this fork-base merge is **not** qualification against that upstream revision.
+
+The physical results recorded in the 2026-10-16 notes are historical. The 2026-10-17 access check found no
+connected ADB devices; the retained authorized wireless connection did not complete within its deadline.
+No new GPU execution, GPU/CPU timing comparison or optimized-consumer device acceptance is established.
+The separate optimized branch at `38558b174c572f3367e102e4cae10125c751f88a` is preserved rather than
+folded into this scalar capability PR. Both remain **LOCAL_ONLY** for physical acceptance.
+
+Every call currently allocates and validates 1,327,104 host weight bytes, creates a new OpenCL
+context/queue/program/kernel and three device buffers, copies the weights, input and poisoned output
+into those buffers, launches once, performs a dependent blocking 2,304-byte readback, and releases
+all resources. The input and output each occupy 2,304 bytes. There is no resident weight or compiled
+program cache. Error cleanup drains an existing queue before host storage is freed; success waits for
+readback before releasing the event and its dependencies. These allocations, tensor I/O, uploads,
+compilation, launch, synchronization, readback and teardown belong in **whole-call** measurements.
+The separate search's resident **kernel-event** gains exclude those costs and prove neither whole-call
+nor full-model acceleration. Portable protocol/CPU checks cannot replace physical GPU acceptance.

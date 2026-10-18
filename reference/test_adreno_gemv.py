@@ -32,7 +32,8 @@ def line(target="CPU", pattern=0, values=None):
     return f"{target}_GEMV_BITS pattern={pattern} values=" + " ".join(str(word(x)) for x in values) + "\n"
 
 
-METADATA = """platform=Qualcomm OpenCL
+METADATA = """tensor_bytes=1327104 rows=576 cols=576 pattern=0
+platform=Qualcomm OpenCL
 platform_vendor=Qualcomm
 platform_version=OpenCL 3.0
 vendor=QUALCOMM
@@ -40,6 +41,7 @@ device=Adreno GPU
 device_version=OpenCL 3.0 Adreno
 driver_version=vendor-driver
 device_type=4 gpu_required=true cpu_fallback=false
+kernel_build_status=0 kernel_build_options=-cl-std=CL1.2 fp_contract=off
 enqueue_ndrange_status=0 global=576 local=driver-selected
 kernel_event_execution_status=0 blocking_readback=success
 """
@@ -50,7 +52,8 @@ class NumericTests(unittest.TestCase):
         for pattern in range(3):
             values = [(-1.0 if row % 2 else 1.0) * row / 16 for row in range(ROWS)]
             result = compare_outputs(line(pattern=pattern, values=values),
-                                     METADATA + line("ADRENO", pattern, values), pattern)
+                                     METADATA.replace("pattern=0", f"pattern={pattern}")
+                                     + line("ADRENO", pattern, values), pattern)
             self.assertTrue(result["acceptance_met"])
             self.assertEqual(result["compared_rows"], ROWS)
             self.assertEqual(result["max_absolute_error"], 0.0)
@@ -201,6 +204,23 @@ class ProtocolTests(unittest.TestCase):
                        METADATA + "device=other GPU\n", METADATA.replace("vendor=QUALCOMM", "vendor=")):
             with self.assertRaises(ValidationError):
                 parse_metadata(broken)
+
+    def test_tensor_shape_and_build_status_are_required(self):
+        for old, new in (("tensor_bytes=1327104", "tensor_bytes=1327100"),
+                         ("rows=576", "rows=575"), ("cols=576", "cols=575"),
+                         ("kernel_build_status=0", "kernel_build_status=-11")):
+            with self.subTest(change=new), self.assertRaises(ValidationError):
+                parse_metadata(METADATA.replace(old, new))
+        for field in ("tensor_bytes=1327104 ", "rows=576 ", "cols=576 ",
+                      "kernel_build_status=0 "):
+            with self.subTest(missing=field), self.assertRaises(ValidationError):
+                parse_metadata(METADATA.replace(field, ""))
+
+    def test_metadata_pattern_must_match_the_requested_case(self):
+        for pattern in (1, 2, 3, -1):
+            with self.subTest(pattern=pattern), self.assertRaises(ValidationError):
+                compare_outputs(line(), METADATA.replace("pattern=0", f"pattern={pattern}")
+                                + line("ADRENO"), 0)
 
 
 class ReceiptTests(unittest.TestCase):

@@ -782,3 +782,20 @@ per-case command/device/source/binary/tensor receipts stay under ignored
 binaries are not committed. JavaScript explicitly refused with error 95.
 This remains downstream-only for review and later promotion, with no change to
 `llama/`, its laws or production generation paths.
+
+## 2026-10-17: downstream Adreno base and acceptance-boundary repair
+
+Reconcile fork PR #11 with its existing `devel` base at `d0ef2281ff3b17012f19650560bfa5235f370030`
+without rewriting either branch. Keep every upstream note above and retain Renan Vinícius's
+implementation/proof credit. The rewritten upstream history is not merged or claimed as qualified.
+
+The result validator previously accepted contradictory tensor byte count, row/column count,
+input-pattern metadata and failed kernel-build status alongside otherwise valid output words.
+Two targeted regressions exposed twelve such accepted corruptions before the repair. Require
+the exact 576×576 F32 metadata, matching requested pattern and successful kernel build in addition
+to the unchanged all-row finite/tolerance policy. Native kernel/API and production paths are unchanged.
+
+The current access check found no connected ADB device and the retained authorized wireless endpoint
+did not connect before its deadline. Prior physical execution/search results remain historical;
+neither a new whole-call comparison nor optimized-consumer device acceptance is claimed.
+`effects/adreno/README.md` distinguishes resident kernel events, complete call costs and full inference.
