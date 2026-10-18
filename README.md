@@ -121,7 +121,7 @@ generates 128 tokens on the 135M, fails if they differ from `transformers`' (`be
 (`ms_per_token=... load_s=... tokens=128 ok`). `MODEL=` and `THREADS=` pick the model and the thread count.
 
 `make bench-gpu` runs the same check on `demo/gen_gpu.bend`, whose matrix · vector products run on the GPU through
-bend-ml-tensor-gpu (a local copy in `vendor/` until it is on BendHub). It needs CUDA (`CUDA_HOME`); `GPU=off` runs the
+bend-ml-tensor-gpu (`bend-ml-tensor-gpu@0.1.0.0` on BendHub). It needs CUDA (`CUDA_HOME`); `GPU=off` runs the
 same program with its GPU calls on the CPU threads. It gives the same tokens and logit bits, and it is slower (section 06).
 
 `make media` regenerates the figures on this page from real runs (needs node, ffmpeg and Brave). CI runs `make check`
@@ -149,7 +149,6 @@ Contributions are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md) (pull reques
 |---|---|
 | [`llama/`](llama/) | the package `bend-ml-llama`: config, layers, model, loader and laws (`main.bend`); the fast loader the demos use (`load.bend`) |
 | [`llama/gpu.bend`](llama/gpu.bend) | generation with the products on the GPU (bend-ml-tensor-gpu), outside the package and its laws |
-| [`vendor/`](vendor/) | a local copy of bend-ml-tensor-gpu 0.1.0.0 until it is published |
 | [`demo/`](demo/) | `gen.bend` (generation), `gen_gpu.bend` (the same on the GPU), `forward.bend` and `layer_test.bend` (what the tests read), the tokenizer |
 | [`tests/`](tests/) | programs that must not compile |
 | [`reference/`](reference/) | download and preparation, the `transformers` and `tokenizers` oracles, the tests |

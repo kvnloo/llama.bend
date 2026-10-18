@@ -14,8 +14,8 @@ typed layers will become the BendHub package `bend-ml-llama`. **Private for now.
   `forward`, the loader and every law; `llama/README.md` explains the laws. `make laws` runs bend and `--verdict`.
 - `llama/load.bend`: the loader the demos use, the same model read with `bend-ml-binary-read` (foreign code, C and
   JS). Never import it, or binary-read, from `main.bend`: `--verdict` would fail (`make laws` checks it).
-- `llama/gpu.bend`: generation with the products on the GPU through bend-ml-tensor-gpu (`vendor/tensor-gpu.bend`, a
-  byte-exact copy until it is on BendHub; it uses Base's unsafe `Array.fork`). `demo/gen_gpu.bend` runs it, `make
+- `llama/gpu.bend`: generation with the products on the GPU through bend-ml-tensor-gpu (`bend-ml-tensor-gpu@0.1.0.0` from BendHub; it
+  uses Base's unsafe `Array.fork`). `demo/gen_gpu.bend` runs it, `make
   bench-gpu` checks its tokens. Never import it, or tensor-gpu, from `main.bend` or `load.bend` (`make laws` checks it).
 - `demo/`: programs on the package (`forward.bend`, `gen.bend`, `layer_test.bend`, which take the model
   directory as their first argument) and the SmolLM2 tokenizer (`tok.bend`, `unicode.bend`).
