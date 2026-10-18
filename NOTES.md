@@ -865,3 +865,5 @@ positions as one product) is what would amortize it, and generation has one row 
 SmolLM2-1.7B (6.8 GB of F32 weights, more than the card's 6 GB): with the default span the program stops ("out of
 memory: run again with a bigger span, as in --gpu 8GB"); with `--gpu 12GB` it runs oversubscribed, 4 tokens with the CPU
 path's ids and logit bits, 1.58 s a token (the CPU path: 0.25 s), 7.5 GB peak host memory. Tried once, not pursued.
+
+bend-ml-tensor-gpu 0.1.0.0 is on BendHub (2026-10-18): `llama/gpu.bend` imports it from there and `vendor/` is gone.
