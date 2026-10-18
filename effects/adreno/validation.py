@@ -78,7 +78,8 @@ def parse_metadata(stdout):
     required = ("platform", "platform_vendor", "platform_version", "vendor", "device",
                 "device_version", "driver_version", "device_type", "gpu_required",
                 "cpu_fallback", "enqueue_ndrange_status", "global", "local",
-                "kernel_event_execution_status", "blocking_readback")
+                "kernel_event_execution_status", "blocking_readback",
+                "tensor_bytes", "rows", "cols", "pattern", "kernel_build_status")
     fields = {}
     for line in stdout.splitlines():
         if line.startswith("ADRENO_GEMV_BITS"):
@@ -103,15 +104,21 @@ def parse_metadata(stdout):
         raise ValidationError("OpenCL device is not GPU-only")
     expected = {"gpu_required": "true", "cpu_fallback": "false",
                 "enqueue_ndrange_status": "0", "global": "18432", "local": "256",
-                "kernel_event_execution_status": "0", "blocking_readback": "success"}
+                "kernel_event_execution_status": "0", "blocking_readback": "success",
+                "tensor_bytes": str(TENSOR_BYTES), "rows": str(ROWS), "cols": str(COLS),
+                "kernel_build_status": "0"}
     for key, value in expected.items():
         if fields[key] != value:
             raise ValidationError(f"unaccepted OpenCL status: {key}={fields[key]}")
+    if fields["pattern"] not in tuple(str(index) for index in range(len(PATTERNS))):
+        raise ValidationError("invalid tensor input pattern")
     return fields
 
 
 def compare_outputs(cpu_stdout, gpu_stdout, pattern):
     metadata = parse_metadata(gpu_stdout)
+    if metadata["pattern"] != str(pattern):
+        raise ValidationError("OpenCL metadata pattern does not match the requested case")
     result = compare_values(parse_bits(cpu_stdout, "CPU", pattern),
                             parse_bits(gpu_stdout, "ADRENO", pattern))
     result["opencl"] = metadata

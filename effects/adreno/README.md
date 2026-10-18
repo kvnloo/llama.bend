@@ -42,9 +42,13 @@ ADRENO_GEMV_BITS pattern=<0|1|2> values=<576 space-separated decimal U32 words>
 
 The words are the exact F32 bit patterns, not rounded decimal float values. The native effect also reports the
 actual platform name/vendor/version, device name/vendor/version, driver version and device type. Its status
-fields must state `gpu_required=true cpu_fallback=false`, `enqueue_ndrange_status=0 global=18432 local=256`, and
-`kernel_event_execution_status=0 blocking_readback=success`. A result line or completed GPU event alone is not
-numerical acceptance.
+fields must state `tensor_bytes=1327104 rows=576 cols=576`, the requested `pattern`, successful
+`kernel_build_status=0`, `gpu_required=true cpu_fallback=false`,
+`enqueue_ndrange_status=0 global=18432 local=256`, and
+`kernel_event_execution_status=0 blocking_readback=success`. Missing, duplicated or mismatched shape,
+pattern or build status fails acceptance even when 576 result words are present. A result line or completed
+GPU event alone is not numerical acceptance. This metadata boundary was repaired on 2026-10-17 without
+changing the retained native kernel, launch geometry or numerical tolerance.
 
 ## Numerical acceptance
 

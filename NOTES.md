@@ -750,3 +750,16 @@ A deliberately partial copied state actually reran only the two missing producti
 oracles and preserved the original preparation receipt. A short real deadline and
 expired resume retained the terminal cause and could not extend the original lease.
 Those recovery checks are not additional performance trials.
+
+## 2026-10-17: optimized-consumer acceptance metadata repair
+
+Apply the scalar capability validator's exact tensor-byte/shape/input-pattern and successful-build
+requirements to this consumer too. Complete output words and a successful event cannot override
+contradictory or missing launch-input metadata. The two added regressions cover twelve corruptions
+previously accepted by both variants. The cooperative kernel, global18432/local256 launch, native
+effect, Bend API, three standalone patterns, five research patterns and numeric tolerance are unchanged.
+
+No expired search is restarted. No ADB device was connected in the current access check; prior
+kernel-only receipts do not establish a new consumer/whole-call or full-model result. Physical
+acceptance remains LOCAL_ONLY. Preserve Renan Vinícius's implementation/proof credit and historical
+receipts; this is only a downstream protocol repair.
