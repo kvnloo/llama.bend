@@ -16,6 +16,30 @@ class NumericIntegrity(unittest.TestCase):
         one = RAW.replace('  id 5  logit 1058642330 0.6  t=0.004s\n', '')
         with self.assertRaisesRegex(ValueError,'generated count outside requested'):
             validate_generation(one,BASE|{'generated_ids':[4],'logit_bits':[1056964608], 'requested_tokens':True})
+    def test_boolean_frozen_ids_are_not_natural_numbers(self):
+        for field, ids in [('prompt_ids', [True, 2]),
+                           ('generated_ids', [True, 5])]:
+            with self.subTest(field=field):
+                raw = RAW if field == 'prompt_ids' else RAW.replace('id 4 ', 'id 1 ')
+                expected = BASE | {'logit_bits': [1056964608, 1058642330], field: ids}
+                with self.assertRaisesRegex(ValueError, f'invalid {field} oracle'):
+                    validate_generation(raw, expected)
+
+    def test_boolean_f32_bits_cannot_spoof_a_frozen_oracle(self):
+        raw = RAW.replace('logit 1056964608 0.5', 'logit 1 0.0')
+        with self.assertRaisesRegex(ValueError, 'invalid logit bits oracle'):
+            validate_generation(raw, BASE | {'logit_bits': [True, 1058642330]})
+
+    def test_malformed_numerical_oracles_fail_closed(self):
+        for want in ([True, 0.6], ['0.5', 0.6], [10**400, 0.6], None, {}):
+            with self.subTest(oracle=repr(want)[:40]):
+                with self.assertRaisesRegex(ValueError, 'invalid logit oracle'):
+                    validate_generation(RAW, BASE | {'logits': want, 'logit_tolerance': 1})
+        for tolerance in (10**400, None):
+            with self.subTest(tolerance=repr(tolerance)[:40]):
+                with self.assertRaisesRegex(ValueError, 'invalid numerical tolerance'):
+                    validate_generation(RAW, BASE | {'logits': [0.5, 0.6], 'logit_tolerance': tolerance})
+
     def test_valid_numeric_oracles_and_counts_unchanged(self):
         self.assertEqual(validate_generation(RAW, BASE | {
             'logits':[0.5,0.6], 'logit_tolerance':1e-5,

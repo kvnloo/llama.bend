@@ -41,6 +41,7 @@ def file_hash(path):
 
 def validate_generation(raw, expected, stages=False):
     """Strict completion/identity gate around PR2's intentionally diagnostic parser."""
+    if not isinstance(expected, dict): raise ValueError('invalid expected oracle mapping')
     prefix, separator, suffix = raw.partition('\ntext: ')
     if not separator or not suffix.endswith('\n'):
         raise ValueError('missing complete final text')
@@ -80,6 +81,10 @@ def validate_generation(raw, expected, stages=False):
             raise ValueError('unexpected generation output line')
     try: prompt_ids = [int(x) for x in PROMPT.fullmatch(prompts[0])[1].split()]
     except (TypeError, ValueError): raise ValueError('malformed prompt IDs') from None
+    for name in ('prompt_ids', 'generated_ids'):
+        oracle_ids = expected.get(name)
+        if not isinstance(oracle_ids, list) or any(type(x) is not int or x < 0 for x in oracle_ids):
+            raise ValueError(f'invalid {name} oracle')
     if prompt_ids != expected['prompt_ids']: raise ValueError('prompt IDs differ from frozen oracle')
     if ids != expected['generated_ids']: raise ValueError('generated IDs/count differ from frozen oracle')
     if not ids: raise ValueError('oracle must contain generated IDs')
@@ -89,12 +94,24 @@ def validate_generation(raw, expected, stages=False):
         if type(n) is not int or n < 1 or len(ids) > n or (len(ids) < n and ids[-1] != 0):
             raise ValueError('generated count outside requested/EOS bounds')
     if 'logit_bits' in expected:
-        if bits != expected['logit_bits']: raise ValueError('logit bits differ')
+        want_bits = expected['logit_bits']
+        if not isinstance(want_bits, list) or any(type(x) is not int or not 0 <= x <= 0xffffffff for x in want_bits):
+            raise ValueError('invalid logit bits oracle')
+        if bits != want_bits: raise ValueError('logit bits differ')
     elif 'logits' in expected:
         want = expected['logits']
-        if len(want) != len(logits) or not all(math.isfinite(x) for x in want): raise ValueError('invalid logit oracle')
-        tolerance = expected['logit_tolerance']
-        if type(tolerance) not in (int, float) or not math.isfinite(tolerance) or tolerance < 0: raise ValueError('invalid numerical tolerance')
+        try:
+            valid_oracle = isinstance(want, list) and len(want) == len(logits) and all(
+                type(x) in (int, float) and math.isfinite(x) for x in want)
+        except OverflowError:
+            valid_oracle = False
+        if not valid_oracle: raise ValueError('invalid logit oracle')
+        tolerance = expected.get('logit_tolerance')
+        try:
+            valid_tolerance = type(tolerance) in (int, float) and math.isfinite(tolerance) and tolerance >= 0
+        except OverflowError:
+            valid_tolerance = False
+        if not valid_tolerance: raise ValueError('invalid numerical tolerance')
         errors = [abs(a-b)/abs(b) if b else (0.0 if a == b else math.inf) for a,b in zip(logits,want)]
         if max(errors) > tolerance:
             raise ValueError('logits differ from numerical oracle')
