@@ -760,3 +760,42 @@ time: not allocation from the kernel, not memory pressure, but the computation i
 cache misses; one hypothesis is that without `Act` the intermediate lists are freed in the middle of the layer instead of
 after it. Telling those apart needs hardware counters (`perf`, not installed here). Until then `forward_gen` keeps `Act`
 on one band, where it measured faster.
+
+## 2026-10-16: downstream Adreno foreign-effect capability
+
+I isolated `effects/adreno/` from the production model and the existing CPU campaign
+(fork issue #10). Bend remains pinned to 2.0.37; this is a host foreign-C IO effect,
+not a new native `!` backend or GPU inference integration.
+
+On the physical S25 Ultra, the effect selected the Adreno 830 through vendor
+OpenCL 3.0, enqueued a 576-work-item GEMV, waited for completion and read back all
+rows. For the pinned SmolLM2-135M `w/h0.q.bin` (576×576 F32; SHA256
+`0f585f0779626028bdddf5cc74949849d90c838b759a3652220a1cd37d505162`), all 576
+rows matched the existing Bend `M.mv` oracle numerically for each of `ones`,
+`alternating` and `basis-last`. Maximum absolute and relative errors were zero
+under the documented finite-value/tolerance policy; signed zeros are numerically
+equivalent. No CPU fallback, throughput measurement or speedup claim.
+
+The new numerical/protocol/runner regressions passed 35 tests. Native build and
+per-case command/device/source/binary/tensor receipts stay under ignored
+`.scratch/adreno/`; model weights, raw receipts, device identifiers and vendor
+binaries are not committed. JavaScript explicitly refused with error 95.
+This remains downstream-only for review and later promotion, with no change to
+`llama/`, its laws or production generation paths.
+
+## 2026-10-17: downstream Adreno base and acceptance-boundary repair
+
+Reconcile fork PR #11 with its existing `devel` base at `d0ef2281ff3b17012f19650560bfa5235f370030`
+without rewriting either branch. Keep every upstream note above and retain Renan Vinícius's
+implementation/proof credit. The rewritten upstream history is not merged or claimed as qualified.
+
+The result validator previously accepted contradictory tensor byte count, row/column count,
+input-pattern metadata and failed kernel-build status alongside otherwise valid output words.
+Two targeted regressions exposed twelve such accepted corruptions before the repair. Require
+the exact 576×576 F32 metadata, matching requested pattern and successful kernel build in addition
+to the unchanged all-row finite/tolerance policy. Native kernel/API and production paths are unchanged.
+
+The current access check found no connected ADB device and the retained authorized wireless endpoint
+did not connect before its deadline. Prior physical execution/search results remain historical;
+neither a new whole-call comparison nor optimized-consumer device acceptance is claimed.
+`effects/adreno/README.md` distinguishes resident kernel events, complete call costs and full inference.
