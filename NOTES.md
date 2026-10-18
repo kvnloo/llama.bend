@@ -820,3 +820,48 @@ SmolLM2-135M, a 1,190-token prompt, 8 tokens, 16 threads, 3 rounds alternated: f
 s, 93-99 ms per token in both, the same tokens. The appends run over a layer's query heads, not over the context. Not
 taken; the findings carry a `bend-lint: disable-next` directive with the reason, so `make lint` is clean (0 findings, 4
 suppressed).
+
+## 2026-10-18: generation with the products on the GPU (preliminary)
+
+bend-ml-tensor-gpu 0.1.0.0 (bend-ml, not on BendHub yet; a byte-exact copy in `vendor/`) runs tensor-array's products as
+one `!` call (a bang) each, on the GPU, with tensor-array's bits. `llama/gpu.bend` is the forward pass for generation
+(`forward_gen`, `forward_pre`, `block_gen`'s layer) with every matrix · vector product through `TG.matmul_nt(1n, ...)`;
+`demo/gen_gpu.bend` is `demo/gen.bend` on it, and `make bench-gpu` (or `GPU=1 scripts/bench.sh`, `GPU=off` for `--gpu
+off`) checks its tokens. Like `load.bend`, it stays out of `main.bend`: `make laws` now also checks that `main.bend`,
+`load.bend` and `tests/` do not import tensor-gpu.
+
+Correctness. SmolLM2-135M and 360M: the 128 tokens of `make bench` equal transformers' on the GPU build and with
+`--gpu off` (`bench/expected-smollm2-360m.txt` is new, from `reference/bench_ref.py`). The 12 prompts of `gen.json`
+give the same output as `demo/gen`, logit bits included: at 135M against `make bits`'s saved files (0 failures, GPU and
+`--gpu off`), at 360M against `demo/gen` run beside it (no saved bits for the 360M).
+
+Two things I found on the way:
+
+- With the host's attention in parallel (d = 4 on 16 threads) only 48 of a run's 4,007 products reached the device
+  (nsys): a bang that follows parallel lets in the same evaluation runs on the CPU threads (Bend's SHADERS guide). The
+  GPU path runs attention's heads one after another (d = 0), and then all of them do.
+- A bang costs about 1 ms whatever its size (median 1.05 ms for the 576 x 960 product, nsys), so the products that read
+  the same vector are stacked into one: q, k and v in one matrix of dim + 2·kvw rows, gate and up in one of 2·ffn rows,
+  copied at load time. Four bangs a layer instead of seven (121 a token on the 135M instead of 211). Each row is still
+  its own dot product, so the bits do not change.
+
+Speed, preliminary (other work was running, load average 2-5): RTX 4050 Laptop (6 GB, driver 615.78.08), NVRTC 12.9, Bend 2.0.37, 128
+tokens from "Once upon a time", ms per token by the program's own clock, 3 alternated rounds, all within 2%:
+
+| model | CPU path, 16 threads | GPU path | GPU path, 7 bangs a layer | GPU path `--gpu off` |
+|---|---|---|---|---|
+| 135M | 61.1-62.8 | 193.2-193.6 | 310.9-311.9 | 71.9-72.1 |
+| 360M | 109.4-110.9 | 263.8-264.8 | 377.2-379.5 | 156.5-158.8 |
+
+The GPU path is 3.1x slower on the 135M and 2.4x on the 360M. Where a 135M token goes (nsys, 16 tokens): about 130 ms
+in its 121 bangs (1.05 ms each; the 49,152-row logits product about 4 ms) and about 80 ms on the host between them, of
+which the layer's own work is some 25-30 ms (the products are 75-82% of a one-thread token) and the rest is managed
+memory: 11,700 host page faults and 6,400 device page faults a token, about 12 MB moved to the device and 9 MB back. The input vector is
+written on the host and read by the device, the result the other way, and the host's allocator reuses blocks the device
+touched. The weights stay on the device after the first token. Each product also runs 1 row of a 4 x 4 tile and leaves
+most lanes idle (144 leaves for a 576-row product). The fixed cost is the package's; batching rows (the prompt's
+positions as one product) is what would amortize it, and generation has one row a token.
+
+SmolLM2-1.7B (6.8 GB of F32 weights, more than the card's 6 GB): with the default span the program stops ("out of
+memory: run again with a bigger span, as in --gpu 8GB"); with `--gpu 12GB` it runs oversubscribed, 4 tokens with the CPU
+path's ids and logit bits, 1.58 s a token (the CPU path: 0.25 s), 7.5 GB peak host memory. Tried once, not pursued.
