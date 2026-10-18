@@ -21,7 +21,7 @@ from pathlib import Path
 
 # gen.bend emits both a numeric logit bit pattern and a rendered F32 value.
 # Requiring both prevents truncated rows from being counted as valid samples.
-TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\s+\d+\s+[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s+t=(\d+(?:\.\d+)?)s\s*$")
+TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\s+(\d+)\s+[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s+t=(\d+(?:\.\d+)?)s\s*$")
 LOAD = re.compile(r"^weights loaded in\s+(\d+(?:\.\d+)?)s\s*$")
 
 
@@ -75,7 +75,13 @@ def report(output: str) -> dict[str, float | int | None]:
             match = TOKEN.fullmatch(line)
             if not match:
                 raise ValueError("malformed generated token row")
-            times.append(finite_seconds(match.group(1), "token timestamp"))
+            # gen.bend renders the chosen F32's raw bits with U32.show.
+            # A larger integer cannot be a genuine emission, even when the
+            # row has an otherwise parseable timestamp.
+            bits = match.group(1)
+            if len(bits) > 10 or int(bits) > 0xFFFFFFFF:
+                raise ValueError("invalid generated token logit bits")
+            times.append(finite_seconds(match.group(2), "token timestamp"))
 
     if not times:
         raise ValueError("no generated token timestamps found (expected '  id ... t=...s')")

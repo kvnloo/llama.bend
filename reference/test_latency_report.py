@@ -82,6 +82,20 @@ text: Once upon a time
                 with self.assertRaisesRegex(ValueError, "malformed generated token row"):
                     report(malformed + "\n  id 5 logit 1 0.5 t=0.200s")
 
+    def test_generated_logit_bits_must_fit_u32(self):
+        # demo/gen.bend prints U32.show(bits(F32)), never wider integers.
+        for bits in ("4294967296", "9999999999999999", "9" * 5000):
+            with self.subTest(bits=bits[:32]):
+                with self.assertRaisesRegex(ValueError, "invalid generated token logit bits"):
+                    report(f"  id 4 logit {bits} 0.5 t=0.100s\n"
+                           "  id 5 logit 1 0.6 t=0.200s")
+
+    def test_largest_finite_f32_bit_pattern_is_accepted(self):
+        metrics = report("  id 4 logit 2139095039 3.4028235e+38 t=0.100s\n"
+                         "  id 5 logit 1056964608 0.5 t=0.200s")
+        self.assertEqual(metrics["tokens"], 2)
+        self.assertAlmostEqual(metrics["decode_p50_ms"], 100.0)
+
     def test_scientific_logit_rendering_does_not_change_timing(self):
         r = report("  id 4 logit 1 -1.4e-05 t=0.100s\n  id 5 logit 1 2.3e+02 t=0.200s")
         self.assertEqual(r["tokens"], 2)
