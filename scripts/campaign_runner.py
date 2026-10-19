@@ -184,6 +184,26 @@ def group_rss_kib(pgid):
         except (OSError, ProcessLookupError): pass
     return total
 
+def live_group_descendants(pgid):
+    """Live same-process-group children, excluding reaped/zombie processes.
+
+    Linux /proc stat fields after the final '(comm)' are state, ppid, pgrp.
+    No wait or signal is performed here; the process group is only ours.
+    """
+    survivors = []
+    for stat_path in Path('/proc').glob('[0-9]*/stat'):
+        try:
+            pid = int(stat_path.parent.name)
+            if pid == pgid:
+                continue
+            fields = stat_path.read_text().rsplit(')', 1)[1].split()
+            if int(fields[2]) == pgid and fields[0] not in ('Z', 'X', 'x'):
+                survivors.append(pid)
+        except (OSError, IndexError, ValueError):
+            pass  # Process may exit between directory enumeration and read.
+    return survivors
+
+
 def execute(spec, budget, rawbase):
     """Read stdout/stderr concurrently, monitor only this process group, reap via wait4.
 
@@ -236,7 +256,16 @@ def execute(spec, budget, rawbase):
                 try:os.killpg(proc.pid,signal.SIGKILL)
                 except ProcessLookupError:pass
                 break
+        # A reaped leader can leave a live descendant that closed its output
+        # pipes. Do not count that as a clean, isolated trial completion.
+        if exit_info is not None and live_group_descendants(proc.pid):
+            reason = reason or 'lingering_descendant'
     finally:
+        # Cleanup must also happen if a selector/read/fsync setup fails after
+        # the leader exited, even though proc.returncode is already set.
+        if live_group_descendants(proc.pid):
+            try: os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
         if proc.returncode is None:
             try:os.killpg(proc.pid,signal.SIGKILL)
             except ProcessLookupError:pass
