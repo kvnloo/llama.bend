@@ -115,6 +115,28 @@ text: Once upon a time
         self.assertEqual(metrics["tokens"], 2)
         self.assertAlmostEqual(metrics["decode_p50_ms"], 100.0)
 
+    def test_nonfinite_raw_f32_logit_bits_cannot_create_false_timing_samples(self):
+        # These are syntactically valid U32 bit patterns, but none encodes
+        # a finite F32. A finite-looking display must not launder them.
+        for bits in (
+            2139095040,  # +infinity: 0x7f800000
+            4286578688,  # -infinity: 0xff800000
+            2143289344,  # quiet NaN: 0x7fc00000
+            2139095041,  # signaling NaN payload: 0x7f800001
+            4290772992,  # negative quiet NaN: 0xffc00000
+        ):
+            with self.subTest(bits=bits):
+                raw = (f"  id 4 logit {bits} 0.5 t=0.100s\n"
+                       "  id 5 logit 1056964608 0.5 t=0.200s")
+                with self.assertRaisesRegex(ValueError, "nonfinite generated token logit bits"):
+                    report(raw)
+
+    def test_negative_largest_finite_f32_bits_remain_accepted(self):
+        metrics = report("  id 4 logit 4286578687 -3.4028235e+38 t=0.100s\n"
+                         "  id 5 logit 1056964608 0.5 t=0.200s")
+        self.assertEqual(metrics["tokens"], 2)
+        self.assertAlmostEqual(metrics["decode_p50_ms"], 100.0)
+
     def test_overflowing_displayed_f32_cannot_create_false_timing_samples(self):
         # These are valid decimal spellings and used to pass despite being
         # impossible finite F32 values in the generator's output.
