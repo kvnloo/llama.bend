@@ -15,13 +15,14 @@ import argparse
 import json
 import math
 import re
+import struct
 import sys
 from pathlib import Path
 
 
 # gen.bend emits both a numeric logit bit pattern and a rendered F32 value.
 # Requiring both prevents truncated rows from being counted as valid samples.
-TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\s+(\d+)\s+[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s+t=(\d+(?:\.\d+)?)s\s*$", re.ASCII)
+TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\s+(?P<bits>\d+)\s+(?P<logit>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s+t=(?P<stamp>\d+(?:\.\d+)?)s\s*$", re.ASCII)
 LOAD = re.compile(r"^weights loaded in\s+(\d+(?:\.\d+)?)s\s*$", re.ASCII)
 
 
@@ -78,10 +79,20 @@ def report(output: str) -> dict[str, float | int | None]:
             # gen.bend renders the chosen F32's raw bits with U32.show.
             # A larger integer cannot be a genuine emission, even when the
             # row has an otherwise parseable timestamp.
-            bits = match.group(1)
+            bits = match.group("bits")
             if len(bits) > 10 or int(bits) > 0xFFFFFFFF:
                 raise ValueError("invalid generated token logit bits")
-            times.append(finite_seconds(match.group(2), "token timestamp"))
+            # The producer renders an F32, never an overflowing Python float.
+            # For instance, 1e309 or 3.5e38 must not silently count as a
+            # genuine generated token with a valid-looking timestamp.
+            rendered = float(match.group("logit"))
+            if not math.isfinite(rendered):
+                raise ValueError("nonfinite generated token logit")
+            try:
+                struct.pack("<f", rendered)
+            except OverflowError as error:
+                raise ValueError("generated token logit outside F32 range") from error
+            times.append(finite_seconds(match.group("stamp"), "token timestamp"))
 
     if not times:
         raise ValueError("no generated token timestamps found (expected '  id ... t=...s')")

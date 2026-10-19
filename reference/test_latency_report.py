@@ -115,6 +115,21 @@ text: Once upon a time
         self.assertEqual(metrics["tokens"], 2)
         self.assertAlmostEqual(metrics["decode_p50_ms"], 100.0)
 
+    def test_overflowing_displayed_f32_cannot_create_false_timing_samples(self):
+        # These are valid decimal spellings and used to pass despite being
+        # impossible finite F32 values in the generator's output.
+        for shown, diagnostic in (
+            ("1e309", "nonfinite generated token logit"),
+            ("-1e309", "nonfinite generated token logit"),
+            ("3.5e38", "generated token logit outside F32 range"),
+            ("-3.5e38", "generated token logit outside F32 range"),
+        ):
+            with self.subTest(shown=shown):
+                raw = (f"  id 4 logit 1 {shown} t=0.100s\n"
+                       "  id 5 logit 2 0.5 t=0.200s")
+                with self.assertRaisesRegex(ValueError, diagnostic):
+                    report(raw)
+
     def test_scientific_logit_rendering_does_not_change_timing(self):
         r = report("  id 4 logit 1 -1.4e-05 t=0.100s\n  id 5 logit 1 2.3e+02 t=0.200s")
         self.assertEqual(r["tokens"], 2)
