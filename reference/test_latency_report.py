@@ -92,6 +92,23 @@ text: Once upon a time
                     report(f"  id 4 logit {bits} 0.5 t=0.100s\n"
                            "  id 5 logit 1 0.6 t=0.200s")
 
+    def test_non_ascii_numerals_are_not_native_generated_token_rows(self):
+        # Nat.show, U32.show, F32.show and tsec2 emit ASCII decimal numerals.
+        # Python's Unicode \d and float/int accept non-native numeral scripts.
+        for row in (
+            "  id ٤ logit 1 0.5 t=0.100s",
+            "  id 4 logit ١ 0.5 t=0.100s",
+            "  id 4 logit 1 ٠.٥ t=0.100s",
+            "  id 4 logit 1 0.5 t=٠.100s",
+        ):
+            with self.subTest(row=row):
+                with self.assertRaisesRegex(ValueError, "malformed generated token row"):
+                    report(row + "\n  id 5 logit 2 0.5 t=0.200s")
+
+    def test_non_ascii_numerals_are_not_native_load_duration(self):
+        with self.assertRaisesRegex(ValueError, "malformed load duration"):
+            report("weights loaded in ١.٢s\n  id 4 logit 1 0.5 t=0.100s")
+
     def test_largest_finite_f32_bit_pattern_is_accepted(self):
         metrics = report("  id 4 logit 2139095039 3.4028235e+38 t=0.100s\n"
                          "  id 5 logit 1056964608 0.5 t=0.200s")
@@ -228,6 +245,21 @@ class LatencyCLIIntegrationTests(unittest.TestCase):
         self.assertEqual(baseline.returncode, 0, baseline.stderr)
         self.assertEqual(injected.returncode, 0, injected.stderr)
         self.assertEqual(json.loads(injected.stdout), json.loads(baseline.stdout))
+
+    def test_non_ascii_numbers_fail_at_cli_boundary(self):
+        # Python accepts Unicode decimal digits in regex/float/int, but the
+        # native Bend generator prints ASCII-only numbers.
+        for receipt in (
+            "  id ٤ logit 1 0.5 t=0.100s\n",
+            "  id 4 logit ١ 0.5 t=0.100s\n",
+            "  id 4 logit 1 ٠.٥ t=0.100s\n",
+            "  id 4 logit 1 0.5 t=٠.100s\n",
+        ):
+            with self.subTest(receipt=receipt):
+                result = self.cli(data=receipt)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("malformed generated token row", result.stderr)
+                self.assertEqual(result.stdout, "")
 
 if __name__ == "__main__":
     unittest.main()
