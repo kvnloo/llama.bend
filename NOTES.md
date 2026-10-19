@@ -902,3 +902,6 @@ now gives these numbers; the 1.7B's oversubscribed 1.6 s a token stays a single 
   360M (tokens and logit bits, 11 forward and 12 generation prompts); the 1.7B on the CPU, 2 prompts of 12 tokens,
   identical. `make bench-gpu` (135M, 360M, GPU and `--gpu off`) and `make bench` give transformers' tokens. The device
   code is byte for byte the same.
+- The saved bits now exist for all three models (2026-10-19): `bits.py save` for 360M and 1.7B (23 files each, in the
+  local `data/<model>/test/bits/`, the 1.7B under the heavy-run lock), then `bits.py check` identical, so `make bits
+  MODEL=smollm2-360m` and `MODEL=smollm2-1.7b` work like the 135M's.
