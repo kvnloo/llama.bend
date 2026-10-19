@@ -45,6 +45,30 @@ text: Once upon a time
         with self.assertRaisesRegex(ValueError, "not monotonic"):
             report("  id 4  logit 1 1.0 t=1.5s\n  id 5  logit 2 2.0 t=1.0s")
 
+    def test_full_generation_requires_completion_footer(self):
+        # The real generator prints decoded text only after finishing decode.
+        partial = ("weights loaded in 1.000s\nprompt ids: 1 2\n"
+                   "  id 4 logit 1056964608 0.5 t=0.100s\n"
+                   "  id 5 logit 1056964608 0.5 t=0.200s\n")
+        for suffix in ("", "text:\n", "text:truncated\n"):
+            with self.subTest(suffix=suffix):
+                with self.assertRaisesRegex(ValueError, "missing decoded-text footer"):
+                    report(partial + suffix)
+        self.assertEqual(report(partial + "text: completed\n")["tokens"], 2)
+        self.assertEqual(report("  id 4 logit 1 1.0 t=0.100s\n")["tokens"], 1)
+
+    def test_partial_generation_cli_does_not_emit_metrics(self):
+        partial = ("prompt ids: 1\n"
+                   "  id 4 logit 1056964608 0.5 t=0.100s\n")
+        result = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parents[1]
+                                 / "scripts/latency_report.py"), "--json"],
+            input=partial, text=True, capture_output=True, check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("missing decoded-text footer", result.stderr)
+
     def test_captured_generation_output(self):
         # Real 1.7B output tracked for the release video (timestamps may be rounded).
         path = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"

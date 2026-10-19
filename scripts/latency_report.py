@@ -55,9 +55,11 @@ def report(output: str) -> dict[str, float | int | None]:
     times: list[float] = []
     load_s = None
     seen_prompt = False
+    seen_text_footer = False
     for line in output.splitlines():
         # Decoded text may itself contain timestamp-looking lines.
         if line.startswith("text: "):
+            seen_text_footer = True
             break
         if line.startswith("prompt ids:"):
             seen_prompt = True
@@ -101,6 +103,10 @@ def report(output: str) -> dict[str, float | int | None]:
 
     if not times:
         raise ValueError("no generated token timestamps found (expected '  id ... t=...s')")
+    # Full generator output has a prompt header and a final decoded-text footer.
+    # Never report partial stdout as a completed inference.
+    if seen_prompt and not seen_text_footer:
+        raise ValueError("incomplete generated output: missing decoded-text footer")
     intervals_ms = [(b - a) * 1000 for a, b in zip(times, times[1:])]
     if any(not math.isfinite(value) for value in intervals_ms):
         raise ValueError("nonfinite decode interval")
