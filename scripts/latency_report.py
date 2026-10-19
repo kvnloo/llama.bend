@@ -21,8 +21,8 @@ from pathlib import Path
 
 # gen.bend emits both a numeric logit bit pattern and a rendered F32 value.
 # Requiring both prevents truncated rows from being counted as valid samples.
-TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\s+(\d+)\s+[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s+t=(\d+(?:\.\d+)?)s\s*$")
-LOAD = re.compile(r"^weights loaded in\s+(\d+(?:\.\d+)?)s\s*$")
+TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\s+(\d+)\s+[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s+t=(\d+(?:\.\d+)?)s\s*$", re.ASCII)
+LOAD = re.compile(r"^weights loaded in\s+(\d+(?:\.\d+)?)s\s*$", re.ASCII)
 
 
 def percentile(values: list[float], fraction: float) -> float:
