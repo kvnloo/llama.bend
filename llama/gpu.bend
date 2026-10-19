@@ -20,7 +20,6 @@
 # load.bend (bend-ml-binary-read, foreign code) for the weights. All of the computation is Bend.
 
 import Base
-import bend-ml-tensor@0.1.2.0/main.bend as T
 import bend-ml-tensor-array@0.1.14.0/main.bend as TA
 import bend-ml-tensor-gpu@0.1.2.1/main.bend as TG
 import ./main.bend as M
@@ -78,11 +77,11 @@ def block(+c: M.Cfg, lw: LW<c>, -cap: Nat, +t: Nat, kv: M.KV<cap, t>, -room: {Tr
         +ks = M.ropes(rt, M.heads(M.Cfg.kv(c), M.Cfg.half(c), List.take(&2, F32, kv2, M.Cfg.kvw(c))))
         M.KA.then(BR<c, cap, t>, cap, 1n+t, M.attention(c, 0n, cap, t, qs, M.KV.push(c, cap, t, kv, room, M.joins(ks), M.chunks(M.Cfg.kv(c), M.Cfg.head(c), List.drop(&2, F32, kv2, M.Cfg.kvw(c))))), kv3 => +at =>
         gmv(BR<c, cap, t>, M.Cfg.dim(c), M.Cfg.dim(c), wo, at, wo => +a =>
-          +x1 = T.zip_with.add(x, a)
+          +x1 = M.list.add(x, a)
           +n2 = M.rmsnorm(c, x1, ln2)
           gmv(BR<c, cap, t>, gu(c), M.Cfg.dim(c), wgu, n2, wgu => +y2 =>
             gmv(BR<c, cap, t>, M.Cfg.dim(c), M.Cfg.ffn(c), wd, M.swiglu(List.take(&2, F32, y2, M.Cfg.ffn(c)), List.drop(&2, F32, y2, M.Cfg.ffn(c))), wd => +m =>
-              BR{T.zip_with.add(x1, m), kv3, LW{ln1, wqkv, wo, ln2, wgu, wd}})))))
+              BR{M.list.add(x1, m), kv3, LW{ln1, wqkv, wo, ln2, wgu, wd}})))))
 
 # the last layer's output, the layers and caches handed back
 type Run<-c: M.Cfg, -cap: Nat, -t: Nat> is Type:
