@@ -17,6 +17,9 @@ type, computed from that config, so a weight in the wrong place does not compile
 past its room, that the weights cover the checkpoint) are laws that Bend's kernel checks. The package is on BendHub as
 `bend-ml-llama`; it builds on [bend-ml](https://github.com/nuxyel/bend-ml).
 
+llama.bend is models and inference: loading the weights, the forward pass, the KV cache, the tokenizer and generation.
+Training them is out of its scope; it belongs to a separate training library, which is not released yet.
+
 <p align="center"><img src="docs/media/deck/frames/01-title.webp" alt="llama.bend v1.0: 21 laws proved, 3 models in one package, 0 different tokens against transformers" width="90%"></p>
 
 ## 01 · A weight in the wrong place is a type error
