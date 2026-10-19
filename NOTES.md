@@ -889,3 +889,16 @@ alternated rounds, the tokens checked against `transformers` in every run.
 
 The same as on the busy machine, within 1%: the GPU path is 3.1x slower on the 135M and 2.4x on the 360M. The README
 now gives these numbers; the 1.7B's oversubscribed 1.6 s a token stays a single busy-machine run.
+
+## Off bend-ml-tensor (2026-10-19)
+
+- bend-ml-tensor is frozen (bend-ml NOTES, 2026-10-19), so llama.bend no longer imports it. Its five list helpers
+  (`zip_with.add`, `zip_with.mul`, `scale.l`, `sum.go`, `softmax.l`, with softmax's own helpers) are now `list.add`,
+  `list.mul`, `list.scale`, `list.sum.go` and `list.softmax` in `llama/main.bend`, copied with the same bodies (checked
+  mechanically against the package's source: only the names differ), so every operation runs in the same order.
+  `llama/gpu.bend` uses them through `M.`.
+- Same bits: `make laws`, `make check` and `make bits` (135M, 23 files identical); built before and after, the forward
+  pass and generation on the CPU, and generation on the GPU and with `--gpu off`, byte for byte identical at 135M and
+  360M (tokens and logit bits, 11 forward and 12 generation prompts); the 1.7B on the CPU, 2 prompts of 12 tokens,
+  identical. `make bench-gpu` (135M, 360M, GPU and `--gpu off`) and `make bench` give transformers' tokens. The device
+  code is byte for byte the same.
