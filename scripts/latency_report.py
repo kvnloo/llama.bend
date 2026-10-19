@@ -82,6 +82,11 @@ def report(output: str) -> dict[str, float | int | None]:
             bits = match.group("bits")
             if len(bits) > 10 or int(bits) > 0xFFFFFFFF:
                 raise ValueError("invalid generated token logit bits")
+            # IEEE-754 F32 exponent 255 encodes NaN or infinity, not a
+            # finite scalar. A plausible decimal field must not disguise
+            # a nonfinite raw bit pattern into a latency sample.
+            if int(bits) & 0x7F800000 == 0x7F800000:
+                raise ValueError("nonfinite generated token logit bits")
             # The producer renders an F32, never an overflowing Python float.
             # For instance, 1e309 or 3.5e38 must not silently count as a
             # genuine generated token with a valid-looking timestamp.
