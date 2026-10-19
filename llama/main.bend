@@ -560,8 +560,8 @@ def leb_mul(a: Nat, b: Nat, +h: Nat, e: {True{} == TA.leb(a, b) : Bool}) -> {Tru
 # LAW (kv_room): KV.empty(c, cap) gives each key/value head arrays of 2^cap_depth(cap·head) slots, and KV.push at
 # position t writes head numbers from t·head. For a position below the capacity (t < cap) they all fall inside the
 # slots: (1 + t)·head <= 2^cap_depth(cap·head), so a push never wraps around onto position 0. (What stays trusted is
-# tensor-array's: Array.new allocates 2^d slots.) The type does not stop a caller from pushing at t >= cap; the
-# callers size cap to the positions they run.
+# tensor-array's: Array.new allocates 2^d slots.) KV.push takes a proof that t < cap, so a push at t >= cap does not
+# compile (tests/bad_cap.bend).
 law kv_room:
   for +cap: Nat
   for +h: Nat
