@@ -875,3 +875,17 @@ bend-ml-tensor-gpu 0.1.0.0 is on BendHub (2026-10-18): `llama/gpu.bend` imports 
   over any leaf code and 0.1.2.x the precise product). `make check` and `make bits` pass with the same bits; generation
   with the products on the GPU (`GPU=1 scripts/bench.sh`, busy machine): 195.7 ms a token, the tokens transformers'. The
   published `bend-ml-llama` keeps the old pins until its next release.
+
+## The GPU path on an idle machine (2026-10-18)
+
+The preliminary GPU numbers above, measured again in BendTorch's final idle round (commit 0059746, bend-ml-tensor-gpu
+0.1.2.1, driver 615.78.08): 128 tokens from "Once upon a time", ms per token by the program's clock, medians of 5
+alternated rounds, the tokens checked against `transformers` in every run.
+
+| model | CPU path, 16 threads | GPU path |
+|---|---|---|
+| 135M | 61.5 (61.1-62.2) | 193.0 (192.6-193.3) |
+| 360M | 110.2 (109.6-111.6) | 263.7 (262.4-264.6) |
+
+The same as on the busy machine, within 1%: the GPU path is 3.1x slower on the 135M and 2.4x on the 360M. The README
+now gives these numbers; the 1.7B's oversubscribed 1.6 s a token stays a single busy-machine run.
