@@ -136,10 +136,10 @@ Contributions are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md) (pull reques
   weight products, and still loading: 9.1 s to load the 1.7B and generate one token (66 s before the loader moved to
   `bend-ml-binary-read`, 2026-10-16), against 4.1 s for `transformers` and 0.5 s for llama.cpp. Peak memory 6.9 GB at 16 threads, 8.4 GB
   on one.
-- **The GPU path is slower than the CPU** (preliminary, 2026-10-18, [`NOTES.md`](NOTES.md)). With the products on an RTX
-  4050 Laptop, the 135M takes 193 ms per token against 62 on 16 CPU threads, the 360M 264 against 110: every product is
+- **The GPU path is slower than the CPU** (idle machine, 2026-10-18, [`NOTES.md`](NOTES.md)). With the products on an RTX
+  4050 Laptop, the 135M takes 193 ms per token against 61.5 on 16 CPU threads, the 360M 264 against 110: every product is
   a GPU call with a fixed cost of about 1 ms, and generation has one vector a token to amortize it over. The 1.7B does
-  not fit in the card's 6 GB; with `--gpu 12GB` it runs oversubscribed at 1.6 s per token.
+  not fit in the card's 6 GB; with `--gpu 12GB` it runs oversubscribed at 1.6 s per token (one run, busy machine).
 - Base models, greedy decoding, no chat template. The vectors between layers are lists whose length is not
   in their type, and the numerics are tested, never proved.
 
