@@ -100,9 +100,11 @@ def report(output: str) -> dict[str, float | int | None]:
             if not math.isfinite(rendered):
                 raise ValueError("nonfinite generated token logit")
             try:
-                struct.pack("<f", rendered)
+                display_bits = struct.unpack("<I", struct.pack("<f", rendered))[0]
             except OverflowError as error:
                 raise ValueError("generated token logit outside F32 range") from error
+            if display_bits != int(bits):
+                raise ValueError("generated token logit bits/display mismatch")
             times.append(finite_seconds(match.group("stamp"), "token timestamp"))
 
     if not times:

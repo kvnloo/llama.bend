@@ -15,10 +15,10 @@ class LatencyReportTests(unittest.TestCase):
     def test_load_and_intervals(self):
         raw = """weights loaded in 4.400s
 prompt ids: 31 23
-  id 42  logit 100 0.5  t=0.200s
-  id 43  logit 100 0.5  t=0.280s
-  id 44  logit 100 0.5  t=0.370s
-  id 45  logit 100 0.5  t=0.470s
+  id 42  logit 1056964608 0.5  t=0.200s
+  id 43  logit 1056964608 0.5  t=0.280s
+  id 44  logit 1056964608 0.5  t=0.370s
+  id 45  logit 1056964608 0.5  t=0.470s
 text: Once upon a time
 """
         r = report(raw)
@@ -31,7 +31,7 @@ text: Once upon a time
         self.assertEqual(r["decode_slope_ms_per_position"], 10.0)
 
     def test_single_token(self):
-        r = report("  id 4  logit 1 1.0  t=0.009s")
+        r = report("  id 4  logit 1065353216 1.0  t=0.009s")
         self.assertEqual(r["tokens"], 1)
         self.assertIsNone(r["decode_mean_ms"])
         self.assertIsNone(r["decode_slope_ms_per_position"])
@@ -43,7 +43,43 @@ text: Once upon a time
 
     def test_nonmonotonic_times(self):
         with self.assertRaisesRegex(ValueError, "not monotonic"):
-            report("  id 4  logit 1 1.0 t=1.5s\n  id 5  logit 2 2.0 t=1.0s")
+            report("  id 4  logit 1065353216 1.0 t=1.5s\n  id 5  logit 1073741824 2.0 t=1.0s")
+
+    def test_finite_logit_bits_display_disagreement_is_rejected(self):
+        # The two native fields encode one F32, never separate measurements.
+        examples = ((1056964608, "0.75"), (1065353216, "-1.0"),
+                    (0, "1.0"), (1065353216, "0.0"))
+        for bits, shown in examples:
+            with self.subTest(bits=bits, shown=shown):
+                with self.assertRaisesRegex(ValueError, "bits/display mismatch"):
+                    report(f"  id 4 logit {bits} {shown} t=0.100s\n")
+
+    def test_real_captured_f32_bit_renderings_roundtrip(self):
+        # Validate the retained actual 1.7B generator trace (historical only).
+        import re, struct
+        capture = (Path(__file__).resolve().parents[1] /
+                   "docs/media/outputs/gen_17b.txt").read_text(encoding="utf-8")
+        rows = re.findall(r"\blogit\s+(\d+)\s+([+-]?[0-9.eE+-]+)\s+t=", capture)
+        self.assertEqual(len(rows), 32)
+        for bits, shown in rows:
+            with self.subTest(bits=bits):
+                self.assertEqual(struct.unpack("<I", struct.pack("<f", float(shown)))[0],
+                                 int(bits))
+        self.assertEqual(report(capture)["tokens"], 32)
+
+    def test_pinned_f32_show_representative_boundaries(self):
+        # Pinned v2.0.37 C-lane rendering; local source reproduction separately
+        # checked, not a native Bend compiler or inference run on this host.
+        samples = ((0,"0"),(2147483648,"-0"),(1,"1e-45"),
+                   (2147483649,"-1e-45"),(8388607,"1.1754942e-38"),
+                   (2155872255,"-1.1754942e-38"),(8388608,"1.1754944e-38"),
+                   (2155872256,"-1.1754944e-38"),(2139095039,"3.4028235e+38"),
+                   (4286578687,"-3.4028235e+38"),(1065353216,"1"),
+                   (3212836864,"-1"),(1056964608,"0.5"),
+                   (1078530011,"3.1415927"),(925353388,"0.00001"))
+        for bits, shown in samples:
+            with self.subTest(bits=bits, shown=shown):
+                self.assertEqual(report(f"  id 4 logit {bits} {shown} t=0.100s")["tokens"],1)
 
     def test_full_generation_requires_completion_footer(self):
         # The real generator prints decoded text only after finishing decode.
@@ -55,7 +91,7 @@ text: Once upon a time
                 with self.assertRaisesRegex(ValueError, "missing decoded-text footer"):
                     report(partial + suffix)
         self.assertEqual(report(partial + "text: completed\n")["tokens"], 2)
-        self.assertEqual(report("  id 4 logit 1 1.0 t=0.100s\n")["tokens"], 1)
+        self.assertEqual(report("  id 4 logit 1065353216 1.0 t=0.100s\n")["tokens"], 1)
 
     def test_partial_generation_cli_does_not_emit_metrics(self):
         partial = ("prompt ids: 1\n"
@@ -96,7 +132,7 @@ text: Once upon a time
                 self.assertEqual(report(prefix + suffix)["tokens"], 1)
         # Content after the first *terminated* footer is decoded text,
         # never additional timestamps, even without an ending newline.
-        spliced = prefix + "text: done\n  id 999 logit 1 0.0 t=99s"
+        spliced = prefix + "text: done\n  id 999 logit 0 0.0 t=99s"
         self.assertEqual(report(spliced)["tokens"], 1)
 
     def test_malformed_generated_token_rows_are_not_silently_skipped(self):
@@ -106,9 +142,9 @@ text: Once upon a time
             with self.subTest(token=invalid):
                 raw = (
                     "weights loaded in 1.0s\nprompt ids: 1\n"
-                    "  id 4 logit 1 0.5 t=0.100s\n"
-                    f"  id 5 logit 2 0.5 {invalid}\n"
-                    "  id 6 logit 3 0.5 t=0.200s\n"
+                    "  id 4 logit 1056964608 0.5 t=0.100s\n"
+                    f"  id 5 logit 1056964608 0.5 {invalid}\n"
+                    "  id 6 logit 1056964608 0.5 t=0.200s\n"
                     "text: done\n"
                 )
                 with self.assertRaisesRegex(ValueError, "malformed generated token row"):
@@ -120,14 +156,14 @@ text: Once upon a time
             "  id 4 logit t=0.100s",
             "  id 4 logit nonsense t=0.100s",
             "  id 4 logit 1099424380 t=0.100s",
-            "  id 4 logit 1099424380 16.9 trailing t=0.100s",
+            "  id 4 logit 1099379507 16.9 trailing t=0.100s",
             "  id 4 logit 1099424380 nonsense t=0.100s",
             "  id 4 logit 1099424380 nan t=0.100s",
             "  id 4 logit 1099424380 inf t=0.100s",
         ):
             with self.subTest(row=malformed):
                 with self.assertRaisesRegex(ValueError, "malformed generated token row"):
-                    report(malformed + "\n  id 5 logit 1 0.5 t=0.200s")
+                    report(malformed + "\n  id 5 logit 1056964608 0.5 t=0.200s")
 
     def test_generated_logit_bits_must_fit_u32(self):
         # demo/gen.bend prints U32.show(bits(F32)), never wider integers.
@@ -135,24 +171,24 @@ text: Once upon a time
             with self.subTest(bits=bits[:32]):
                 with self.assertRaisesRegex(ValueError, "invalid generated token logit bits"):
                     report(f"  id 4 logit {bits} 0.5 t=0.100s\n"
-                           "  id 5 logit 1 0.6 t=0.200s")
+                           "  id 5 logit 1058642330 0.6 t=0.200s")
 
     def test_non_ascii_numerals_are_not_native_generated_token_rows(self):
         # Nat.show, U32.show, F32.show and tsec2 emit ASCII decimal numerals.
         # Python's Unicode \d and float/int accept non-native numeral scripts.
         for row in (
-            "  id ٤ logit 1 0.5 t=0.100s",
+            "  id ٤ logit 1056964608 0.5 t=0.100s",
             "  id 4 logit ١ 0.5 t=0.100s",
             "  id 4 logit 1 ٠.٥ t=0.100s",
-            "  id 4 logit 1 0.5 t=٠.100s",
+            "  id 4 logit 1056964608 0.5 t=٠.100s",
         ):
             with self.subTest(row=row):
                 with self.assertRaisesRegex(ValueError, "malformed generated token row"):
-                    report(row + "\n  id 5 logit 2 0.5 t=0.200s")
+                    report(row + "\n  id 5 logit 1056964608 0.5 t=0.200s")
 
     def test_non_ascii_numerals_are_not_native_load_duration(self):
         with self.assertRaisesRegex(ValueError, "malformed load duration"):
-            report("weights loaded in ١.٢s\n  id 4 logit 1 0.5 t=0.100s")
+            report("weights loaded in ١.٢s\n  id 4 logit 1056964608 0.5 t=0.100s")
 
     def test_largest_finite_f32_bit_pattern_is_accepted(self):
         metrics = report("  id 4 logit 2139095039 3.4028235e+38 t=0.100s\n"
@@ -193,20 +229,20 @@ text: Once upon a time
         ):
             with self.subTest(shown=shown):
                 raw = (f"  id 4 logit 1 {shown} t=0.100s\n"
-                       "  id 5 logit 2 0.5 t=0.200s")
+                       "  id 5 logit 1056964608 0.5 t=0.200s")
                 with self.assertRaisesRegex(ValueError, diagnostic):
                     report(raw)
 
     def test_scientific_logit_rendering_does_not_change_timing(self):
-        r = report("  id 4 logit 1 -1.4e-05 t=0.100s\n  id 5 logit 1 2.3e+02 t=0.200s")
+        r = report("  id 4 logit 3077235083 -1.4e-05 t=0.100s\n  id 5 logit 1130758144 2.3e+02 t=0.200s")
         self.assertEqual(r["tokens"], 2)
         self.assertAlmostEqual(r["decode_p50_ms"], 100.0)
 
     def test_malformed_rows_after_decoded_text_are_ignored(self):
         raw = (
-            "  id 4 logit 1 0.5 t=0.100s\n"
+            "  id 4 logit 1056964608 0.5 t=0.100s\n"
             "text: generated text might quote parser lines\n"
-            "  id 5 logit 2 0.5 t=nans\n"
+            "  id 5 logit 1056964608 0.5 t=nans\n"
         )
         self.assertEqual(report(raw)["tokens"], 1)
 
@@ -215,7 +251,7 @@ text: Once upon a time
         # an explicitly malformed load receipt must invalidate that metric.
         for malformed in ("nans", "infs", "-0.100s", "tbd", ""):
             with self.subTest(malformed=malformed):
-                raw = f"weights loaded in {malformed}\n  id 4 logit 1 1.0 t=0.100s\n"
+                raw = f"weights loaded in {malformed}\n  id 4 logit 1065353216 1.0 t=0.100s\n"
                 with self.assertRaisesRegex(ValueError, "malformed load duration"):
                     report(raw)
 
@@ -225,7 +261,7 @@ text: Once upon a time
         raw = (
             "prompt ids: 1 2\n"
             "weights loaded in 71.2s\n"
-            "  id 4 logit 1 0.5 t=0.100s\n"
+            "  id 4 logit 1056964608 0.5 t=0.100s\n"
             "text: done\n"
         )
         with self.assertRaisesRegex(ValueError, "load duration appears after prompt or token output"):
@@ -233,9 +269,9 @@ text: Once upon a time
 
     def test_load_duration_after_generated_token_is_rejected(self):
         raw = (
-            "  id 4 logit 1 0.5 t=0.100s\n"
+            "  id 4 logit 1056964608 0.5 t=0.100s\n"
             "weights loaded in 71.2s\n"
-            "  id 5 logit 2 0.5 t=0.200s\n"
+            "  id 5 logit 1056964608 0.5 t=0.200s\n"
             "text: done\n"
         )
         with self.assertRaisesRegex(ValueError, "load duration appears after prompt or token output"):
@@ -245,13 +281,13 @@ text: Once upon a time
         raw = (
             "weights loaded in 9.000s\n"
             "weights loaded in 0.001s\n"
-            "  id 4 logit 1 1.0 t=0.100s\n"
+            "  id 4 logit 1065353216 1.0 t=0.100s\n"
         )
         with self.assertRaisesRegex(ValueError, "duplicate load duration"):
             report(raw)
 
     def test_noisy_output(self):
-        r = report("Random t=3.7s\n  id 5  logit 2 2.0 t=1.0s\nignored\n  id 6  logit 3 3.0 t=1.1s")
+        r = report("Random t=3.7s\n  id 5  logit 1073741824 2.0 t=1.0s\nignored\n  id 6  logit 1077936128 3.0 t=1.1s")
         self.assertEqual(r["tokens"], 2)
         self.assertAlmostEqual(r["decode_mean_ms"], 100.0)
 
@@ -259,15 +295,15 @@ text: Once upon a time
     def test_timestamp_decimal_overflow_is_rejected(self):
         huge = "9" * 400
         with self.assertRaisesRegex(ValueError, "nonfinite"):
-            report(f"  id 4 logit 1 1.0 t={huge}s")
+            report(f"  id 4 logit 1065353216 1.0 t={huge}s")
         with self.assertRaisesRegex(ValueError, "nonfinite"):
-            report(f"weights loaded in {huge}s\n  id 4 logit 1 1.0 t=0.001s")
+            report(f"weights loaded in {huge}s\n  id 4 logit 1065353216 1.0 t=0.001s")
 
     def test_finite_timestamp_millisecond_conversion_overflow_is_rejected(self):
         huge_finite = "1" + "0" * 308
         self.assertTrue(math.isfinite(float(huge_finite)))
         with self.assertRaisesRegex(ValueError, "nonfinite"):
-            report(f"  id 4 logit 1 1.0 t={huge_finite}s")
+            report(f"  id 4 logit 1065353216 1.0 t={huge_finite}s")
 
 
 
@@ -277,9 +313,9 @@ text: Once upon a time
         path = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"
         capture = path.read_text(encoding="utf-8")
         injected = capture + (
-            "\n  id 999  logit 1 0.0  t=999.000s\n"
+            "\n  id 999  logit 0 0.0  t=999.000s\n"
             "weights loaded in 0.005s\n"
-            "  id 123  logit 1 0.0  t=0.001s\n"
+            "  id 123  logit 0 0.0  t=0.001s\n"
         )
         self.assertEqual(report(injected), report(capture))
 
@@ -287,8 +323,8 @@ text: Once upon a time
         raw = (
             "weights loaded in 1.000s\n"
             "text: Here is a copied generator log:\n"
-            "  id 4  logit 100 0.5  t=0.100s\n"
-            "  id 5  logit 100 0.5  t=0.200s\n"
+            "  id 4  logit 1056964608 0.5  t=0.100s\n"
+            "  id 5  logit 1056964608 0.5  t=0.200s\n"
         )
         with self.assertRaisesRegex(ValueError, "no generated token"):
             report(raw)
@@ -321,6 +357,17 @@ class LatencyCLIIntegrationTests(unittest.TestCase):
         self.assertEqual(proc.stdout, "")
         self.assertIn("unterminated decoded-text footer", proc.stderr)
 
+    def test_finite_f32_mismatch_fails_closed_at_cli(self):
+        sample = ("weights loaded in 0.100s\nprompt ids: 7\n"
+                  "  id 8 logit 1056964608 0.5 t=0.200s\ntext: done\n")
+        valid=self.cli(data=sample)
+        self.assertEqual(valid.returncode,0,valid.stderr)
+        self.assertEqual(json.loads(valid.stdout)["tokens"],1)
+        corrupt=self.cli(data=sample.replace("logit 1056964608 0.5", "logit 1056964608 0.75"))
+        self.assertEqual(corrupt.returncode,2)
+        self.assertEqual(corrupt.stdout,"")
+        self.assertIn("bits/display mismatch",corrupt.stderr)
+
     def test_invalid_u32_logit_bits_fail_at_cli_boundary(self):
         bad = "  id 4 logit 4294967296 0.5 t=0.100s\n"
         result = self.cli(data=bad)
@@ -332,7 +379,7 @@ class LatencyCLIIntegrationTests(unittest.TestCase):
         capture = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"
         original = capture.read_text(encoding="utf-8")
         baseline = self.cli(data=original)
-        injected = self.cli(data=original + "\n  id 999 logit 1 0.5 t=999.000s\n")
+        injected = self.cli(data=original + "\n  id 999 logit 1056964608 0.5 t=999.000s\n")
         self.assertEqual(baseline.returncode, 0, baseline.stderr)
         self.assertEqual(injected.returncode, 0, injected.stderr)
         self.assertEqual(json.loads(injected.stdout), json.loads(baseline.stdout))
@@ -341,10 +388,10 @@ class LatencyCLIIntegrationTests(unittest.TestCase):
         # Python accepts Unicode decimal digits in regex/float/int, but the
         # native Bend generator prints ASCII-only numbers.
         for receipt in (
-            "  id ٤ logit 1 0.5 t=0.100s\n",
+            "  id ٤ logit 1056964608 0.5 t=0.100s\n",
             "  id 4 logit ١ 0.5 t=0.100s\n",
             "  id 4 logit 1 ٠.٥ t=0.100s\n",
-            "  id 4 logit 1 0.5 t=٠.100s\n",
+            "  id 4 logit 1056964608 0.5 t=٠.100s\n",
         ):
             with self.subTest(receipt=receipt):
                 result = self.cli(data=receipt)
