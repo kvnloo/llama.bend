@@ -23,6 +23,7 @@ laws:             ## the package's proofs, checked by bend and again by the kern
 	for f in tests/bad_*.bend; do bend $$f 2>&1 | grep -q "^- expected" && echo "rejected as it must be: $$f" || { echo "COMPILED, but must not: $$f"; exit 1; }; done
 
 check: laws       ## the laws, prep, the Bend tokenizer against `tokenizers`; one layer, the forward and generation against transformers
+	$(PY) -m unittest discover -s reference -p test_latency_report.py
 	$(PY) reference/prep.py --check
 	mkdir -p .scratch
 	bend demo/tok.bend -o .scratch/tok
