@@ -25,8 +25,10 @@ import uuid
 
 from latency_report import report
 
-TOKEN = re.compile(r'^\s+id\s+(\d+)\s+logit\s+(\d+)\s+(\S+)\s+t=(\d+(?:\.\d+)?)s\s*$')
-STAGE_TOKEN = re.compile(r'^\s+id\s+(\d+)\s+logit\s+(\d+)\s+(\S+)\s*$')
+# Bend F32.show emits ASCII numeric glyphs, never Unicode decimal digits.
+F32_DISPLAY = r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?'
+TOKEN = re.compile(r'^\s+id\s+([0-9]+)\s+logit\s+([0-9]+)\s+(' + F32_DISPLAY + r')\s+t=([0-9]+(?:\.[0-9]+)?)s\s*$', re.ASCII)
+STAGE_TOKEN = re.compile(r'^\s+id\s+([0-9]+)\s+logit\s+([0-9]+)\s+(' + F32_DISPLAY + r')\s*$', re.ASCII)
 STAGE_NAMES = ('model_load_ms', 'tokenize_ms', 'prefill_ms', 'first_forward_ms', 'resident_first_token_id_ms')
 PROMPT = re.compile(r'^prompt ids:\s*(.*?)\s*$')
 

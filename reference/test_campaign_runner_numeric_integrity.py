@@ -55,4 +55,28 @@ class NumericIntegrity(unittest.TestCase):
                 with self.subTest(field=field,val=val):
                     with self.assertRaisesRegex(ValueError,f'invalid {field}'):
                         plan_trials(m | {field:val})
+
+class DisplaySyntaxIntegrity(unittest.TestCase):
+    """Native F32.show emits only ASCII digits, including in stage receipts."""
+
+    def test_foreign_script_f32_glyphs_rejected_in_both_paths(self):
+        expected = BASE | {'logit_bits': [1056964608, 1058642330]}
+        staged = ('model_load_ms=2\nprompt ids: 1 2\ntokenize_ms=1\n'
+                  '  id 4  logit 1056964608 0.5\nprefill_ms=3\n'
+                  'first_forward_ms=2\nresident_first_token_id_ms=5\n'
+                  '  id 5  logit 1058642330 0.6\ntext: ok\n')
+        for shown in ('0.٥', '٠.٥', '+٠.٥', '0.５'):
+            for raw, is_staged in ((RAW, False), (staged, True)):
+                with self.subTest(shown=shown, staged=is_staged):
+                    fake = raw.replace('1056964608 0.5', '1056964608 ' + shown)
+                    with self.assertRaisesRegex(ValueError, 'malformed generated-token row'):
+                        validate_generation(fake, expected, stages=is_staged)
+
+    def test_ascii_f32_spellings_preserve_valid_tokens(self):
+        expected = BASE | {'logit_bits': [1056964608, 1058642330]}
+        for shown in ('0.5', '5e-1', '+0.50', '.5'):
+            with self.subTest(shown=shown):
+                raw = RAW.replace('1056964608 0.5', '1056964608 ' + shown)
+                self.assertEqual(validate_generation(raw, expected)['tokens'], 2)
+
 if __name__=='__main__':unittest.main()
