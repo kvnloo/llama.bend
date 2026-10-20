@@ -24,6 +24,9 @@ from pathlib import Path
 # Requiring both prevents truncated rows from being counted as valid samples.
 TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\s+(?P<bits>\d+)\s+(?P<logit>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s+t=(?P<stamp>\d+(?:\.\d+)?)s\s*$", re.ASCII)
 LOAD = re.compile(r"^weights loaded in\s+(\d+(?:\.\d+)?)s\s*$", re.ASCII)
+# start2 emits positive-length decimal Nat IDs separated by single spaces.
+# The native show_nats printer also emits one optional trailing space.
+PROMPT = re.compile(r"^prompt ids: [0-9]+(?: [0-9]+)* ?$", re.ASCII)
 
 
 def percentile(values: list[float], fraction: float) -> float:
@@ -65,7 +68,19 @@ def report(output: str) -> dict[str, float | int | None]:
                 raise ValueError("incomplete generated output: unterminated decoded-text footer")
             seen_text_footer = True
             break
+        # A malformed near-header must not bypass the full-run completion
+        # requirement by being treated as unrelated stdout noise.
+        if line.lstrip().startswith("prompt ids:") and not line.startswith("prompt ids:"):
+            raise ValueError("malformed prompt header")
         if line.startswith("prompt ids:"):
+            # Native gen.bend emits exactly one header, before any token row.
+            # Repeated/late headers must not blend distinct generation traces.
+            if seen_prompt:
+                raise ValueError("duplicate prompt header")
+            if times:
+                raise ValueError("prompt header appears after generated token output")
+            if not PROMPT.fullmatch(line.rstrip("\r\n")):
+                raise ValueError("malformed prompt header")
             seen_prompt = True
         if re.match(r"^weights loaded in\b", line):
             match = LOAD.fullmatch(line)

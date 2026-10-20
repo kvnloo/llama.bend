@@ -81,6 +81,106 @@ text: Once upon a time
             with self.subTest(bits=bits, shown=shown):
                 self.assertEqual(report(f"  id 4 logit {bits} {shown} t=0.100s")["tokens"],1)
 
+    def test_duplicate_prompt_cannot_merge_two_generation_traces(self):
+        # Joining two captures must not invent a decode interval across runs.
+        capture = ("weights loaded in 0.100s\nprompt ids: 7\n"
+                   "  id 8 logit 1056964608 0.5 t=0.200s\n"
+                   "prompt ids: 8\n"
+                   "  id 9 logit 1056964608 0.5 t=0.300s\n"
+                   "text: complete\n")
+        with self.assertRaisesRegex(ValueError, "duplicate prompt header"):
+            report(capture)
+
+    def test_late_prompt_cannot_reclassify_prior_token(self):
+        capture = ("weights loaded in 0.100s\n"
+                   "  id 8 logit 1056964608 0.5 t=0.200s\n"
+                   "prompt ids: 7\ntext: complete\n")
+        with self.assertRaisesRegex(ValueError, "prompt header appears after generated token"):
+            report(capture)
+        # Token-only diagnostic traces remain valid, and decoded text is inert.
+        self.assertEqual(report("  id 8 logit 1056964608 0.5 t=0.200s\n")["tokens"], 1)
+        self.assertEqual(report("prompt ids: 7\n  id 8 logit 1056964608 0.5 t=0.200s\n"
+                                "text: prompt ids: 9\n")["tokens"], 1)
+
+    def test_duplicate_prompt_header_cli_fails_closed(self):
+        # Traces accidentally concatenated by the shell must never be sampled.
+        capture = ("weights loaded in 0.100s\nprompt ids: 7\n"
+                   "  id 8 logit 1056964608 0.5 t=0.200s\n"
+                   "prompt ids: 8\n"
+                   "  id 9 logit 1056964608 0.5 t=0.300s\n"
+                   "text: complete\n")
+        runner = Path(__file__).resolve().parents[1] / "scripts/latency_report.py"
+        child = subprocess.run([sys.executable, str(runner), "--json"],
+                               input=capture, text=True, capture_output=True,
+                               check=False)
+        self.assertNotEqual(child.returncode, 0)
+        self.assertEqual(child.stdout, "")
+        self.assertIn("duplicate prompt header", child.stderr)
+
+    def test_late_prompt_header_cli_fails_closed(self):
+        # A late prompt header cannot reclassify a generated token as prefill.
+        capture = ("weights loaded in 0.100s\n"
+                   "  id 8 logit 1056964608 0.5 t=0.200s\n"
+                   "prompt ids: 7\ntext: complete\n")
+        runner = Path(__file__).resolve().parents[1] / "scripts/latency_report.py"
+        child = subprocess.run([sys.executable, str(runner), "--json"],
+                               input=capture, text=True, capture_output=True,
+                               check=False)
+        self.assertNotEqual(child.returncode, 0)
+        self.assertEqual(child.stdout, "")
+        self.assertIn("prompt header appears after generated token", child.stderr)
+
+    def test_malformed_prompt_headers_fail_closed(self):
+        # Native start2 can only emit decimal Nat IDs separated by spaces.
+        # A header that isn't native must not bless a fabricated capture.
+        for bad in ("prompt ids: junk", "prompt ids: ",
+                    "prompt ids: 7 -8", "prompt ids: 7xyz",
+                    "prompt ids: 7\t9", "prompt ids: 7  9"):
+            with self.subTest(header=bad):
+                capture = ("weights loaded in 0.100s\n" + bad + "\n"
+                           "  id 8 logit 1056964608 0.5 t=0.200s\n"
+                           "text: complete\n")
+                with self.assertRaisesRegex(ValueError, "malformed prompt header"):
+                    report(capture)
+        # Preserve the exact native trailing-space form and CRLF transports.
+        valid = ("weights loaded in 0.100s\r\nprompt ids: 7 8 \r\n"
+                 "  id 9 logit 1056964608 0.5 t=0.200s\r\n"
+                 "text: complete\r\n")
+        self.assertEqual(report(valid)["tokens"], 1)
+
+    def test_indented_prompt_header_cannot_disable_completion_check(self):
+        # gen.bend prints headers at column zero. A leading space/tab must
+        # not silently turn a full run into a token-only incomplete trace.
+        for header in (" prompt ids: 7", "\tprompt ids: 7", "\u00a0prompt ids: 7"):
+            with self.subTest(header=header):
+                capture = ("weights loaded in 0.100s\n" + header + "\n"
+                           "  id 8 logit 1056964608 0.5 t=0.200s\n")
+                with self.assertRaisesRegex(ValueError, "malformed prompt header"):
+                    report(capture)
+
+    def test_indented_prompt_header_cli_emits_no_metrics(self):
+        runner = Path(__file__).resolve().parents[1] / "scripts/latency_report.py"
+        capture = ("weights loaded in 0.100s\n prompt ids: 7\n"
+                   "  id 8 logit 1056964608 0.5 t=0.200s\n")
+        child = subprocess.run([sys.executable, str(runner), "--json"],
+                               input=capture, text=True, capture_output=True,
+                               check=False)
+        self.assertNotEqual(child.returncode, 0)
+        self.assertEqual(child.stdout, "")
+        self.assertIn("malformed prompt header", child.stderr)
+
+    def test_malformed_prompt_header_cli_has_no_json(self):
+        capture = ("weights loaded in 0.100s\nprompt ids: 7xyz\n"
+                   "  id 8 logit 1056964608 0.5 t=0.200s\n"
+                   "text: complete\n")
+        runner = Path(__file__).resolve().parents[1] / "scripts/latency_report.py"
+        child = subprocess.run([sys.executable, str(runner), "--json"],
+                               input=capture, text=True, capture_output=True,
+                               check=False)
+        self.assertNotEqual(child.returncode, 0)
+        self.assertEqual(child.stdout, "")
+        self.assertIn("malformed prompt header", child.stderr)
+
     def test_full_generation_requires_completion_footer(self):
         # The real generator prints decoded text only after finishing decode.
         partial = ("weights loaded in 1.000s\nprompt ids: 1 2\n"
