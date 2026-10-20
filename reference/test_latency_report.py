@@ -78,6 +78,27 @@ text: Once upon a time
         self.assertGreater(r["decode_p50_ms"], 0)
         self.assertGreater(r["first_generated_ms_since_generation_start"], 0)
 
+    def test_unterminated_native_footer_rejected(self):
+        # Native IO.print emits a line terminator. A partial pipe or file
+        # capture must not create apparently completed latency metrics.
+        prefix = ("weights loaded in 1.0s\nprompt ids: 1\n"
+                  "  id 4 logit 1056964608 0.5 t=0.100s\n")
+        for suffix in ("text: ", "text: partial", "text: partially decoded 💡"):
+            with self.subTest(suffix=suffix):
+                with self.assertRaisesRegex(ValueError, "unterminated decoded-text footer"):
+                    report(prefix + suffix)
+
+    def test_terminated_native_footer_keeps_metrics(self):
+        prefix = ("weights loaded in 1.0s\nprompt ids: 1\n"
+                  "  id 4 logit 1056964608 0.5 t=0.100s\n")
+        for suffix in ("text: done\n", "text: done\r\n", "text: \n"):
+            with self.subTest(suffix=suffix):
+                self.assertEqual(report(prefix + suffix)["tokens"], 1)
+        # Content after the first *terminated* footer is decoded text,
+        # never additional timestamps, even without an ending newline.
+        spliced = prefix + "text: done\n  id 999 logit 1 0.0 t=99s"
+        self.assertEqual(report(spliced)["tokens"], 1)
+
     def test_malformed_generated_token_rows_are_not_silently_skipped(self):
         # Skipping one row manufactures a seemingly valid 100ms decode
         # distribution from a corrupt/incomplete token sequence.
@@ -290,6 +311,15 @@ class LatencyCLIIntegrationTests(unittest.TestCase):
         self.assertEqual(stdin_run.returncode, 0, stdin_run.stderr)
         self.assertEqual(json.loads(file_run.stdout), json.loads(stdin_run.stdout))
         self.assertEqual(json.loads(file_run.stdout)["tokens"], 32)
+
+    def test_cli_unterminated_footer_emits_no_metrics(self):
+        raw = ("prompt ids: 1\n"
+               "  id 4 logit 1056964608 0.5 t=0.100s\n"
+               "text: partial")
+        proc = self.cli(data=raw)
+        self.assertEqual(proc.returncode, 2)
+        self.assertEqual(proc.stdout, "")
+        self.assertIn("unterminated decoded-text footer", proc.stderr)
 
     def test_invalid_u32_logit_bits_fail_at_cli_boundary(self):
         bad = "  id 4 logit 4294967296 0.5 t=0.100s\n"

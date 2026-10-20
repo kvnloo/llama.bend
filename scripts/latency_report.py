@@ -56,9 +56,13 @@ def report(output: str) -> dict[str, float | int | None]:
     load_s = None
     seen_prompt = False
     seen_text_footer = False
-    for line in output.splitlines():
-        # Decoded text may itself contain timestamp-looking lines.
+    for line in output.splitlines(keepends=True):
+        # Decoded text may itself contain timestamp-looking lines. Native
+        # IO.print terminates the footer line; an unterminated last line
+        # is partial captured stdout, not proof generation completed.
         if line.startswith("text: "):
+            if seen_prompt and not line.endswith(("\n", "\r")):
+                raise ValueError("incomplete generated output: unterminated decoded-text footer")
             seen_text_footer = True
             break
         if line.startswith("prompt ids:"):
