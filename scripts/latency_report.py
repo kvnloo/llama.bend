@@ -61,7 +61,7 @@ def report(output: str) -> dict[str, float | int | None]:
         # IO.print terminates the footer line; an unterminated last line
         # is partial captured stdout, not proof generation completed.
         if line.startswith("text: "):
-            if seen_prompt and not line.endswith(("\n", "\r")):
+            if seen_prompt and not line.endswith("\n"):
                 raise ValueError("incomplete generated output: unterminated decoded-text footer")
             seen_text_footer = True
             break

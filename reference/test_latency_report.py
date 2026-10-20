@@ -83,7 +83,7 @@ text: Once upon a time
         # capture must not create apparently completed latency metrics.
         prefix = ("weights loaded in 1.0s\nprompt ids: 1\n"
                   "  id 4 logit 1056964608 0.5 t=0.100s\n")
-        for suffix in ("text: ", "text: partial", "text: partially decoded 💡"):
+        for suffix in ("text: ", "text: partial", "text: partially decoded 💡", "text: done\r"):
             with self.subTest(suffix=suffix):
                 with self.assertRaisesRegex(ValueError, "unterminated decoded-text footer"):
                     report(prefix + suffix)
