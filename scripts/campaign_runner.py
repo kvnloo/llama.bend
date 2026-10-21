@@ -7,6 +7,7 @@ remain in the append-only journal and are retried with new raw files. This tool
 is a measurement mechanism, not evidence that any queued configuration ran.
 """
 import argparse
+from contextlib import ExitStack
 import fcntl
 import hashlib
 import json
@@ -218,11 +219,13 @@ def execute(spec, budget, rawbase):
     stdout_path = rawbase.with_suffix('.stdout'); stderr_path = rawbase.with_suffix('.stderr')
     before = host_snapshot(); start = time.monotonic_ns()
     proc = subprocess.Popen(argv, cwd=spec['cwd'], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
-    sel = selectors.DefaultSelector(); files={}
-    for stream,name,path in [(proc.stdout,'stdout',stdout_path),(proc.stderr,'stderr',stderr_path)]:
-        os.set_blocking(stream.fileno(),False); sel.register(stream,selectors.EVENT_READ,name); files[name]=path.open('xb')
+    sel = None; files={}
     remaining = b''; first_arrival = None; text_arrival = None; count=0; peak=0; reason=None; exit_info=None; killed_at=None
     try:
+        # A failed selector or raw-receipt setup must still reap the child.
+        sel = selectors.DefaultSelector()
+        for stream,name,path in [(proc.stdout,'stdout',stdout_path),(proc.stderr,'stderr',stderr_path)]:
+            os.set_blocking(stream.fileno(),False); sel.register(stream,selectors.EVENT_READ,name); files[name]=path.open('xb')
         while sel.get_map() or exit_info is None:
             now=time.monotonic_ns(); elapsed=(now-start)/1e9
             if exit_info is None:
@@ -272,8 +275,17 @@ def execute(spec, budget, rawbase):
             try:os.killpg(proc.pid,signal.SIGKILL)
             except ProcessLookupError:pass
             _,status,exit_info=os.wait4(proc.pid,0);proc.returncode=os.waitstatus_to_exitcode(status)
-        for f in files.values(): f.flush();os.fsync(f.fileno());f.close()
-        sel.close()
+        # Register every handle before fsync; close all even if one flush fails.
+        with ExitStack() as closing:
+            if sel is not None:
+                closing.callback(sel.close)
+            for stream in (proc.stdout, proc.stderr):
+                if stream is not None and not stream.closed:
+                    closing.callback(stream.close)
+            for f in files.values():
+                closing.callback(f.close)
+            for f in files.values():
+                f.flush(); os.fsync(f.fileno())
     return {'returncode':proc.returncode,'stop_reason':reason,'wall_ms':(time.monotonic_ns()-start)/1e6,
             'process_observed_ttft_upper_bound_ms':first_arrival,
             'process_observed_decoded_text_upper_bound_ms':text_arrival,
