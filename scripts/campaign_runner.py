@@ -45,6 +45,7 @@ def file_hash(path):
 def validate_generation(raw, expected, stages=False):
     """Strict completion/identity gate around PR2's intentionally diagnostic parser."""
     if not isinstance(expected, dict): raise ValueError('invalid expected oracle mapping')
+    if not isinstance(expected.get('text'), str): raise ValueError('invalid generated-text oracle')
     prefix, separator, suffix = raw.partition('\ntext: ')
     if not separator or not suffix.endswith('\n'):
         raise ValueError('missing complete final text')

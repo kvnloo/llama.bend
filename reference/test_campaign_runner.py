@@ -13,6 +13,17 @@ RAW = 'weights loaded in 0.002s\nprompt ids: 1 2 \n  id 4  logit 1056964608 0.5 
 EXPECTED = {'prompt_ids': [1, 2], 'generated_ids': [4, 5], 'text': 'ok', 'logit_bits': [1056964608, 1058642330]}
 
 class ValidationTests(unittest.TestCase):
+    def test_missing_text_oracle_is_value_error(self):
+        invalid = {k: v for k, v in EXPECTED.items() if k != 'text'}
+        with self.assertRaisesRegex(ValueError, 'invalid generated-text oracle'):
+            validate_generation(RAW, invalid)
+
+    def test_nonstring_text_oracle_is_value_error(self):
+        for value in (None, 14, ['ok'], {'text': 'ok'}, True):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, 'invalid generated-text oracle'):
+                    validate_generation(RAW, EXPECTED | {'text': value})
+
     def test_complete(self): self.assertEqual(validate_generation(RAW, EXPECTED)['tokens'], 2)
     def test_strict_latency_parser_receives_complete_capture(self):
         # Clean PR #2 requires the final native text footer. The runner
@@ -85,6 +96,22 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(len((out/'journal.jsonl').read_text().splitlines()),n)
             raw=next((out/'raw').glob('*.stdout')); raw.write_text('tampered')
             with self.assertRaises(ValueError): run_manifest(m,out)
+    def test_invalid_text_oracle_is_finished_failure_not_abandoned_attempt(self):
+        # Malformed frozen text oracle must not leave an abandoned started entry.
+        for bad in ('missing', None, 14, ['ok'], {'text':'ok'}, True):
+            with self.subTest(bad=bad), tempfile.TemporaryDirectory() as td:
+                root=Path(td); m=self.manifest(root); m['warmups']=0; m['rounds']=1
+                oracle=m['cases'][0]['variants'][0]['validation']['expected'].copy()
+                if bad == 'missing': oracle.pop('text')
+                else: oracle['text']=bad
+                m['cases'][0]['variants'][0]['validation']['expected']=oracle
+                out=root/'out'
+                self.assertEqual(run_manifest(m,out),1)
+                events=[json.loads(s) for s in (out/'journal.jsonl').read_text().splitlines()]
+                self.assertEqual([e['event'] for e in events], ['started','finished'])
+                self.assertEqual(events[-1]['status'], 'failed')
+                self.assertIn('invalid generated-text oracle', events[-1]['error'])
+                self.assertNotIn('latency', events[-1])
     def test_nonzero_is_failure(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td); m=self.manifest(root,[sys.executable,'-c','print('+repr(RAW)+',end="");raise SystemExit(7)']); m['warmups']=0;m['rounds']=1
