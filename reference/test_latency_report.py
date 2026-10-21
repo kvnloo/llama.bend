@@ -346,6 +346,21 @@ text: Once upon a time
         )
         self.assertEqual(report(raw)["tokens"], 1)
 
+    def test_indented_native_load_header_must_not_be_silently_discarded(self):
+        # Header is column-zero in demo/gen.bend. A corrupt/indented load
+        # must not turn a complete 1.7B capture into load_s=None metrics.
+        capture = (Path(__file__).resolve().parents[1]
+                   / "docs/media/outputs/gen_17b.txt").read_text(encoding="utf-8")
+        self.assertTrue(capture.startswith("weights loaded in "))
+        baseline = report(capture)
+        self.assertEqual((baseline["load_s"], baseline["tokens"],
+                          baseline["decode_p50_ms"], baseline["decode_p95_ms"]),
+                         (71.2, 32, 400.0, 500.0))
+        for leading in (" ", "\t", "\u00a0"):
+            with self.subTest(leading=repr(leading)):
+                with self.assertRaisesRegex(ValueError, "malformed load duration"):
+                    report(leading + capture)
+
     def test_malformed_load_clock_is_not_silently_treated_as_missing(self):
         # A capture can omit the load line (piped generation output), but
         # an explicitly malformed load receipt must invalidate that metric.
@@ -438,6 +453,16 @@ class LatencyCLIIntegrationTests(unittest.TestCase):
             [sys.executable, str(script), "--json", *args],
             input=data, text=True, capture_output=True, check=False,
         )
+
+    def test_indented_load_clock_cli_rejects_false_missing_load_metric(self):
+        # Fail closed rather than emitting a plausible decode p50/p95 and
+        # silently losing the measured model load time.
+        capture = (Path(__file__).resolve().parents[1]
+                   / "docs/media/outputs/gen_17b.txt").read_text(encoding="utf-8")
+        proc = self.cli(data=" " + capture)
+        self.assertEqual(proc.returncode, 2)
+        self.assertEqual(proc.stdout, "")
+        self.assertIn("malformed load duration", proc.stderr)
 
     def test_real_capture_file_matches_stdin_json(self):
         capture = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"

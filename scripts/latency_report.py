@@ -82,6 +82,10 @@ def report(output: str) -> dict[str, float | int | None]:
             if not PROMPT.fullmatch(line.rstrip("\r\n")):
                 raise ValueError("malformed prompt header")
             seen_prompt = True
+        # Native output prints the load clock at column zero. A leading
+        # whitespace character must not hide a corrupt load receipt.
+        if line.lstrip().startswith("weights loaded in") and not line.startswith("weights loaded in"):
+            raise ValueError("malformed load duration")
         if re.match(r"^weights loaded in\b", line):
             match = LOAD.fullmatch(line)
             if not match:
