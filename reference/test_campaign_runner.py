@@ -77,6 +77,27 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(validate_generation(raw, EXPECTED, stages=True)['resident_first_token_id_ms'],5)
         with self.assertRaises(ValueError): validate_generation(raw.replace('prefill_ms=3','prefill_ms=4'),EXPECTED,stages=True)
 
+
+    def test_staged_prompt_rejects_non_native_id_glyphs_and_spacing(self):
+        # Nat.show emits ASCII decimals with single spaces; Python int()
+        # otherwise accepts Unicode numerals, tabs and doubled spaces.
+        raw = ('model_load_ms=2\nprompt ids: 1 2\ntokenize_ms=1\n'
+               '  id 4  logit 1056964608 0.5\nprefill_ms=3\n'
+               'first_forward_ms=2\nresident_first_token_id_ms=5\n'
+               '  id 5  logit 1058642330 0.6\ntext: ok\n')
+        for native in ('prompt ids: 1 2', 'prompt ids: 1 2 '):
+            with self.subTest(native=native):
+                self.assertEqual(validate_generation(
+                    raw.replace('prompt ids: 1 2', native),
+                    EXPECTED, stages=True)['tokens'], 2)
+        for bad in ('prompt ids: ١ ٢', 'prompt ids: 1\t2',
+                    'prompt ids: 1  2', 'prompt ids: 1\u00a02'):
+            with self.subTest(bad=bad):
+                with self.assertRaisesRegex(ValueError, 'malformed prompt IDs'):
+                    validate_generation(raw.replace('prompt ids: 1 2', bad),
+                                        EXPECTED, stages=True)
+
+
 class RunnerTests(unittest.TestCase):
     def manifest(self, root, command=None):
         return {'schema': 1, 'seed': 7, 'warmups': 1, 'rounds': 2, 'label': 'test-fixture-not-inference', 'lock': str(root/'lock'), 'budget': {'timeout_s': 5, 'memory_mb': 256, 'min_free_mb': 1, 'max_output_mb': 1}, 'cases': [{'id': 'case', 'variants': [{'id': 'control', 'argv': command or [sys.executable, '-c', 'print('+repr(RAW)+', end="")'], 'cwd': str(root), 'validation': {'kind': 'generation', 'expected': EXPECTED}}]}]}
