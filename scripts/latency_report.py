@@ -70,7 +70,8 @@ def report(output: str) -> dict[str, float | int | None]:
             break
         # A malformed near-header must not bypass the full-run completion
         # requirement by being treated as unrelated stdout noise.
-        if line.lstrip().startswith("prompt ids:") and not line.startswith("prompt ids:"):
+        if (line.lstrip().startswith("prompt ids:") or
+                re.match(r"^\s*prompt\s+ids\s*:", line, re.ASCII)) and not line.startswith("prompt ids:"):
             raise ValueError("malformed prompt header")
         if line.startswith("prompt ids:"):
             # Native gen.bend emits exactly one header, before any token row.
@@ -84,7 +85,8 @@ def report(output: str) -> dict[str, float | int | None]:
             seen_prompt = True
         # Native output prints the load clock at column zero. A leading
         # whitespace character must not hide a corrupt load receipt.
-        if line.lstrip().startswith("weights loaded in") and not line.startswith("weights loaded in"):
+        if (line.lstrip().startswith("weights loaded in") or
+                re.match(r"^\s*weights\s+loaded\s+in\b", line, re.ASCII)) and not line.startswith("weights loaded in"):
             raise ValueError("malformed load duration")
         if re.match(r"^weights loaded in\b", line):
             match = LOAD.fullmatch(line)

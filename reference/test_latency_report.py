@@ -346,6 +346,27 @@ text: Once upon a time
         )
         self.assertEqual(report(raw)["tokens"], 1)
 
+    def test_near_miss_prompt_header_cannot_turn_truncated_capture_into_success(self):
+        # A corrupt header must not disable the required completion footer.
+        capture = (Path(__file__).resolve().parents[1]
+                   / "docs/media/outputs/gen_17b.txt").read_text(encoding="utf-8")
+        self.assertEqual(report(capture)["tokens"], 32)
+        for malformed in ("prompt  ids:", "prompt\tids:", "prompt ids :"):
+            with self.subTest(malformed=repr(malformed)):
+                truncated = capture.replace("prompt ids:", malformed, 1).split("text: ")[0]
+                with self.assertRaisesRegex(ValueError, "malformed prompt header"):
+                    report(truncated)
+
+    def test_near_miss_load_header_cannot_silently_erase_load_clock(self):
+        capture = (Path(__file__).resolve().parents[1]
+                   / "docs/media/outputs/gen_17b.txt").read_text(encoding="utf-8")
+        self.assertEqual(report(capture)["load_s"], 71.2)
+        for malformed in ("weights  loaded in", "weights\tloaded in", "weights loaded\tin"):
+            with self.subTest(malformed=repr(malformed)):
+                corrupted = capture.replace("weights loaded in", malformed, 1)
+                with self.assertRaisesRegex(ValueError, "malformed load duration"):
+                    report(corrupted)
+
     def test_indented_native_load_header_must_not_be_silently_discarded(self):
         # Header is column-zero in demo/gen.bend. A corrupt/indented load
         # must not turn a complete 1.7B capture into load_s=None metrics.
@@ -463,6 +484,15 @@ class LatencyCLIIntegrationTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertEqual(proc.stdout, "")
         self.assertIn("malformed load duration", proc.stderr)
+
+    def test_corrupt_prompt_header_truncated_cli_emits_no_metrics(self):
+        capture = (Path(__file__).resolve().parents[1]
+                   / "docs/media/outputs/gen_17b.txt").read_text(encoding="utf-8")
+        partial = capture.replace("prompt ids:", "prompt  ids:", 1).split("text: ")[0]
+        proc = self.cli(data=partial)
+        self.assertEqual(proc.returncode, 2)
+        self.assertEqual(proc.stdout, "")
+        self.assertIn("malformed prompt header", proc.stderr)
 
     def test_real_capture_file_matches_stdin_json(self):
         capture = Path(__file__).resolve().parents[1] / "docs/media/outputs/gen_17b.txt"
