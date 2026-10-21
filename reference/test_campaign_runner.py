@@ -4,6 +4,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from campaign_runner import validate_generation, plan_trials, run_manifest, canonical_hash
@@ -13,6 +14,17 @@ EXPECTED = {'prompt_ids': [1, 2], 'generated_ids': [4, 5], 'text': 'ok', 'logit_
 
 class ValidationTests(unittest.TestCase):
     def test_complete(self): self.assertEqual(validate_generation(RAW, EXPECTED)['tokens'], 2)
+    def test_strict_latency_parser_receives_complete_capture(self):
+        # Clean PR #2 requires the final native text footer. The runner
+        # validates that footer against the oracle before invoking the parser.
+        from latency_report import report as existing_report
+        def require_complete_stdout(capture):
+            if '\ntext: ' not in capture:
+                raise ValueError('incomplete generated output: missing decoded-text footer')
+            return existing_report(capture)
+        with patch('campaign_runner.report', side_effect=require_complete_stdout):
+            self.assertEqual(validate_generation(RAW, EXPECTED)['tokens'], 2)
+
     def test_zero_quantized_interval(self): self.assertEqual(validate_generation(RAW.replace('0.004s', '0.003s'), EXPECTED)['decode_mean_ms'], 0)
     def test_missing_tail(self):
         with self.assertRaises(ValueError): validate_generation(RAW.split('text:')[0], EXPECTED)

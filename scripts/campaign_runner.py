@@ -126,7 +126,8 @@ def validate_generation(raw, expected, stages=False):
         if sequence != sorted(sequence) or any(i < positions['resident_first_token_id_ms'] for i in token_positions[1:]):
             raise ValueError('stage records out of order')
         return stage_values | {'tokens': len(ids)}
-    result = report(prefix)
+    # Diagnostics must see the native completion footer after validation.
+    result = report(raw)
     if result['load_s'] is None or any(isinstance(v, float) and not math.isfinite(v) for v in result.values()):
         raise ValueError('malformed/nonfinite latency metric')
     return result
