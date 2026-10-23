@@ -127,6 +127,10 @@ def report(output: str) -> dict[str, float | int | None]:
             if display_bits != int(bits):
                 raise ValueError("generated token logit bits/display mismatch")
             times.append(finite_seconds(match.group("stamp"), "token timestamp"))
+        elif seen_prompt and line.strip() and not line.startswith("prompt ids:"):
+            # Native gen.bend emits only token rows between the prompt header
+            # and the decoded-text footer. Corruption must not omit samples.
+            raise ValueError("unexpected native generation line")
 
     if not times:
         raise ValueError("no generated token timestamps found (expected '  id ... t=...s')")
