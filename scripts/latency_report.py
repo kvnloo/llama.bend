@@ -22,11 +22,13 @@ from pathlib import Path
 
 # gen.bend emits both a numeric logit bit pattern and a rendered F32 value.
 # Requiring both prevents truncated rows from being counted as valid samples.
-TOKEN = re.compile(r"^\s+id\s+\d+\s+logit\s+(?P<bits>\d+)\s+(?P<logit>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s+t=(?P<stamp>\d+(?:\.\d+)?)s\s*$", re.ASCII)
+# Native Nat.show/U32.show use canonical decimal without leading zeroes.
+CANONICAL_NAT = r"(?:0|[1-9][0-9]*)"
+TOKEN = re.compile(r"^\s+id\s+" + CANONICAL_NAT + r"\s+logit\s+(?P<bits>" + CANONICAL_NAT + r")\s+(?P<logit>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s+t=(?P<stamp>\d+(?:\.\d+)?)s\s*$", re.ASCII)
 LOAD = re.compile(r"^weights loaded in\s+(\d+(?:\.\d+)?)s\s*$", re.ASCII)
 # start2 emits positive-length decimal Nat IDs separated by single spaces.
 # The native show_nats printer also emits one optional trailing space.
-PROMPT = re.compile(r"^prompt ids: [0-9]+(?: [0-9]+)* ?$", re.ASCII)
+PROMPT = re.compile(r"^prompt ids: " + CANONICAL_NAT + r"(?: " + CANONICAL_NAT + r")* ?$", re.ASCII)
 
 
 def percentile(values: list[float], fraction: float) -> float:
