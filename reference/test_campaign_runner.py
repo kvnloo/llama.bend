@@ -78,6 +78,27 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError): validate_generation(raw.replace('prefill_ms=3','prefill_ms=4'),EXPECTED,stages=True)
 
 
+    def test_staged_timer_words_are_native_canonical_ascii(self):
+        # A staged receipt cannot change spellings while preserving int() values:
+        # the producer uses Nat.show, never zero padding or Unicode numerals.
+        raw = ('model_load_ms=2\\nprompt ids: 1 2\\ntokenize_ms=1\\n'
+               '  id 4  logit 1056964608 0.5\\nprefill_ms=3\\n'
+               'first_forward_ms=2\\nresident_first_token_id_ms=5\\n'
+               '  id 5  logit 1058642330 0.6\\ntext: ok\\n')
+        # Convert the literal escaped backslash-n sequences into Python source
+        # string escapes only; no invisible Unicode space normalization.
+        self.assertEqual(validate_generation(raw, EXPECTED, stages=True)['tokens'], 2)
+        arabic_digits = str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩')
+        for name, value in (('model_load_ms', '2'), ('tokenize_ms', '1'),
+                            ('prefill_ms', '3'), ('first_forward_ms', '2'),
+                            ('resident_first_token_id_ms', '5')):
+            for invalid in ('0' + value, value.translate(arabic_digits)):
+                with self.subTest(name=name, invalid=invalid):
+                    modified = raw.replace(name + '=' + value, name + '=' + invalid, 1)
+                    with self.assertRaisesRegex(ValueError, 'missing/duplicate/malformed stage timer'):
+                        validate_generation(modified, EXPECTED, stages=True)
+
+
     def test_native_decimal_words_have_no_zero_padding(self):
         # Nat.show and U32.show never add leading zeros; int() alone would
         # otherwise equate corrupted benchmark output to a frozen oracle.

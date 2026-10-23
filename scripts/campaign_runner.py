@@ -59,7 +59,7 @@ def validate_generation(raw, expected, stages=False):
     if stages:
         for name in STAGE_NAMES:
             matches = [x for x in lines if x.startswith(name+'=')]
-            if len(matches) != 1 or not re.fullmatch(name+r'=\d+', matches[0]): raise ValueError('missing/duplicate/malformed stage timer')
+            if len(matches) != 1 or not re.fullmatch(name+r'='+CANONICAL_NAT, matches[0], re.ASCII): raise ValueError('missing/duplicate/malformed stage timer')
             stage_values[name] = int(matches[0].split('=')[1])
         if stage_values['prefill_ms'] + stage_values['first_forward_ms'] != stage_values['resident_first_token_id_ms']:
             raise ValueError('stage timer boundaries disagree')
