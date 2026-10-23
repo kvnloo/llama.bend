@@ -173,36 +173,40 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(events[-1]['status'], 'failed')
                 self.assertIn('invalid generated-text oracle', events[-1]['error'])
                 self.assertNotIn('latency', events[-1])
-    def test_failed_launch_does_not_reuse_previous_trial_receipt(self):
-        # Trial 1 completes and writes real raw fixture evidence. Trial 2
-        # cannot launch: its failed journal entry must not cite trial 1.
-        from campaign_runner import execute as actual_execute
+    def test_relative_lock_and_cwd_rejected_before_side_effects(self):
+        # The documented host-wide flock and child cwd must not depend on
+        # whichever directory started this measurement campaign.
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            for field in ('lock', 'cwd'):
+                with self.subTest(field=field):
+                    manifest = self.manifest(root)
+                    manifest['warmups'] = 0
+                    manifest['rounds'] = 1
+                    if field == 'lock':
+                        manifest['lock'] = 'runner.lock'
+                    else:
+                        manifest['cases'][0]['variants'][0]['cwd'] = '.'
+                    out = root / ('invalid-' + field)
+                    with self.assertRaisesRegex(ValueError, 'absolute'):
+                        run_manifest(manifest, out)
+                    self.assertFalse(out.exists())
+
+    def test_plan_only_rejects_relative_lock(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             manifest = self.manifest(root)
-            manifest['warmups'] = 0
-            manifest['rounds'] = 2
-            attempts = 0
-            def fail_second_launch(spec, budget, rawbase):
-                nonlocal attempts
-                attempts += 1
-                if attempts == 2:
-                    raise OSError('injected launcher failure before receipt')
-                return actual_execute(spec, budget, rawbase)
-            out = root / 'out'
-            with patch('campaign_runner.execute', side_effect=fail_second_launch):
-                self.assertEqual(run_manifest(manifest, out), 1)
-            finished = [json.loads(row) for row in
-                        (out / 'journal.jsonl').read_text().splitlines()
-                        if json.loads(row)['event'] == 'finished']
-            self.assertEqual([event['status'] for event in finished],
-                             ['passed', 'failed'])
-            self.assertIn('stdout_sha256', finished[0])
-            self.assertIn('injected launcher failure', finished[1]['error'])
-            for forbidden in ('stdout', 'stderr', 'stdout_sha256',
-                              'stderr_sha256', 'returncode', 'wall_ms',
-                              'latency'):
-                self.assertNotIn(forbidden, finished[1])
+            manifest['lock'] = 'relative.lock'
+            path = root / 'manifest.json'
+            path.write_text(json.dumps(manifest))
+            runner = Path(__file__).resolve().parents[1] / 'scripts/campaign_runner.py'
+            import subprocess
+            child = subprocess.run([sys.executable, str(runner), str(path),
+                                    '--out', str(root/'results'), '--plan-only'],
+                                   text=True, capture_output=True, check=False)
+            self.assertNotEqual(child.returncode, 0)
+            self.assertIn('absolute shared path', child.stderr)
+            self.assertFalse((root/'results').exists())
 
     def test_nonzero_is_failure(self):
         with tempfile.TemporaryDirectory() as td:

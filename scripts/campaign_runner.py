@@ -315,8 +315,25 @@ def validate_disk_floor(manifest):
         raise ValueError('invalid min_free_mb disk floor')
 
 
+def validate_execution_paths(manifest):
+    """Keep the shared flock and subprocess directory independent of caller cwd.
+
+    A relative lock can silently split simultaneous workers into separate
+    timing windows, invalidating interleaved performance comparisons.
+    """
+    lock = manifest.get('lock')
+    if not isinstance(lock, str) or not Path(lock).is_absolute():
+        raise ValueError('lock must be an absolute shared path')
+    for case in manifest.get('cases', []):
+        for spec in case.get('variants', []):
+            cwd = spec.get('cwd')
+            if not isinstance(cwd, str) or not Path(cwd).is_absolute():
+                raise ValueError('trial cwd must be an absolute path')
+
+
 def run_manifest(manifest, out):
     validate_disk_floor(manifest)
+    validate_execution_paths(manifest)
     # Reject an invalid plan before creating result directories or a lock.
     digest=canonical_hash(manifest); plan=plan_trials(manifest)
     out=Path(out).resolve();out.mkdir(parents=True,exist_ok=True);(out/'raw').mkdir(exist_ok=True)
@@ -363,9 +380,6 @@ def run_manifest(manifest, out):
             attempt=uuid.uuid4().hex
             common={'manifest_sha256':digest,'key':trial['key'],'attempt':attempt,'case':trial['case'],'variant':trial['variant'],'phase':trial['phase'],'round':trial['round']}
             append_event(journal,common|{'event':'started','argv':trial['spec']['argv']})
-            # Do not carry a previous trial's stdout, hashes or exit status
-            # into a failure whose launch did not produce a receipt.
-            result = {}
             try:
                 result=execute(trial['spec'],manifest['budget'],out/'raw'/attempt)
                 if type(result.get('returncode')) is not int or result['returncode'] != 0 or result.get('stop_reason') is not None:
@@ -380,7 +394,7 @@ def run_manifest(manifest, out):
                 append_event(journal,common|result|{'event':'finished','status':'passed','latency':latency})
                 print(f'{trial["phase"]} {trial["round"]} {trial["case"]}/{trial["variant"]}: passed',flush=True)
             except (OSError,ValueError) as e:
-                append_event(journal,common|result|{'event':'finished','status':'failed','error':str(e)})
+                append_event(journal,common|locals().get('result',{})|{'event':'finished','status':'failed','error':str(e)})
                 failed+=1;print(f'{trial["case"]}/{trial["variant"]}: failed: {e}',flush=True)
             finally: result={}
         return 1 if failed else 0
@@ -389,6 +403,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('manifest',type=Path);p.add_argument('--out',type=Path,required=True);p.add_argument('--plan-only',action='store_true');args=p.parse_args()
     m=json.loads(args.manifest.read_text())
     validate_disk_floor(m)
+    validate_execution_paths(m)
     if args.plan_only:
         print(json.dumps({'state':'planned_not_executed','manifest_sha256':canonical_hash(m),'trials':plan_trials(m)},indent=2));return 0
     return run_manifest(m,args.out)
