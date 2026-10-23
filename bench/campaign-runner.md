@@ -9,6 +9,8 @@ runner does not build binaries. A plan is not a benchmark result.
 - Freeze `schema: 1`, `seed`, `warmups`, `rounds`, `lock`, `budget`, and `cases` in
   a JSON manifest. Each case has one or more named `variants`, each with an argv
   array, absolute cwd, optional environment additions, and a `validation` rule.
+  Case and variant IDs must be nonempty strings; JSON booleans and numbers are not
+  interchangeable trial identities (Python otherwise conflates `true` with `1`).
 - Add executable, runner, model, config, tokenizer and oracle files to `inputs`
   as `{ "path": "...", "sha256": "..." }` objects. These hashes are checked before
   trials and on resume. Record source revisions, compiler versions/flags and host

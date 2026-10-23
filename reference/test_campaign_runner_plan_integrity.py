@@ -32,6 +32,34 @@ class PlanManifestCompletenessTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'unsupported schema'):
             plan_trials(VALID | {'schema': True})
 
+    def test_named_ids_must_be_nonempty_strings(self):
+        # JSON booleans and integers compare equal as Python dict keys.
+        # Unchecked IDs silently omit one arm of an A/B trial plan.
+        for bad in (True, 1, None, '', [], {}):
+            with self.subTest(case_id=repr(bad)):
+                case = {'id': bad, 'variants': VALID['cases'][0]['variants']}
+                with self.assertRaisesRegex(ValueError, 'invalid case id'):
+                    plan_trials(VALID | {'cases': [case]})
+            with self.subTest(variant_id=repr(bad)):
+                variant = {'id': bad, 'argv': ['synthetic']}
+                with self.assertRaisesRegex(ValueError, 'invalid variant id'):
+                    plan_trials(VALID | {'cases': [{'id': 'c', 'variants': [variant]}]})
+        self.assertEqual(len(plan_trials(VALID)), 2)
+
+    def test_invalid_named_ids_have_no_filesystem_side_effects(self):
+        for case in ({'id': True, 'variants': VALID['cases'][0]['variants']},
+                     {'id': 'c', 'variants': [{'id': 1, 'argv': ['synthetic']}]}):
+            with self.subTest(case=repr(case)), tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                lock = root / 'runner.lock'
+                out = root / 'results'
+                manifest = VALID | {'lock': str(lock), 'budget': {'min_free_mb': 0},
+                                    'cases': [case]}
+                with self.assertRaisesRegex(ValueError, 'invalid (case|variant) id'):
+                    run_manifest(manifest, out)
+                self.assertFalse(out.exists())
+                self.assertFalse(lock.exists())
+
     def test_environment_must_be_a_valid_string_mapping(self):
         invalid = (None, [], {'N': 1}, {1: 'v'}, {'N': True},
                    {'N': None}, {'': 'v'}, {'BAD=KEY': 'v'}, {'N': 'bad\0value'},

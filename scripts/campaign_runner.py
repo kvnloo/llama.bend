@@ -142,7 +142,11 @@ def plan_trials(manifest):
     if manifest['rounds'] < 1: raise ValueError('at least one measured round required')
     unique = {}
     for case in manifest['cases']:
+        if not isinstance(case, dict) or not isinstance(case.get('id'), str) or not case['id']:
+            raise ValueError('invalid case id: expected nonempty string')
         for variant in case['variants']:
+            if not isinstance(variant, dict) or not isinstance(variant.get('id'), str) or not variant['id']:
+                raise ValueError('invalid variant id: expected nonempty string')
             env = variant.get('env', {})
             if (not isinstance(env, dict) or
                 any(not isinstance(k, str) or not isinstance(v, str) or not k or
