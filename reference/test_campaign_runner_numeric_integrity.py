@@ -26,7 +26,7 @@ class NumericIntegrity(unittest.TestCase):
                     validate_generation(raw, expected)
 
     def test_boolean_f32_bits_cannot_spoof_a_frozen_oracle(self):
-        raw = RAW.replace('logit 1056964608 0.5', 'logit 1 0.0')
+        raw = RAW.replace('logit 1056964608 0.5', 'logit 1 1e-45')
         with self.assertRaisesRegex(ValueError, 'invalid logit bits oracle'):
             validate_generation(raw, BASE | {'logit_bits': [True, 1058642330]})
 
