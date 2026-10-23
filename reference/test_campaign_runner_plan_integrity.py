@@ -138,7 +138,14 @@ class DiskFloorBudgetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / 'manifest.json'
             out = Path(td) / 'out'
-            path.write_text(json.dumps(VALID | {'budget': {'min_free_mb': 1}}))
+            # A valid plan obeys the runner's absolute shared-lock/cwd
+            # contract; only budget and no-side-effect behavior are under test.
+            valid = VALID | {
+                'budget': {'min_free_mb': 1},
+                'lock': str(Path(td) / 'runner.lock'),
+                'cases': [{'id': 'c', 'variants': [
+                    {**VALID['cases'][0]['variants'][0], 'cwd': td}]}]}
+            path.write_text(json.dumps(valid))
             with mock.patch.object(sys, 'argv', ['campaign_runner.py', str(path), '--out', str(out), '--plan-only']):
                 with redirect_stdout(io.StringIO()) as stdout:
                     self.assertEqual(main(), 0)
