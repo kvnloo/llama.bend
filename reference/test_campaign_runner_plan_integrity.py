@@ -53,8 +53,11 @@ class PlanManifestCompletenessTests(unittest.TestCase):
                 root = Path(td)
                 lock = root / 'runner.lock'
                 out = root / 'results'
+                # Unrelated absolute-cwd preflight must pass before testing IDs.
+                valid_paths_case = {**case, 'variants': [
+                    {**variant, 'cwd': td} for variant in case['variants']]}
                 manifest = VALID | {'lock': str(lock), 'budget': {'min_free_mb': 0},
-                                    'cases': [case]}
+                                    'cases': [valid_paths_case]}
                 with self.assertRaisesRegex(ValueError, 'invalid (case|variant) id'):
                     run_manifest(manifest, out)
                 self.assertFalse(out.exists())
