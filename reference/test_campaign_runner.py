@@ -173,6 +173,37 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(events[-1]['status'], 'failed')
                 self.assertIn('invalid generated-text oracle', events[-1]['error'])
                 self.assertNotIn('latency', events[-1])
+    def test_failed_launch_does_not_reuse_previous_trial_receipt(self):
+        # Trial 1 completes and writes real raw fixture evidence. Trial 2
+        # cannot launch: its failed journal entry must not cite trial 1.
+        from campaign_runner import execute as actual_execute
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            manifest = self.manifest(root)
+            manifest['warmups'] = 0
+            manifest['rounds'] = 2
+            attempts = 0
+            def fail_second_launch(spec, budget, rawbase):
+                nonlocal attempts
+                attempts += 1
+                if attempts == 2:
+                    raise OSError('injected launcher failure before receipt')
+                return actual_execute(spec, budget, rawbase)
+            out = root / 'out'
+            with patch('campaign_runner.execute', side_effect=fail_second_launch):
+                self.assertEqual(run_manifest(manifest, out), 1)
+            finished = [json.loads(row) for row in
+                        (out / 'journal.jsonl').read_text().splitlines()
+                        if json.loads(row)['event'] == 'finished']
+            self.assertEqual([event['status'] for event in finished],
+                             ['passed', 'failed'])
+            self.assertIn('stdout_sha256', finished[0])
+            self.assertIn('injected launcher failure', finished[1]['error'])
+            for forbidden in ('stdout', 'stderr', 'stdout_sha256',
+                              'stderr_sha256', 'returncode', 'wall_ms',
+                              'latency'):
+                self.assertNotIn(forbidden, finished[1])
+
     def test_nonzero_is_failure(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td); m=self.manifest(root,[sys.executable,'-c','print('+repr(RAW)+',end="");raise SystemExit(7)']); m['warmups']=0;m['rounds']=1

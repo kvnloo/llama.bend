@@ -363,6 +363,9 @@ def run_manifest(manifest, out):
             attempt=uuid.uuid4().hex
             common={'manifest_sha256':digest,'key':trial['key'],'attempt':attempt,'case':trial['case'],'variant':trial['variant'],'phase':trial['phase'],'round':trial['round']}
             append_event(journal,common|{'event':'started','argv':trial['spec']['argv']})
+            # Do not carry a previous trial's stdout, hashes or exit status
+            # into a failure whose launch did not produce a receipt.
+            result = {}
             try:
                 result=execute(trial['spec'],manifest['budget'],out/'raw'/attempt)
                 if type(result.get('returncode')) is not int or result['returncode'] != 0 or result.get('stop_reason') is not None:
@@ -377,7 +380,7 @@ def run_manifest(manifest, out):
                 append_event(journal,common|result|{'event':'finished','status':'passed','latency':latency})
                 print(f'{trial["phase"]} {trial["round"]} {trial["case"]}/{trial["variant"]}: passed',flush=True)
             except (OSError,ValueError) as e:
-                append_event(journal,common|locals().get('result',{})|{'event':'finished','status':'failed','error':str(e)})
+                append_event(journal,common|result|{'event':'finished','status':'failed','error':str(e)})
                 failed+=1;print(f'{trial["case"]}/{trial["variant"]}: failed: {e}',flush=True)
             finally: result={}
         return 1 if failed else 0
