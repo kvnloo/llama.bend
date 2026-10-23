@@ -78,6 +78,27 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError): validate_generation(raw.replace('prefill_ms=3','prefill_ms=4'),EXPECTED,stages=True)
 
 
+    def test_native_decimal_words_have_no_zero_padding(self):
+        # Nat.show and U32.show never add leading zeros; int() alone would
+        # otherwise equate corrupted benchmark output to a frozen oracle.
+        staged = (
+            'model_load_ms=2\nprompt ids: 1 2\ntokenize_ms=1\n'
+            '  id 4  logit 1056964608 0.5\nprefill_ms=3\n'
+            'first_forward_ms=2\nresident_first_token_id_ms=5\n'
+            '  id 5  logit 1058642330 0.6\ntext: ok\n')
+        for raw, stages in ((RAW, False), (staged, True)):
+            with self.subTest(stages=stages):
+                self.assertEqual(validate_generation(raw, EXPECTED, stages=stages)['tokens'], 2)
+                for before, after, error in (
+                    ('prompt ids: 1 2', 'prompt ids: 01 2', 'malformed prompt IDs'),
+                    ('  id 4  ', '  id 04  ', 'malformed generated-token row'),
+                    ('logit 1056964608 ', 'logit 01056964608 ', 'malformed generated-token row'),
+                ):
+                    with self.subTest(stages=stages, altered=after):
+                        self.assertIn(before, raw)
+                        with self.assertRaisesRegex(ValueError, error):
+                            validate_generation(raw.replace(before, after, 1), EXPECTED, stages=stages)
+
     def test_staged_prompt_rejects_non_native_id_glyphs_and_spacing(self):
         # Nat.show emits ASCII decimals with single spaces; Python int()
         # otherwise accepts Unicode numerals, tabs and doubled spaces.
