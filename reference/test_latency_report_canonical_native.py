@@ -76,5 +76,31 @@ class CanonicalNativePrinterContract(unittest.TestCase):
                     report(row)
 
 
+    def test_native_millisecond_resolution_cannot_be_forged(self):
+        # gen.bend:tsec2 has 1ms granularity; a fourth fractional digit is
+        # not native output, even when float conversion silently rounds it.
+        raw = ('weights loaded in 0.125s\nprompt ids: 7 \n'
+               '  id 4 logit 1056964608 0.5 t=0.100s\n'
+               '  id 5 logit 1056964608 0.5 t=0.200s\n'
+               'text: ok\n')
+        self.assertEqual(report(raw)['decode_p50_ms'], 100.0)
+        for old, new, error in (
+            ('weights loaded in 0.125s', 'weights loaded in 0.1251s',
+             'malformed load duration'),
+            ('weights loaded in 0.125s', 'weights loaded in 0.125000s',
+             'malformed load duration'),
+            ('t=0.100s', 't=0.1009s', 'malformed generated token row'),
+            ('t=0.200s', 't=0.2001s', 'malformed generated token row'),
+        ):
+            with self.subTest(corruption=new):
+                changed = raw.replace(old, new, 1)
+                self.assertNotEqual(changed, raw)
+                with self.assertRaisesRegex(ValueError, error):
+                    report(changed)
+                child = self.cli(changed)
+                self.assertEqual(child.returncode, 2, child.stderr)
+                self.assertEqual(child.stdout, '')
+                self.assertIn(error, child.stderr)
+
 if __name__ == '__main__':
     unittest.main()
