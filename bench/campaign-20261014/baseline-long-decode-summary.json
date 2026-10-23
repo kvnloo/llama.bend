@@ -1,0 +1,292 @@
+{
+  "accepted_process_calls": 20,
+  "cache_state": "warm filesystem cache; fresh child process each invocation",
+  "cells": [
+    {
+      "actual_tokens_each_call": 128,
+      "affinity": "0",
+      "case": "baseline-4prompt-128gen-t1",
+      "characterization": {
+        "metrics": {
+          "decode_mean_ms": {
+            "max": 157.441,
+            "median": 156.244,
+            "min": 144.835
+          },
+          "decode_p50_ms": {
+            "max": 157.0,
+            "median": 153.0,
+            "min": 144.0
+          },
+          "decode_p95_ms": {
+            "max": 199.0,
+            "median": 189.0,
+            "min": 165.0
+          },
+          "decode_slope_ms_per_position": {
+            "max": 0.33801,
+            "median": 0.21687,
+            "min": 0.07075
+          },
+          "first_generated_ms_since_generation_start": {
+            "max": 458.0,
+            "median": 430.0,
+            "min": 400.0
+          },
+          "load_s": {
+            "max": 5.687,
+            "median": 5.653,
+            "min": 5.572
+          },
+          "peak_rss_kib": {
+            "max": 1179688,
+            "median": 1179680,
+            "min": 1179680
+          },
+          "process_observed_decoded_text_upper_bound_ms": {
+            "max": 26119.436206,
+            "median": 26114.582141,
+            "min": 24565.967929
+          },
+          "process_observed_ttft_upper_bound_ms": {
+            "max": 6241.175251,
+            "median": 6143.34225,
+            "min": 6094.888955
+          },
+          "wall_ms": {
+            "max": 26186.012107,
+            "median": 26161.045043,
+            "min": 24631.506168
+          }
+        },
+        "samples": 3
+      },
+      "journal_sha256_file": "9b232432ee25bc7d7bdddddc7328e57df22927bc19cb12ca20512f31e1980932",
+      "manifest_sha256_file": "e4d0f0fa934003b9f95a31eb6282f4beb53b1bc9ab9639f8141c5ef252c53d54",
+      "measured_calls": 3,
+      "peak_sampled_group_rss_kib": 1179860,
+      "requested_tokens": 128,
+      "smoke_calls": 1,
+      "summary_manifest_sha256_canonical": "49973d69f7f4f9688aeffdd8558621f51f6ab656b33bc62a3a50c95afeccdefe",
+      "threads": 1,
+      "warmup_calls": 1
+    },
+    {
+      "actual_tokens_each_call": 128,
+      "affinity": "0-7",
+      "case": "baseline-4prompt-128gen-t8",
+      "characterization": {
+        "metrics": {
+          "decode_mean_ms": {
+            "max": 134.606,
+            "median": 123.417,
+            "min": 113.898
+          },
+          "decode_p50_ms": {
+            "max": 127.0,
+            "median": 117.0,
+            "min": 111.0
+          },
+          "decode_p95_ms": {
+            "max": 184.0,
+            "median": 166.0,
+            "min": 142.0
+          },
+          "decode_slope_ms_per_position": {
+            "max": 0.212,
+            "median": 0.1627,
+            "min": 0.10657
+          },
+          "first_generated_ms_since_generation_start": {
+            "max": 298.0,
+            "median": 286.0,
+            "min": 277.0
+          },
+          "load_s": {
+            "max": 5.543,
+            "median": 5.534,
+            "min": 5.469
+          },
+          "peak_rss_kib": {
+            "max": 761112,
+            "median": 761104,
+            "min": 760984
+          },
+          "process_observed_decoded_text_upper_bound_ms": {
+            "max": 23054.852605,
+            "median": 21645.976587,
+            "min": 20331.972754
+          },
+          "process_observed_ttft_upper_bound_ms": {
+            "max": 5936.171077,
+            "median": 5911.683219,
+            "min": 5835.648197
+          },
+          "wall_ms": {
+            "max": 23093.968124,
+            "median": 21694.236545,
+            "min": 20370.210459
+          }
+        },
+        "samples": 3
+      },
+      "journal_sha256_file": "d922e27bcd22c8e88cfd71504706cb5c2114e2140e8f51157b84d37c80c09985",
+      "manifest_sha256_file": "11aef35071c47d9d856cc09a96e3eb640a06246413b00fd101ab9c32c86add4b",
+      "measured_calls": 3,
+      "peak_sampled_group_rss_kib": 761628,
+      "requested_tokens": 128,
+      "smoke_calls": 1,
+      "summary_manifest_sha256_canonical": "90ada946d8cbb63f789b71a96b108f0c1e8d2814e2ed8cb633c06e0df69ddb3e",
+      "threads": 8,
+      "warmup_calls": 1
+    },
+    {
+      "actual_tokens_each_call": 512,
+      "affinity": "0",
+      "case": "baseline-4prompt-512gen-t1",
+      "characterization": {
+        "metrics": {
+          "decode_mean_ms": {
+            "max": 173.438,
+            "median": 173.035,
+            "min": 171.787
+          },
+          "decode_p50_ms": {
+            "max": 174.0,
+            "median": 172.0,
+            "min": 170.0
+          },
+          "decode_p95_ms": {
+            "max": 220.0,
+            "median": 210.0,
+            "min": 205.0
+          },
+          "decode_slope_ms_per_position": {
+            "max": 0.10905,
+            "median": 0.10875,
+            "min": 0.08925
+          },
+          "first_generated_ms_since_generation_start": {
+            "max": 481.0,
+            "median": 431.0,
+            "min": 418.0
+          },
+          "load_s": {
+            "max": 6.057,
+            "median": 5.87,
+            "min": 5.584
+          },
+          "peak_rss_kib": {
+            "max": 1214376,
+            "median": 1214376,
+            "min": 1214364
+          },
+          "process_observed_decoded_text_upper_bound_ms": {
+            "max": 95315.657876,
+            "median": 94629.856143,
+            "min": 94335.778796
+          },
+          "process_observed_ttft_upper_bound_ms": {
+            "max": 6576.092173,
+            "median": 6452.637529,
+            "min": 6090.764646
+          },
+          "wall_ms": {
+            "max": 95364.030945,
+            "median": 94720.480749,
+            "min": 94382.437839
+          }
+        },
+        "samples": 3
+      },
+      "journal_sha256_file": "606efdaf879d33049d1282d1d6b1c5331520b7d74068a7eb24320047b1ea73e0",
+      "manifest_sha256_file": "f134219ac4ffef5a878fca6086323b64feb9db3eb904593fed16b9e7c70442bd",
+      "measured_calls": 3,
+      "peak_sampled_group_rss_kib": 1214432,
+      "requested_tokens": 512,
+      "smoke_calls": 1,
+      "summary_manifest_sha256_canonical": "14178973ed2780712a4663ea04b2f6ff84ae28282145d5e40969bd56406384e8",
+      "threads": 1,
+      "warmup_calls": 1
+    },
+    {
+      "actual_tokens_each_call": 512,
+      "affinity": "0-7",
+      "case": "baseline-4prompt-512gen-t8",
+      "characterization": {
+        "metrics": {
+          "decode_mean_ms": {
+            "max": 142.871,
+            "median": 139.002,
+            "min": 135.102
+          },
+          "decode_p50_ms": {
+            "max": 137.0,
+            "median": 133.0,
+            "min": 127.0
+          },
+          "decode_p95_ms": {
+            "max": 191.0,
+            "median": 186.0,
+            "min": 185.0
+          },
+          "decode_slope_ms_per_position": {
+            "max": 0.07114,
+            "median": 0.06791,
+            "min": 0.02459
+          },
+          "first_generated_ms_since_generation_start": {
+            "max": 536.0,
+            "median": 319.0,
+            "min": 310.0
+          },
+          "load_s": {
+            "max": 5.685,
+            "median": 5.654,
+            "min": 5.41
+          },
+          "peak_rss_kib": {
+            "max": 799244,
+            "median": 799240,
+            "min": 799004
+          },
+          "process_observed_decoded_text_upper_bound_ms": {
+            "max": 79167.03989,
+            "median": 77471.910892,
+            "min": 74967.529625
+          },
+          "process_observed_ttft_upper_bound_ms": {
+            "max": 6334.930039,
+            "median": 6053.150917,
+            "min": 5827.675527
+          },
+          "wall_ms": {
+            "max": 79213.695783,
+            "median": 77511.656246,
+            "min": 75007.016888
+          }
+        },
+        "samples": 3
+      },
+      "journal_sha256_file": "bef2ab98e332d09403393d5159ce2861f450c522c3f0fde840170be6086ed34d",
+      "manifest_sha256_file": "1e9733953dcb31b317b307821c5b0ea4f4187ab3e02855c9b726e472ab729d9d",
+      "measured_calls": 3,
+      "peak_sampled_group_rss_kib": 799756,
+      "requested_tokens": 512,
+      "smoke_calls": 1,
+      "summary_manifest_sha256_canonical": "55b9f3ea65e2141c1a9578f447aa4f18ec99476b4f7a7e88e5ec48df6727b250",
+      "threads": 8,
+      "warmup_calls": 1
+    }
+  ],
+  "interpretation": "Three samples per cell. Separate serialized windows; no paired significance or candidate-selection claim. Native generation clocks start after load/tokenization. Process-arrival metrics are upper bounds, not guaranteed delivery timestamps.",
+  "measured_calls": 12,
+  "model_revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+  "prompt": "Once upon a time",
+  "prompt_tokens": 4,
+  "schema": 1,
+  "scope": "real pinned SmolLM2-135M unchanged-baseline characterization",
+  "smoke_calls": 4,
+  "validation": "exact prompt/generated IDs and text; selected F32 logit relative tolerance 1e-4; all children exit zero with empty stderr",
+  "warmup_calls": 4
+}

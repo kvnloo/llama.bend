@@ -23,18 +23,23 @@ def ref(i, name, width):
 
 
 def rel(got, want):
+    if not np.isfinite(got).all() or not np.isfinite(want).all():
+        return float("inf")
     return float(np.abs(got - want).max() / max(np.abs(want).max(), 1e-30))
 
 
 def run(ids):
     t0 = time.time()
-    r = subprocess.run([EXE, D] + [str(x) for x in ids], capture_output=True, text=True, cwd=ROOT)
+    r = subprocess.run([EXE, D] + [str(x) for x in ids], capture_output=True, text=True, cwd=ROOT, check=True)
     dt = time.time() - t0
     rows = {}
     for line in r.stdout.splitlines():
         p = line.split()
         if len(p) > 2:
-            rows[(p[0], int(p[1]))] = np.array([int(x) for x in p[2:]], dtype=np.uint32).view("<f4")
+            key = (p[0], int(p[1]))
+            if key in rows:
+                raise ValueError(f"duplicate output row: {key}")
+            rows[key] = np.array([int(x) for x in p[2:]], dtype=np.uint32).view("<f4")
     if r.returncode != 0 or not rows:
         print(r.stdout[-2000:], r.stderr[-2000:])
     return rows, dt
@@ -48,6 +53,8 @@ def main():
         rows, dt = run(ids)
         lg, nf, hs = ref(i, "logits", VOCAB), ref(i, "nf", HIDDEN), ref(i, "h", HIDDEN).reshape(LAYERS, t, HIDDEN)
         worst, where, same = 0.0, -1, True
+        if {p for name, p in rows if name == "logits"} != set(range(t)):
+            worst, same = float("inf"), False
         for p in range(t):
             got = rows.get(("logits", p))
             if got is None or got.shape != lg[p].shape:

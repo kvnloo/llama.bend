@@ -1,0 +1,12 @@
+Focused offline check, 2026-10-14T07:37Z, pinned repository Python:
+  test_latency_report.py: 6 tests PASS
+  test_campaign_runner.py: 24 tests PASS
+  test_campaign_summary*.py: 11 tests PASS
+  test_reference_guards.py: 8 tests PASS
+Total: 49 test methods PASS. This is harness testing, not 49 model trials.
+Source: results/baseline/pr-ready-focused-tests-20261014T0737Z.log
+
+The pre-existing real 135M numerical validation and law checks are retained in
+results/baseline, with exact compiler/dependency inventory alongside them.
+The checkpoint manifest separates model-process evidence from offline fixtures.
+No runtime candidate is selected by this draft.

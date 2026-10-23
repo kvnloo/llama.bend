@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "action": "Read-only closing replay of reviewed summarizer and all frozen model trial inputs; no compiler/model child",
+  "distinct_frozen_paths": 882,
+  "results": [
+    {
+      "batch": "initial",
+      "complete": {
+        "complete": true,
+        "planned_trials": 12,
+        "passed_trials": 12,
+        "missing_trial_keys": []
+      },
+      "summary_equal": true
+    },
+    {
+      "batch": "replication-f",
+      "complete": {
+        "complete": true,
+        "planned_trials": 12,
+        "passed_trials": 12,
+        "missing_trial_keys": []
+      },
+      "summary_equal": true
+    }
+  ],
+  "new_model_calls": 0
+}
