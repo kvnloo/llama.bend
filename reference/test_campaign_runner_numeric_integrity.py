@@ -79,4 +79,29 @@ class DisplaySyntaxIntegrity(unittest.TestCase):
                 raw = RAW.replace('1056964608 0.5', '1056964608 ' + shown)
                 self.assertEqual(validate_generation(raw, expected)['tokens'], 2)
 
+
+class StagedF32DisplayParity(unittest.TestCase):
+    def test_staged_logit_display_must_roundtrip_exact_f32_bits(self):
+        # The former isclose(abs_tol=1e-6) accepted inconsistent staged receipts.
+        raw = ('model_load_ms=2\nprompt ids: 1 2\ntokenize_ms=1\n'
+               '  id 4 logit 0 0\nprefill_ms=3\nfirst_forward_ms=2\n'
+               'resident_first_token_id_ms=5\n'
+               '  id 5 logit 1056964608 0.5\ntext: ok\n')
+        expected = {'prompt_ids': [1, 2], 'generated_ids': [4, 5],
+                    'logit_bits': [0, 1056964608], 'text': 'ok'}
+        self.assertEqual(validate_generation(raw, expected, stages=True)['tokens'], 2)
+        for bits, shown in ((0, '0.0000009'),
+                            (2147483648, '0'),
+                            (1065353216, '1.0000005')):
+            with self.subTest(bits=bits, shown=shown):
+                forged = raw.replace('logit 0 0', f'logit {bits} {shown}', 1)
+                oracle = expected | {'logit_bits': [bits, 1056964608]}
+                with self.assertRaisesRegex(ValueError, 'printed logit and bits disagree'):
+                    validate_generation(forged, oracle, stages=True)
+        # Preserve correctly displayed signed zero.
+        signed = raw.replace('logit 0 0', 'logit 2147483648 -0', 1)
+        self.assertEqual(validate_generation(
+            signed, expected | {'logit_bits': [2147483648, 1056964608]},
+            stages=True)['tokens'], 2)
+
 if __name__=='__main__':unittest.main()

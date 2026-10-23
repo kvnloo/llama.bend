@@ -76,7 +76,15 @@ def validate_generation(raw, expected, stages=False):
             if not math.isfinite(value) or (not stages and not math.isfinite(float(m[4]))): raise ValueError('nonfinite logit/time')
             if not 0 <= word <= 0xffffffff: raise ValueError('logit bits outside U32')
             bitvalue = struct.unpack('<f', struct.pack('<I', word))[0]
-            if not math.isfinite(bitvalue) or not math.isclose(bitvalue, value, rel_tol=1e-5, abs_tol=1e-6):
+            if not math.isfinite(bitvalue):
+                raise ValueError('nonfinite generated-token logit bits')
+            # F32.show's decimal must round back to the exact printed U32 bits.
+            # A tolerance here could accept a forged near-zero or -0 receipt.
+            try:
+                displayed_bits = struct.unpack('<I', struct.pack('<f', value))[0]
+            except OverflowError as error:
+                raise ValueError('printed logit outside F32 range') from error
+            if displayed_bits != word:
                 raise ValueError('printed logit and bits disagree')
             if i <= lines.index(prompts[0]): raise ValueError('token before prompt')
             ids.append(int(m[1])); bits.append(word); logits.append(bitvalue)
