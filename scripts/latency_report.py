@@ -26,8 +26,10 @@ from pathlib import Path
 # Requiring both prevents truncated rows from being counted as valid samples.
 # Native Nat.show/U32.show use canonical decimal without leading zeroes.
 CANONICAL_NAT = r"(?:0|[1-9][0-9]*)"
-TOKEN = re.compile(r"^\s+id\s+" + CANONICAL_NAT + r"\s+logit\s+(?P<bits>" + CANONICAL_NAT + r")\s+(?P<logit>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s+t=(?P<stamp>\d+(?:\.[0-9]{1,3})?)s\s*$", re.ASCII)
-LOAD = re.compile(r"^weights loaded in\s+(\d+(?:\.[0-9]{1,3})?)s\s*$", re.ASCII)
+# tsec2 uses Nat.show for whole seconds; historical rounded tenths remain valid.
+NATIVE_CLOCK = CANONICAL_NAT + r"(?:\.[0-9]{1,3})?"
+TOKEN = re.compile(r"^\s+id\s+" + CANONICAL_NAT + r"\s+logit\s+(?P<bits>" + CANONICAL_NAT + r")\s+(?P<logit>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s+t=(?P<stamp>" + NATIVE_CLOCK + r")s\s*$", re.ASCII)
+LOAD = re.compile(r"^weights loaded in\s+(" + NATIVE_CLOCK + r")s\s*$", re.ASCII)
 # start2 emits positive-length decimal Nat IDs separated by single spaces.
 # The native show_nats printer also emits one optional trailing space.
 PROMPT = re.compile(r"^prompt ids: " + CANONICAL_NAT + r"(?: " + CANONICAL_NAT + r")* ?$", re.ASCII)

@@ -102,5 +102,50 @@ class CanonicalNativePrinterContract(unittest.TestCase):
                 self.assertEqual(child.stdout, '')
                 self.assertIn(error, child.stderr)
 
+
+    def test_native_clock_seconds_cannot_be_zero_padded(self):
+        # tsec2 builds its integer seconds with Nat.show, never zero padding.
+        # Keep the captured, historically rounded fractional widths valid.
+        raw = (
+            "weights loaded in 0.125s\nprompt ids: 7 \n"
+            "  id 4 logit 1056964608 0.5 t=0.100s\n"
+            "  id 5 logit 1056964608 0.5 t=0.200s\n"
+            "text: ok\n"
+        )
+        self.assertEqual(report(raw)['decode_p50_ms'], 100.0)
+        self.assertEqual(self.cli(raw).returncode, 0)
+        for original, invalid, diagnostic in (
+            ('weights loaded in 0.125s', 'weights loaded in 00.125s',
+             'malformed load duration'),
+            ('t=0.100s', 't=00.100s', 'malformed generated token row'),
+            ('t=0.200s', 't=000.200s', 'malformed generated token row'),
+        ):
+            with self.subTest(invalid=invalid):
+                changed = raw.replace(original, invalid, 1)
+                self.assertNotEqual(changed, raw)
+                with self.assertRaisesRegex(ValueError, diagnostic):
+                    report(changed)
+                child = self.cli(changed)
+                self.assertEqual(child.returncode, 2, child.stderr)
+                self.assertEqual(child.stdout, '')
+                self.assertIn(diagnostic, child.stderr)
+
+        self.assertEqual(report(CAPTURE)['tokens'], 32)
+        for original, invalid, diagnostic in (
+            ('weights loaded in 71.2s', 'weights loaded in 071.2s',
+             'malformed load duration'),
+            ('t=1.2s', 't=01.2s', 'malformed generated token row'),
+        ):
+            with self.subTest(invalid=invalid):
+                changed = CAPTURE.replace(original, invalid, 1)
+                self.assertNotEqual(changed, CAPTURE)
+                with self.assertRaisesRegex(ValueError, diagnostic):
+                    report(changed)
+                child = self.cli(changed)
+                self.assertEqual(child.returncode, 2, child.stderr)
+                self.assertEqual(child.stdout, '')
+                self.assertIn(diagnostic, child.stderr)
+
+
 if __name__ == '__main__':
     unittest.main()
