@@ -102,5 +102,27 @@ class CanonicalNativePrinterContract(unittest.TestCase):
                 self.assertEqual(child.stdout, '')
                 self.assertIn(error, child.stderr)
 
+    def test_native_clock_seconds_cannot_be_zero_padded(self):
+        # tsec2 prints whole seconds with Nat.show; the retained rounded
+        # 1.7B capture is valid, but padded whole seconds cannot be native.
+        self.assertEqual(report(CAPTURE)['tokens'], 32)
+        for old, new, error in (
+            ('weights loaded in 71.2s', 'weights loaded in 071.2s',
+             'malformed load duration'),
+            ('weights loaded in 71.2s', 'weights loaded in 0071.2s',
+             'malformed load duration'),
+            ('t=1.2s', 't=01.2s', 'malformed generated token row'),
+            ('t=10.7s', 't=010.7s', 'malformed generated token row'),
+        ):
+            with self.subTest(corruption=new):
+                changed = CAPTURE.replace(old, new, 1)
+                self.assertNotEqual(changed, CAPTURE)
+                with self.assertRaisesRegex(ValueError, error):
+                    report(changed)
+                child = self.cli(changed)
+                self.assertEqual(child.returncode, 2, child.stderr)
+                self.assertEqual(child.stdout, '')
+                self.assertIn(error, child.stderr)
+
 if __name__ == '__main__':
     unittest.main()
